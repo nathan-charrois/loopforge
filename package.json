@@ -1,0 +1,45 @@
+{
+  "name": "loopforge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev",
+    "api": "node server/index.js",
+    "start": "npm run build && serve -l 3000 ./build/client",
+    "typecheck": "react-router typegen && tsc",
+    "lint": "eslint . --fix"
+  },
+  "dependencies": {
+    "@hugeicons/core-free-icons": "^1.0.14",
+    "@hugeicons/react": "^1.0.5",
+    "@mantine/core": "^8.3.2",
+    "@mantine/hooks": "^8.3.2",
+    "@react-router/node": "^7.7.1",
+    "@react-router/serve": "^7.7.1",
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.2.1",
+    "isbot": "^5.1.27",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router": "^7.7.1",
+    "react-router-dom": "^7.9.3"
+  },
+  "devDependencies": {
+    "@react-router/dev": "^7.7.1",
+    "@stylistic/eslint-plugin": "^5.4.0",
+    "@tailwindcss/vite": "^4.1.4",
+    "@types/node": "^20",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "baseline-browser-mapping": "^2.10.8",
+    "eslint": "^9.36.0",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "serve": "^14.2.6",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.44.1",
+    "vite": "^6.3.3",
+    "vite-tsconfig-paths": "^5.1.4"
+  }
+}

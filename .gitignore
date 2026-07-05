@@ -1,0 +1,7 @@
+.DS_Store
+/node_modules/
+/.react-router/
+/build/
+.env
+/server/data/*.sqlite
+/server/data/*.sqlite-*
