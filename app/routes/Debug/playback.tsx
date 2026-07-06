@@ -51,6 +51,8 @@ import {
   formatDurationAsBars,
   formatTickAsBars,
   formatTickRangeAsBars,
+  formatTickToEndBar,
+  formatTickToStartBar,
   getBlockEndTick,
   getBlocksForTrack,
   getMeterAtTick,
@@ -69,8 +71,6 @@ import {
   summarizeProjectAction,
   type Tick,
   tickToBarBeat,
-  tickToEndBarValue,
-  tickToStartBarValue,
   TIME_SIGNATURE_DENOMINATORS,
   type TimeSignatureDenominator,
   toTimelineTick,
@@ -924,9 +924,9 @@ function PlaybackRuntime({
           />
 
           <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
-            <SelectField label="Loop start bar" value={tickToStartBarValue(project.timeline, transportSnapshot.loopRange?.startTick ?? 0)} data={barOptions} onChange={value => updateLoopRange({ startTick: barStartValueToTick(project.timeline, value) })} />
-            <SelectField label="Loop end bar" value={tickToEndBarValue(project.timeline, transportSnapshot.loopRange?.endTick ?? projectEndTick)} data={barOptions} onChange={value => updateLoopRange({ endTick: barEndValueToTick(project.timeline, value) })} />
-            <SelectField label="Playhead bar" value={tickToStartBarValue(project.timeline, transportSnapshot.playheadTick)} data={barOptions} onChange={value => handleSeek(barStartValueToTick(project.timeline, value))} />
+            <SelectField label="Loop start bar" value={formatTickToStartBar(project.timeline, transportSnapshot.loopRange?.startTick ?? 0)} data={barOptions} onChange={value => updateLoopRange({ startTick: barStartValueToTick(project.timeline, value) })} />
+            <SelectField label="Loop end bar" value={formatTickToEndBar(project.timeline, transportSnapshot.loopRange?.endTick ?? projectEndTick)} data={barOptions} onChange={value => updateLoopRange({ endTick: barEndValueToTick(project.timeline, value) })} />
+            <SelectField label="Playhead bar" value={formatTickToStartBar(project.timeline, transportSnapshot.playheadTick)} data={barOptions} onChange={value => handleSeek(barStartValueToTick(project.timeline, value))} />
             <SelectField label="Status" value={transportSnapshot.status} data={['stopped', 'playing', 'paused']} onChange={setTransportStatus} />
           </SimpleGrid>
         </Stack>

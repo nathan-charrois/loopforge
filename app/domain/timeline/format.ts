@@ -4,30 +4,30 @@ import {
   getTicksPerBeat,
   tickToBarBeat,
   type Timeline,
-} from './index'
+} from './timeline'
 
 export function toTimelineTick(tick: number): Tick {
   return Math.max(0, Math.floor(tick))
 }
 
 export function barStartValueToTick(timeline: Timeline, value: string): Tick {
-  return (Math.max(1, parseInteger(value)) - 1) * getBarLengthTicksForTimeline(timeline)
+  return (Math.max(1, parseInteger(value)) - 1) * getBarLengthTicksAtTick(timeline, 0)
 }
 
 export function barEndValueToTick(timeline: Timeline, value: string): Tick {
-  return Math.max(1, parseInteger(value)) * getBarLengthTicksForTimeline(timeline)
+  return Math.max(1, parseInteger(value)) * getBarLengthTicksAtTick(timeline, 0)
 }
 
 export function barLengthValueToTicks(timeline: Timeline, value: string): number {
-  return Math.max(1, parseInteger(value)) * getBarLengthTicksForTimeline(timeline)
+  return Math.max(1, parseInteger(value)) * getBarLengthTicksAtTick(timeline, 0)
 }
 
-export function tickToStartBarValue(timeline: Timeline, tick: number): string {
-  return `${Math.floor(Math.max(0, tick) / getBarLengthTicksForTimeline(timeline)) + 1}`
+export function formatTickToStartBar(timeline: Timeline, tick: number): string {
+  return `${Math.floor(Math.max(0, tick) / getBarLengthTicksAtTick(timeline, 0)) + 1}`
 }
 
-export function tickToEndBarValue(timeline: Timeline, tick: number): string {
-  return `${tickToEndBarNumber(timeline, tick)}`
+export function formatTickToEndBar(timeline: Timeline, tick: number): string {
+  return `${Math.max(1, Math.ceil(Math.max(0, tick) / getBarLengthTicksAtTick(timeline, 0)))}`
 }
 
 export function formatTickAsBars(timeline: Timeline, tick: number): string {
@@ -52,17 +52,9 @@ export function formatTickRangeAsBars(timeline: Timeline, startTick: number, end
 }
 
 export function formatDurationAsBars(timeline: Timeline, lengthTicks: number): string {
-  const bars = Math.max(1, Math.round(lengthTicks / getBarLengthTicksForTimeline(timeline)))
+  const bars = Math.max(1, Math.round(lengthTicks / getBarLengthTicksAtTick(timeline, 0)))
 
   return `${bars} ${bars === 1 ? 'bar' : 'bars'}`
-}
-
-export function getBarLengthTicksForTimeline(timeline: Timeline): number {
-  return getBarLengthTicksAtTick(timeline, 0)
-}
-
-export function tickToEndBarNumber(timeline: Timeline, tick: number): number {
-  return Math.max(1, Math.ceil(Math.max(0, tick) / getBarLengthTicksForTimeline(timeline)))
 }
 
 function parseInteger(value: string): number {

@@ -1,13 +1,68 @@
 import { type ChordQuality, createChordSymbol } from '../harmony'
-import type { PitchClass } from '../musicPrimitives'
+import { createPositiveDurationTicks, type DurationTicks, type PitchClass } from '../musicPrimitives'
 import {
   createAutomationEvent,
   createChordEvent,
   createDrumHitEvent,
   createNoteEvent,
   type PatternEvent,
+  sortPatternEventsByTime,
 } from '../patternEvents'
-import type { PatternKind } from './index'
+import {
+  type AutomationPattern,
+  type ChordPattern,
+  type DrumPattern,
+  eventMatchesPatternKind,
+  type NotePattern,
+  type Pattern,
+  type PatternId,
+  type PatternKind,
+  type PatternMetadata,
+} from './patterns'
+
+export type CreatePatternInput = {
+  id: PatternId
+  kind: PatternKind
+  name?: string
+  lengthTicks: DurationTicks
+  events?: PatternEvent[]
+  metadata?: PatternMetadata
+}
+
+export function createPattern(input: CreatePatternInput): Pattern {
+  const events = sortPatternEventsByTime(input.events ?? [])
+
+  if (!events.every(event => eventMatchesPatternKind(event, input.kind))) {
+    throw new Error(`Pattern ${input.id} contains events that do not match kind ${input.kind}.`)
+  }
+
+  const pattern = {
+    events,
+    id: input.id,
+    kind: input.kind,
+    lengthTicks: createPositiveDurationTicks(input.lengthTicks),
+    metadata: input.metadata ?? {},
+    name: input.name ?? 'Untitled Pattern',
+  }
+
+  switch (input.kind) {
+    case 'automation':
+      return pattern as AutomationPattern
+    case 'chord':
+      return pattern as ChordPattern
+    case 'drum':
+      return pattern as DrumPattern
+    case 'note':
+      return pattern as NotePattern
+  }
+}
+
+export function createEmptyPattern(input: Omit<CreatePatternInput, 'events'>): Pattern {
+  return createPattern({
+    ...input,
+    events: [],
+  })
+}
 
 export function createSeedPatternEvents(
   patternKind: PatternKind,
