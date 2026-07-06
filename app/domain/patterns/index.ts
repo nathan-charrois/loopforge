@@ -8,9 +8,10 @@ import {
   type PatternEvent,
   sortPatternEventsByTime,
 } from '../patternEvents'
+import { PATTERN_KINDS } from './constants'
 
 export type PatternId = string
-export type PatternKind = 'chord' | 'note' | 'drum' | 'automation'
+export type PatternKind = typeof PATTERN_KINDS[number]
 export type PatternMetadata = Record<string, boolean | null | number | string>
 
 type BasePattern<TKind extends PatternKind, TEvent extends PatternEvent> = {
@@ -108,3 +109,6 @@ export function getPatternEventKind(patternKind: PatternKind): PatternEvent['kin
 export function eventMatchesPatternKind(event: PatternEvent, patternKind: PatternKind): boolean {
   return event.kind === getPatternEventKind(patternKind)
 }
+
+export * from './constants'
+export * from './factory'

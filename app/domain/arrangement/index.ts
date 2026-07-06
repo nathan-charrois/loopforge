@@ -1,18 +1,17 @@
 import { createPositiveDurationTicks, createTick, type DurationTicks, type Tick } from '../musicPrimitives'
 import type { PatternId } from '../patterns'
-import { PPQ } from '../timeline'
 import type { TrackId } from '../tracks'
+import { BLOCK_PLAYBACK_MODES } from './constants'
 
 export type SectionId = string
 export type BlockId = string
-export type BlockPlaybackMode = 'loop' | 'oneShot' | 'stretch'
+export type BlockPlaybackMode = typeof BLOCK_PLAYBACK_MODES[number]
 
 export type Section = {
   id: SectionId
   name: string
   startTick: Tick
   lengthTicks: DurationTicks
-  loopEnabled: boolean
 }
 
 export type Block = {
@@ -30,60 +29,6 @@ export type Block = {
 export type Arrangement = {
   sections: Section[]
   blocks: Block[]
-}
-
-export const DEFAULT_SECTION_LENGTH_TICKS = 2 * 4 * PPQ
-
-export function createSection(input: {
-  id: SectionId
-  name: string
-  startTick?: Tick
-  lengthTicks?: DurationTicks
-  loopEnabled?: boolean
-}): Section {
-  return {
-    id: input.id,
-    lengthTicks: createPositiveDurationTicks(input.lengthTicks ?? DEFAULT_SECTION_LENGTH_TICKS),
-    loopEnabled: input.loopEnabled ?? false,
-    name: input.name,
-    startTick: createTick(input.startTick ?? 0),
-  }
-}
-
-export function createBlock(input: {
-  id: BlockId
-  trackId: TrackId
-  patternId: PatternId
-  startTick?: Tick
-  lengthTicks: DurationTicks
-  muted?: boolean
-  color?: string
-  name?: string
-  playbackMode?: BlockPlaybackMode
-}): Block {
-  return {
-    color: input.color ?? '#6c6f7d',
-    id: input.id,
-    lengthTicks: createPositiveDurationTicks(input.lengthTicks),
-    muted: input.muted ?? false,
-    name: input.name ?? 'Untitled Block',
-    patternId: input.patternId,
-    playbackMode: input.playbackMode ?? 'loop',
-    startTick: createTick(input.startTick ?? 0),
-    trackId: input.trackId,
-  }
-}
-
-export function createDefaultArrangement(): Arrangement {
-  return {
-    blocks: [],
-    sections: [
-      createSection({
-        id: 'section_intro',
-        name: 'Intro',
-      }),
-    ],
-  }
 }
 
 export function getBlockEndTick(block: Block): Tick {
@@ -124,3 +69,6 @@ export function isBlockWithinSection(block: Block, section: Section): boolean {
 
   return block.startTick >= section.startTick && blockEndTick <= sectionEndTick
 }
+
+export * from './constants'
+export * from './factory'

@@ -1,10 +1,10 @@
 import {
   getBlockEndTick,
-  getPatternEventEndTick,
+  getProjectEndTick,
   getProjectPattern,
   getProjectTrack,
+  getScheduledEventDurationTicks,
   type PatternEvent,
-  PPQ,
   type Project,
   type Tick,
 } from '~/domain'
@@ -31,8 +31,6 @@ export type PlaybackSchedule = {
   projectEndTick: Tick
   warnings: PlaybackScheduleWarning[]
 }
-
-const MIN_PROJECT_LENGTH_TICKS = 4 * 4 * PPQ
 
 export function buildPlaybackSchedule(project: Project): PlaybackSchedule {
   const events: ScheduledPlaybackEvent[] = []
@@ -151,19 +149,4 @@ export function findFirstScheduledEventAtOrAfter(schedule: PlaybackSchedule, tic
   }
 
   return low
-}
-
-export function getProjectEndTick(project: Project): Tick {
-  const sectionEndTicks = project.arrangement.sections.map(section => section.startTick + section.lengthTicks)
-  const blockEndTicks = project.arrangement.blocks.map(getBlockEndTick)
-
-  return Math.max(MIN_PROJECT_LENGTH_TICKS, ...sectionEndTicks, ...blockEndTicks)
-}
-
-function getScheduledEventDurationTicks(event: PatternEvent, maxDurationTicks: number): number {
-  if (event.kind !== 'chord' && event.kind !== 'note') {
-    return 0
-  }
-
-  return Math.max(0, Math.min(getPatternEventEndTick(event) - event.timeTick, maxDurationTicks))
 }

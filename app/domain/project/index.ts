@@ -1,7 +1,7 @@
-import { type Arrangement, createDefaultArrangement } from '../arrangement'
+import type { Arrangement } from '../arrangement'
 import { type Pattern, type PatternId, validatePattern } from '../patterns'
-import { createDefaultTimeline, type Timeline, validateTimeline } from '../timeline'
-import { createDefaultTracks, type Track, type TrackId, validateTrack } from '../tracks'
+import { type Timeline, validateTimeline } from '../timeline'
+import { type Track, type TrackId, validateTrack } from '../tracks'
 
 export type ProjectId = string
 
@@ -26,37 +26,6 @@ export type Project = {
   patterns: Pattern[]
   version: ProjectVersion
   metadata: ProjectMetadata
-}
-
-export function createProjectMetadata(input: Partial<ProjectMetadata> = {}): ProjectMetadata {
-  return {
-    description: input.description,
-    tags: input.tags ?? [],
-  }
-}
-
-export function createProjectVersion(input: Partial<ProjectVersion> = {}): ProjectVersion {
-  return {
-    revision: input.revision ?? 1,
-    schemaVersion: input.schemaVersion ?? 1,
-  }
-}
-
-export function createBlankProject(input: Partial<Project> = {}): Project {
-  const createdAt = input.createdAt ?? '1970-01-01T00:00:00.000Z'
-
-  return {
-    arrangement: input.arrangement ?? createDefaultArrangement(),
-    createdAt,
-    id: input.id ?? 'project_draft',
-    metadata: input.metadata ?? createProjectMetadata(),
-    name: input.name ?? 'Untitled Project',
-    patterns: input.patterns ?? [],
-    timeline: input.timeline ?? createDefaultTimeline(),
-    tracks: input.tracks ?? createDefaultTracks(),
-    updatedAt: input.updatedAt ?? createdAt,
-    version: input.version ?? createProjectVersion(),
-  }
 }
 
 export function validateProject(project: Project): string[] {
@@ -94,3 +63,6 @@ export function getProjectTrack(project: Project, trackId: TrackId): Track | und
 export function getProjectPattern(project: Project, patternId: PatternId): Pattern | undefined {
   return project.patterns.find(pattern => pattern.id === patternId)
 }
+
+export * from './factory'
+export * from './timing'

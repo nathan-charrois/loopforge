@@ -39,8 +39,12 @@ export const CHORD_QUALITIES = [
 ] as const
 
 export type ChordQuality = typeof CHORD_QUALITIES[number]
-export type ChordExtension = '6' | '7' | 'maj7' | '9' | '11' | '13'
-export type ChordAlteration = 'b5' | '#5' | 'b9' | '#9' | '#11' | 'b13'
+
+export const CHORD_EXTENSIONS = ['6', '7', 'maj7', '9', '11', '13'] as const
+export type ChordExtension = typeof CHORD_EXTENSIONS[number]
+
+export const CHORD_ALTERATIONS = ['b5', '#5', 'b9', '#9', '#11', 'b13'] as const
+export type ChordAlteration = typeof CHORD_ALTERATIONS[number]
 export type ChordFunction = 'tonic' | 'predominant' | 'dominant' | 'subdominant' | 'passing'
 export type RomanNumeral = string
 export type NashvilleNumber = string

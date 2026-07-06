@@ -19,15 +19,22 @@ import {
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
+  ACTIVE_TOOLS,
   type ActiveTool,
+  ARPEGGIO_PATTERNS,
   type ArpeggioPattern,
   barBeatToTick,
+  BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
   canTrackAcceptPatternKind,
+  CHORD_ALTERATIONS,
+  CHORD_EXTENSIONS,
+  CHORD_QUALITIES,
   type ChordAlteration,
   type ChordExtension,
   type ChordQuality,
   clearSelection,
+  COMMAND_KINDS,
   type CommandKind,
   createAutomationEvent,
   createBlankProject,
@@ -86,8 +93,10 @@ import {
   getScalePitchClasses,
   getTempoAtTick,
   getTicksPerBeat,
+  GRID_DIVISIONS,
   type GridDivision,
   hasSelection,
+  INSPECTOR_PANELS,
   type InspectorPanel,
   isBarBoundaryTick,
   isBlockWithinSection,
@@ -109,24 +118,33 @@ import {
   materializeChordVoicing,
   midiNoteFromPitchClass,
   type Mode,
+  MODES,
   moveBlock,
   normalizePitchClass,
+  NOTE_NAMES,
   type NoteName,
+  PATTERN_KINDS,
   type PatternEvent,
   type PatternKind,
+  PITCH_CLASSES,
   type PitchClass,
   pitchClassFromMidiNote,
+  PLAYBACK_STYLES,
   type PlaybackStyle,
   pushCommand,
   redoCommand,
   type Register,
+  REGISTERS,
   resizeBlock,
   snapTickToGrid,
   sortBlocksByStartTick,
   sortPatternEventsByTime,
+  STRUM_PATTERNS,
   type StrumPattern,
   tickToBarBeat,
+  TIME_SIGNATURE_DENOMINATORS,
   type TimeSignatureDenominator,
+  TRACK_ROLES,
   type TrackRole,
   transposeChordSymbol,
   transposePitchClass,
@@ -135,6 +153,7 @@ import {
   validateProject,
   validateTimeline,
   validateTrack,
+  VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
 
@@ -146,66 +165,14 @@ type PlaygroundOutput = {
   value: unknown
 }
 
-const PITCH_CLASS_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
+const PITCH_CLASS_OPTIONS = PITCH_CLASSES.map(index => ({
   label: `${index}`,
   value: `${index}`,
 }))
 
-const NOTE_NAME_OPTIONS: NoteName[] = [
-  'C',
-  'C#',
-  'Db',
-  'D',
-  'D#',
-  'Eb',
-  'E',
-  'F',
-  'F#',
-  'Gb',
-  'G',
-  'G#',
-  'Ab',
-  'A',
-  'A#',
-  'Bb',
-  'B',
-]
-
-const MODE_OPTIONS: Mode[] = ['major', 'minor', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'locrian']
-const CHORD_QUALITY_OPTIONS: ChordQuality[] = ['major', 'minor', 'diminished', 'augmented', 'sus2', 'sus4']
-const CHORD_EXTENSION_OPTIONS: Array<ChordExtension | 'none'> = ['none', '6', '7', 'maj7', '9', '11', '13']
-const CHORD_ALTERATION_OPTIONS: Array<ChordAlteration | 'none'> = ['none', 'b5', '#5', 'b9', '#9', '#11', 'b13']
-const VOICING_TYPE_OPTIONS: VoicingType[] = ['close', 'open', 'drop2', 'spread']
-const REGISTER_OPTIONS: Register[] = ['low', 'mid', 'high']
-const PLAYBACK_STYLE_OPTIONS: PlaybackStyle[] = ['block', 'strum', 'arpeggio', 'rhythm']
-const ARPEGGIO_PATTERN_OPTIONS: ArpeggioPattern[] = ['up', 'down', 'upDown', 'random']
-const STRUM_PATTERN_OPTIONS: StrumPattern[] = ['down', 'up', 'alternate']
-const PATTERN_KIND_OPTIONS: PatternKind[] = ['chord', 'note', 'drum', 'automation']
-const TRACK_ROLE_OPTIONS: TrackRole[] = ['chords', 'bass', 'melody', 'drums']
-const BLOCK_PLAYBACK_MODE_OPTIONS: BlockPlaybackMode[] = ['loop', 'oneShot', 'stretch']
-const GRID_DIVISION_OPTIONS: GridDivision[] = [
-  'bar',
-  'beat',
-  'halfNote',
-  'quarterNote',
-  'eighthNote',
-  'sixteenthNote',
-  'thirtySecondNote',
-]
-const COMMAND_KIND_OPTIONS: CommandKind[] = [
-  'addBlock',
-  'moveBlock',
-  'resizeBlock',
-  'deleteBlock',
-  'addPatternEvent',
-  'movePatternEvent',
-  'deletePatternEvent',
-  'renameEntity',
-]
-const ACTIVE_TOOL_OPTIONS: ActiveTool[] = ['select', 'draw', 'erase', 'split', 'resize', 'audition']
-const INSPECTOR_PANEL_OPTIONS: InspectorPanel[] = ['project', 'track', 'block', 'pattern', 'event']
-const DENOMINATOR_OPTIONS: TimeSignatureDenominator[] = [1, 2, 4, 8, 16, 32]
-const DENOMINATOR_SELECT_OPTIONS = DENOMINATOR_OPTIONS.map(value => ({
+const CHORD_EXTENSION_OPTIONS = ['none', ...CHORD_EXTENSIONS] as const satisfies ReadonlyArray<ChordExtension | 'none'>
+const CHORD_ALTERATION_OPTIONS = ['none', ...CHORD_ALTERATIONS] as const satisfies ReadonlyArray<ChordAlteration | 'none'>
+const DENOMINATOR_SELECT_OPTIONS = TIME_SIGNATURE_DENOMINATORS.map(value => ({
   label: `${value}`,
   value: `${value}`,
 }))
@@ -278,7 +245,6 @@ export default function Debug() {
   const [sectionName, setSectionName] = useState('Section A')
   const [sectionStartTick, setSectionStartTick] = useState('0')
   const [sectionLengthTicks, setSectionLengthTicks] = useState('7680')
-  const [sectionLoopEnabled, setSectionLoopEnabled] = useState(false)
   const [blockId, setBlockId] = useState('block_1')
   const [blockTrackId, setBlockTrackId] = useState('track_chords')
   const [blockPatternId, setBlockPatternId] = useState('pattern_main')
@@ -444,7 +410,6 @@ export default function Debug() {
   const section = () => createSection({
     id: sectionId,
     lengthTicks: parseInteger(sectionLengthTicks),
-    loopEnabled: sectionLoopEnabled,
     name: sectionName,
     startTick: parseInteger(sectionStartTick),
   })
@@ -530,7 +495,7 @@ export default function Debug() {
               <Field label="MIDI note" value={primitiveMidiNote} onChange={setPrimitiveMidiNote} />
               <Field label="Velocity" value={primitiveVelocity} onChange={setPrimitiveVelocity} />
               <Field label="Interval" value={primitiveInterval} onChange={setPrimitiveInterval} />
-              <SelectField label="Note name" value={primitiveNoteName} data={NOTE_NAME_OPTIONS} onChange={setPrimitiveNoteName} />
+              <SelectField label="Note name" value={primitiveNoteName} data={NOTE_NAMES} onChange={setPrimitiveNoteName} />
               <Field label="Octave" value={primitiveOctave} onChange={setPrimitiveOctave} />
             </SimpleGrid>
             <ButtonGroup>
@@ -566,12 +531,12 @@ export default function Debug() {
           <DomainPanel id="harmony" title="Harmony" outputs={outputs}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
               <SelectField label="Chord root" value={harmonyRoot} data={PITCH_CLASS_OPTIONS} onChange={setHarmonyRoot} />
-              <SelectField label="Quality" value={harmonyQuality} data={CHORD_QUALITY_OPTIONS} onChange={setHarmonyQuality} />
+              <SelectField label="Quality" value={harmonyQuality} data={CHORD_QUALITIES} onChange={setHarmonyQuality} />
               <SelectField label="Extension" value={harmonyExtension} data={CHORD_EXTENSION_OPTIONS} onChange={setHarmonyExtension} />
               <SelectField label="Alteration" value={harmonyAlteration} data={CHORD_ALTERATION_OPTIONS} onChange={setHarmonyAlteration} />
               <SelectField label="Bass" value={harmonyBass} data={PITCH_CLASS_OPTIONS} onChange={setHarmonyBass} />
               <SelectField label="Key tonic" value={harmonyKeyTonic} data={PITCH_CLASS_OPTIONS} onChange={setHarmonyKeyTonic} />
-              <SelectField label="Mode" value={harmonyMode} data={MODE_OPTIONS} onChange={setHarmonyMode} />
+              <SelectField label="Mode" value={harmonyMode} data={MODES} onChange={setHarmonyMode} />
               <Field label="Transpose interval" value={harmonyInterval} onChange={setHarmonyInterval} />
             </SimpleGrid>
             <ButtonGroup>
@@ -595,9 +560,9 @@ export default function Debug() {
 
           <DomainPanel id="voicing" title="Voicing" outputs={outputs}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }}>
-              <SelectField label="Type" value={voicingType} data={VOICING_TYPE_OPTIONS} onChange={setVoicingType} />
+              <SelectField label="Type" value={voicingType} data={VOICING_TYPES} onChange={setVoicingType} />
               <Field label="Inversion" value={voicingInversion} onChange={setVoicingInversion} />
-              <SelectField label="Register" value={voicingRegister} data={REGISTER_OPTIONS} onChange={setVoicingRegister} />
+              <SelectField label="Register" value={voicingRegister} data={REGISTERS} onChange={setVoicingRegister} />
               <Field label="Spread" value={voicingSpread} onChange={setVoicingSpread} />
               <Field label="Octave" value={voicingOctave} onChange={setVoicingOctave} />
             </SimpleGrid>
@@ -613,11 +578,11 @@ export default function Debug() {
               <Field label="Playhead tick" value={playheadTick} onChange={setPlayheadTick} />
               <Field label="Loop start" value={loopStartTick} onChange={setLoopStartTick} />
               <Field label="Loop end" value={loopEndTick} onChange={setLoopEndTick} />
-              <SelectField label="Playback style" value={playbackStyle} data={PLAYBACK_STYLE_OPTIONS} onChange={setPlaybackStyle} />
+              <SelectField label="Playback style" value={playbackStyle} data={PLAYBACK_STYLES} onChange={setPlaybackStyle} />
               <Field label="Gate" value={playbackGate} onChange={setPlaybackGate} />
               <Field label="Repeat every ticks" value={repeatEveryTicks} onChange={setRepeatEveryTicks} />
-              <SelectField label="Arpeggio" value={arpeggioPattern} data={ARPEGGIO_PATTERN_OPTIONS} onChange={setArpeggioPattern} />
-              <SelectField label="Strum" value={strumPattern} data={STRUM_PATTERN_OPTIONS} onChange={setStrumPattern} />
+              <SelectField label="Arpeggio" value={arpeggioPattern} data={ARPEGGIO_PATTERNS} onChange={setArpeggioPattern} />
+              <SelectField label="Strum" value={strumPattern} data={STRUM_PATTERNS} onChange={setStrumPattern} />
             </SimpleGrid>
             <ButtonGroup>
               <RunButton label="createDefaultChordPlayback" onClick={() => run('playback', 'createDefaultChordPlayback', chordPlayback)} />
@@ -665,7 +630,7 @@ export default function Debug() {
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
               <Field label="Pattern id" value={patternId} onChange={setPatternId} />
               <Field label="Pattern name" value={patternName} onChange={setPatternName} />
-              <SelectField label="Pattern kind" value={patternKind} data={PATTERN_KIND_OPTIONS} onChange={setPatternKind} />
+              <SelectField label="Pattern kind" value={patternKind} data={PATTERN_KINDS} onChange={setPatternKind} />
               <Field label="Pattern length" value={patternLengthTicks} onChange={setPatternLengthTicks} />
             </SimpleGrid>
             <ButtonGroup>
@@ -690,8 +655,8 @@ export default function Debug() {
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
               <Field label="Track id" value={trackId} onChange={setTrackId} />
               <Field label="Track name" value={trackName} onChange={setTrackName} />
-              <SelectField label="Role" value={trackRole} data={TRACK_ROLE_OPTIONS} onChange={setTrackRole} />
-              <SelectField label="Accepts" value={trackAccepts} data={PATTERN_KIND_OPTIONS} onChange={setTrackAccepts} />
+              <SelectField label="Role" value={trackRole} data={TRACK_ROLES} onChange={setTrackRole} />
+              <SelectField label="Accepts" value={trackAccepts} data={PATTERN_KINDS} onChange={setTrackAccepts} />
               <Field label="Volume" value={trackVolume} onChange={setTrackVolume} />
               <Field label="Color" value={trackColor} onChange={setTrackColor} />
             </SimpleGrid>
@@ -717,14 +682,11 @@ export default function Debug() {
               <Field label="Block length" value={blockLengthTicks} onChange={setBlockLengthTicks} />
               <Field label="Block color" value={blockColor} onChange={setBlockColor} />
               <Field label="Block name" value={blockName} onChange={setBlockName} />
-              <SelectField label="Playback mode" value={blockPlaybackMode} data={BLOCK_PLAYBACK_MODE_OPTIONS} onChange={setBlockPlaybackMode} />
+              <SelectField label="Playback mode" value={blockPlaybackMode} data={BLOCK_PLAYBACK_MODES} onChange={setBlockPlaybackMode} />
               <Field label="Move tick" value={blockMoveTick} onChange={setBlockMoveTick} />
               <Field label="Resize ticks" value={blockResizeTicks} onChange={setBlockResizeTicks} />
             </SimpleGrid>
-            <Group gap="lg">
-              <Checkbox label="Section loop" checked={sectionLoopEnabled} onChange={event => setSectionLoopEnabled(event.currentTarget.checked)} />
-              <Checkbox label="Block muted" checked={blockMuted} onChange={event => setBlockMuted(event.currentTarget.checked)} />
-            </Group>
+            <Checkbox label="Block muted" checked={blockMuted} onChange={event => setBlockMuted(event.currentTarget.checked)} />
             <ButtonGroup>
               <RunButton label="createSection" onClick={() => run('arrangement', 'createSection', section)} />
               <RunButton label="createBlock" onClick={() => run('arrangement', 'createBlock', block)} />
@@ -762,7 +724,7 @@ export default function Debug() {
               <Field label="Tick" value={timelineTick} onChange={setTimelineTick} />
               <Field label="Numerator" value={timelineNumerator} onChange={setTimelineNumerator} />
               <SelectField label="Denominator" value={`${timelineDenominator}`} data={DENOMINATOR_SELECT_OPTIONS} onChange={value => setTimelineDenominator(parseInteger(value) as TimeSignatureDenominator)} />
-              <SelectField label="Grid" value={timelineGrid} data={GRID_DIVISION_OPTIONS} onChange={setTimelineGrid} />
+              <SelectField label="Grid" value={timelineGrid} data={GRID_DIVISIONS} onChange={setTimelineGrid} />
               <Field label="Bar" value={barValue} onChange={setBarValue} />
               <Field label="Beat" value={beatValue} onChange={setBeatValue} />
               <Field label="Beat tick" value={beatTickValue} onChange={setBeatTickValue} />
@@ -825,7 +787,7 @@ export default function Debug() {
           <DomainPanel id="editing" title="Editing" outputs={outputs}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
               <Field label="Command id" value={commandId} onChange={setCommandId} />
-              <SelectField label="Command kind" value={commandKind} data={COMMAND_KIND_OPTIONS} onChange={setCommandKind} />
+              <SelectField label="Command kind" value={commandKind} data={COMMAND_KINDS} onChange={setCommandKind} />
               <Field label="Label" value={commandLabel} onChange={setCommandLabel} />
               <Field label="Target id" value={commandTargetId} onChange={setCommandTargetId} />
               <Field label="Tick" value={commandTick} onChange={setCommandTick} />
@@ -849,8 +811,8 @@ export default function Debug() {
 
           <DomainPanel id="editorState" title="Editor State" outputs={outputs}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
-              <SelectField label="Active tool" value={activeTool} data={ACTIVE_TOOL_OPTIONS} onChange={setActiveTool} />
-              <SelectField label="Inspector panel" value={inspectorPanel} data={INSPECTOR_PANEL_OPTIONS} onChange={setInspectorPanel} />
+              <SelectField label="Active tool" value={activeTool} data={ACTIVE_TOOLS} onChange={setActiveTool} />
+              <SelectField label="Inspector panel" value={inspectorPanel} data={INSPECTOR_PANELS} onChange={setInspectorPanel} />
               <Field label="Selected blocks" value={selectedBlockIds} onChange={setSelectedBlockIds} />
               <Field label="Selected events" value={selectedEventIds} onChange={setSelectedEventIds} />
               <Field label="Selected tracks" value={selectedTrackIds} onChange={setSelectedTrackIds} />

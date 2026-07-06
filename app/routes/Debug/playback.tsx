@@ -30,52 +30,57 @@ import {
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
+  barEndValueToTick,
+  barLengthValueToTicks,
+  barStartValueToTick,
   type Block,
+  BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
   canTrackAcceptPatternKind,
+  CHORD_QUALITIES,
   type ChordQuality,
-  createAutomationEvent,
-  createBlankProject,
   createBlock,
-  createChordEvent,
-  createChordSymbol,
-  createDefaultKey,
-  createDrumHitEvent,
-  createKeyEvent,
-  createMeterEvent,
-  createNoteEvent,
+  createDemoLoopProject,
+  createLargeSketchProject,
   createPattern,
-  createProjectMetadata,
-  createProjectVersion,
+  createProjectDraft,
   createSection,
-  createTempoEvent,
-  createTimeline,
+  createSeedPatternEvents,
   createTrack,
   formatChordSymbol,
+  formatDurationAsBars,
+  formatTickAsBars,
+  formatTickRangeAsBars,
   getBlockEndTick,
   getBlocksForTrack,
   getMeterAtTick,
+  getProjectEndTick,
   getProjectPattern,
   getProjectTrack,
   getTempoAtTick,
   getTicksPerBeat,
   type Pattern,
-  type PatternEvent,
+  PATTERN_KINDS,
   type PatternKind,
   type PitchClass,
-  PPQ,
   type Project,
   type Section,
+  stampProject,
+  summarizeProjectAction,
   type Tick,
   tickToBarBeat,
+  tickToEndBarValue,
+  tickToStartBarValue,
+  TIME_SIGNATURE_DENOMINATORS,
   type TimeSignatureDenominator,
+  toTimelineTick,
   type Track,
+  TRACK_ROLES,
   type TrackRole,
   type TransportStatus,
   validateProject,
 } from '~/domain'
 import {
-  getProjectEndTick,
   TransportEngine,
   type TransportSnapshot,
 } from '~/utils/playback'
@@ -83,17 +88,34 @@ import {
 const TICK_WIDTH = 0.09
 const TRACK_ROW_HEIGHT = 58
 const TRACK_LABEL_WIDTH = 128
-const SLIDER_FRAME_INTERVAL_MS = 33
+const SLIDER_FRAME_INTERVAL_MS = 50
+const DEFAULT_START_BAR_VALUE = '1'
+const DEFAULT_SECTION_LENGTH_BAR_VALUE = '2'
+const DEFAULT_PATTERN_LENGTH_BAR_VALUE = '1'
+const DEFAULT_BLOCK_LENGTH_BAR_VALUE = '1'
 
-const TRACK_ROLE_OPTIONS: TrackRole[] = ['chords', 'bass', 'melody', 'drums']
-const PATTERN_KIND_OPTIONS: PatternKind[] = ['chord', 'note', 'drum', 'automation']
-const BLOCK_PLAYBACK_MODE_OPTIONS: BlockPlaybackMode[] = ['loop', 'oneShot', 'stretch']
-const CHORD_QUALITY_OPTIONS: ChordQuality[] = ['major', 'minor', 'diminished', 'augmented', 'sus2', 'sus4']
-const DENOMINATOR_OPTIONS: TimeSignatureDenominator[] = [1, 2, 4, 8, 16, 32]
 const PITCH_CLASS_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
   label: `${index}`,
   value: `${index}`,
 }))
+
+const STATIC_BAR_OPTIONS = Array.from({ length: 32 }, (_, index) => {
+  const barNumber = index + 1
+
+  return {
+    label: `Bar ${barNumber}`,
+    value: `${barNumber}`,
+  }
+})
+
+const STATIC_DURATION_BAR_OPTIONS = Array.from({ length: 16 }, (_, index) => {
+  const barCount = index + 1
+
+  return {
+    label: `${barCount} ${barCount === 1 ? 'bar' : 'bars'}`,
+    value: `${barCount}`,
+  }
+})
 
 type LastAction = {
   label: string
@@ -107,7 +129,7 @@ export function meta({ }: MetaArgs) {
 }
 
 export default function Play() {
-  const [projectName, setProjectName] = useState('Playback Sketch')
+  const [projectName, setProjectName] = useState('')
   const [projectBpm, setProjectBpm] = useState('120')
   const [projectNumerator, setProjectNumerator] = useState('4')
   const [projectDenominator, setProjectDenominator] = useState<TimeSignatureDenominator>(4)
@@ -125,18 +147,17 @@ export default function Play() {
 
   const engine = engineRef.current
 
-  const [trackName, setTrackName] = useState('Lead')
+  const [trackName, setTrackName] = useState('')
   const [trackRole, setTrackRole] = useState<TrackRole>('melody')
   const [trackVolume, setTrackVolume] = useState('0.85')
 
-  const [sectionName, setSectionName] = useState('Verse')
-  const [sectionStartTick, setSectionStartTick] = useState('0')
-  const [sectionLengthTicks, setSectionLengthTicks] = useState('3840')
-  const [sectionLoopEnabled, setSectionLoopEnabled] = useState(false)
+  const [sectionName, setSectionName] = useState('')
+  const [sectionStartBar, setSectionStartBar] = useState(DEFAULT_START_BAR_VALUE)
+  const [sectionLengthBars, setSectionLengthBars] = useState(DEFAULT_SECTION_LENGTH_BAR_VALUE)
 
-  const [patternName, setPatternName] = useState('Chord Loop')
+  const [patternName, setPatternName] = useState('')
   const [patternKind, setPatternKind] = useState<PatternKind>('chord')
-  const [patternLengthTicks, setPatternLengthTicks] = useState('1920')
+  const [patternLengthBars, setPatternLengthBars] = useState(DEFAULT_PATTERN_LENGTH_BAR_VALUE)
   const [chordRoot, setChordRoot] = useState('0')
   const [chordQuality, setChordQuality] = useState<ChordQuality>('minor')
   const [notePitch, setNotePitch] = useState('60')
@@ -144,9 +165,9 @@ export default function Play() {
 
   const [selectedTrackId, setSelectedTrackId] = useState('track_chords')
   const [selectedPatternId, setSelectedPatternId] = useState('')
-  const [blockName, setBlockName] = useState('Loop Block')
-  const [blockStartTick, setBlockStartTick] = useState('0')
-  const [blockLengthTicks, setBlockLengthTicks] = useState('1920')
+  const [blockName, setBlockName] = useState('')
+  const [blockStartBar, setBlockStartBar] = useState(DEFAULT_START_BAR_VALUE)
+  const [blockLengthBars, setBlockLengthBars] = useState(DEFAULT_BLOCK_LENGTH_BAR_VALUE)
   const [blockPlaybackMode, setBlockPlaybackMode] = useState<BlockPlaybackMode>('loop')
   const [blockMuted, setBlockMuted] = useState(false)
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
@@ -193,7 +214,7 @@ export default function Play() {
       const nextProject = createProjectDraft({
         bpm: parseNumber(projectBpm),
         denominator: projectDenominator,
-        name: projectName,
+        name: getNameOrFallback(projectName, 'Playback Sketch'),
         numerator: parseInteger(projectNumerator),
       })
 
@@ -208,63 +229,34 @@ export default function Play() {
         startTick: 0,
       }, true)
 
-      return nextProject
+      return summarizeProjectAction(nextProject)
     })
   }
 
   function handleSeedDemoLoop() {
     runAction('seed demo loop', () => {
-      const chordPattern = createPattern({
-        events: [
-          createChordEvent({
-            chord: createChordSymbol({ quality: 'minor', root: 0 }),
-            durationTicks: 960,
-            id: 'event_chord_1',
-            timeTick: 0,
-            velocity: 96,
-          }),
-          createChordEvent({
-            chord: createChordSymbol({ quality: 'major', root: 5 }),
-            durationTicks: 960,
-            id: 'event_chord_2',
-            timeTick: 960,
-            velocity: 92,
-          }),
-        ],
-        id: createEntityId('pattern_chord', project.patterns.length),
-        kind: 'chord',
-        lengthTicks: 1920,
-        metadata: { generatedBy: 'playback route' },
-        name: 'Two Chord Loop',
-      })
-      const chordTrack = project.tracks.find(track => track.role === 'chords') ?? project.tracks[0]
-      const block = createBlock({
-        color: chordTrack?.color ?? '#9b51e0',
-        id: createEntityId('block', project.arrangement.blocks.length),
-        lengthTicks: 3840,
-        name: 'Seed Loop',
-        patternId: chordPattern.id,
-        startTick: 0,
-        trackId: chordTrack?.id ?? 'track_chords',
-      })
-      const nextProject = stampProject({
-        ...project,
-        arrangement: {
-          ...project.arrangement,
-          blocks: [...project.arrangement.blocks, block],
-        },
-        patterns: [...project.patterns, chordPattern],
-      })
+      const seeded = createDemoLoopProject(project)
+      const nextProject = seeded.project
+      const block = nextProject.arrangement.blocks.find(currentBlock => currentBlock.id === seeded.blockId)
 
       setProject(nextProject)
-      setSelectedPatternId(chordPattern.id)
-      setSelectedTrackId(chordTrack?.id ?? selectedTrackId)
+      setSelectedPatternId(seeded.patternId)
+      setSelectedTrackId(block?.trackId ?? selectedTrackId)
       setSelectedSectionId(null)
-      setSelectedBlockId(block.id)
+      setSelectedBlockId(seeded.blockId)
+
+      if (block !== undefined) {
+        setSelectedTrackId(block.trackId)
+        setSelectedPatternId(block.patternId)
+        setBlockName(block.name)
+        setBlockPlaybackMode(block.playbackMode)
+        setBlockMuted(block.muted)
+      }
 
       return {
-        block,
-        pattern: chordPattern,
+        blockId: seeded.blockId,
+        patternId: seeded.patternId,
+        ...summarizeProjectAction(nextProject),
       }
     })
   }
@@ -292,7 +284,7 @@ export default function Play() {
     updateProject('createTrack', (currentProject) => {
       const track = createTrack({
         id: createEntityId(`track_${trackRole}`, currentProject.tracks.length),
-        name: trackName,
+        name: getNameOrFallback(trackName, `${capitalize(trackRole)} Track ${currentProject.tracks.length + 1}`),
         role: trackRole,
         volume: parseNumber(trackVolume),
       })
@@ -310,22 +302,23 @@ export default function Play() {
     updateProject('createSection', (currentProject) => {
       const section = createSection({
         id: createEntityId('section', currentProject.arrangement.sections.length),
-        lengthTicks: parseInteger(sectionLengthTicks),
-        loopEnabled: sectionLoopEnabled,
-        name: sectionName,
-        startTick: parseInteger(sectionStartTick),
+        lengthTicks: barLengthValueToTicks(currentProject.timeline, sectionLengthBars),
+        name: getNameOrFallback(sectionName, `Section ${currentProject.arrangement.sections.length + 1}`),
+        startTick: barStartValueToTick(currentProject.timeline, sectionStartBar),
       })
-
-      setSelectedSectionId(section.id)
-      setSelectedBlockId(null)
-
-      return stampProject({
+      const nextProject = stampProject({
         ...currentProject,
         arrangement: {
           ...currentProject.arrangement,
           sections: [...currentProject.arrangement.sections, section],
         },
       })
+
+      setSelectedSectionId(null)
+      setSelectedBlockId(null)
+      setSectionName('')
+
+      return nextProject
     })
   }
 
@@ -333,13 +326,11 @@ export default function Play() {
     setSelectedSectionId(section.id)
     setSelectedBlockId(null)
     setSectionName(section.name)
-    setSectionStartTick(`${section.startTick}`)
-    setSectionLengthTicks(`${section.lengthTicks}`)
-    setSectionLoopEnabled(section.loopEnabled)
   }
 
   function handleClearSelectedSection() {
     setSelectedSectionId(null)
+    setSectionName('')
   }
 
   function handleUpdateSection() {
@@ -350,10 +341,9 @@ export default function Play() {
 
       const section = createSection({
         id: selectedSectionId,
-        lengthTicks: parseInteger(sectionLengthTicks),
-        loopEnabled: sectionLoopEnabled,
-        name: sectionName,
-        startTick: parseInteger(sectionStartTick),
+        lengthTicks: barLengthValueToTicks(currentProject.timeline, sectionLengthBars),
+        name: getNameOrFallback(sectionName, `Section ${currentProject.arrangement.sections.length}`),
+        startTick: barStartValueToTick(currentProject.timeline, sectionStartBar),
       })
       let didUpdate = false
       const sections = currentProject.arrangement.sections.map((currentSection) => {
@@ -379,10 +369,38 @@ export default function Play() {
     })
   }
 
+  function handleDeleteSelectedSection() {
+    updateProject('deleteSection', (currentProject) => {
+      if (selectedSectionId === null) {
+        throw new Error('Select a section before deleting.')
+      }
+
+      const sections = currentProject.arrangement.sections.filter(section => section.id !== selectedSectionId)
+
+      if (sections.length === currentProject.arrangement.sections.length) {
+        throw new Error(`Section ${selectedSectionId} no longer exists.`)
+      }
+
+      const nextProject = stampProject({
+        ...currentProject,
+        arrangement: {
+          ...currentProject.arrangement,
+          sections,
+        },
+      })
+
+      setSelectedSectionId(null)
+      setSectionName('')
+
+      return nextProject
+    })
+  }
+
   function handleAddPattern() {
     updateProject('createPattern', (currentProject) => {
+      const patternLengthTicks = barLengthValueToTicks(currentProject.timeline, patternLengthBars)
       const pattern = createPattern({
-        events: createSeedPatternEvents(patternKind, parseInteger(patternLengthTicks), {
+        events: createSeedPatternEvents(patternKind, patternLengthTicks, {
           chordQuality,
           chordRoot: parsePitchClass(chordRoot),
           drumPiece,
@@ -390,9 +408,9 @@ export default function Play() {
         }),
         id: createEntityId(`pattern_${patternKind}`, currentProject.patterns.length),
         kind: patternKind,
-        lengthTicks: parseInteger(patternLengthTicks),
+        lengthTicks: patternLengthTicks,
         metadata: { generatedBy: 'playback route' },
-        name: patternName,
+        name: getNameOrFallback(patternName, `${capitalize(patternKind)} Pattern ${currentProject.patterns.length + 1}`),
       })
 
       setSelectedPatternId(pattern.id)
@@ -404,7 +422,7 @@ export default function Play() {
     })
   }
 
-  function handleAddBlock(startTick = parseInteger(blockStartTick)) {
+  function handleAddBlock(startTickOverride?: number) {
     updateProject('createBlock', (currentProject) => {
       const track = getProjectTrack(currentProject, selectedTrackId)
       const pattern = getProjectPattern(currentProject, selectedPatternId)
@@ -424,25 +442,29 @@ export default function Play() {
       const block = createBlock({
         color: track.color,
         id: createEntityId('block', currentProject.arrangement.blocks.length),
-        lengthTicks: parseInteger(blockLengthTicks),
+        lengthTicks: barLengthValueToTicks(currentProject.timeline, blockLengthBars),
         muted: blockMuted,
-        name: blockName,
+        name: getNameOrFallback(blockName, `Block ${currentProject.arrangement.blocks.length + 1}`),
         patternId: pattern.id,
         playbackMode: blockPlaybackMode,
-        startTick,
+        startTick: startTickOverride === undefined
+          ? barStartValueToTick(currentProject.timeline, blockStartBar)
+          : toTimelineTick(startTickOverride),
         trackId: track.id,
       })
-
-      setSelectedBlockId(block.id)
-      setSelectedSectionId(null)
-
-      return stampProject({
+      const nextProject = stampProject({
         ...currentProject,
         arrangement: {
           ...currentProject.arrangement,
           blocks: [...currentProject.arrangement.blocks, block],
         },
       })
+
+      setSelectedBlockId(null)
+      setSelectedSectionId(null)
+      setBlockName('')
+
+      return nextProject
     })
   }
 
@@ -452,14 +474,13 @@ export default function Play() {
     setSelectedTrackId(block.trackId)
     setSelectedPatternId(block.patternId)
     setBlockName(block.name)
-    setBlockStartTick(`${block.startTick}`)
-    setBlockLengthTicks(`${block.lengthTicks}`)
     setBlockPlaybackMode(block.playbackMode)
     setBlockMuted(block.muted)
   }
 
   function handleClearSelectedBlock() {
     setSelectedBlockId(null)
+    setBlockName('')
   }
 
   function handleUpdateBlock() {
@@ -486,12 +507,12 @@ export default function Play() {
       const block = createBlock({
         color: track.color,
         id: selectedBlockId,
-        lengthTicks: parseInteger(blockLengthTicks),
+        lengthTicks: barLengthValueToTicks(currentProject.timeline, blockLengthBars),
         muted: blockMuted,
-        name: blockName,
+        name: getNameOrFallback(blockName, `Block ${currentProject.arrangement.blocks.length}`),
         patternId: pattern.id,
         playbackMode: blockPlaybackMode,
-        startTick: parseInteger(blockStartTick),
+        startTick: barStartValueToTick(currentProject.timeline, blockStartBar),
         trackId: track.id,
       })
       let didUpdate = false
@@ -518,6 +539,33 @@ export default function Play() {
     })
   }
 
+  function handleDeleteSelectedBlock() {
+    updateProject('deleteBlock', (currentProject) => {
+      if (selectedBlockId === null) {
+        throw new Error('Select a block before deleting.')
+      }
+
+      const blocks = currentProject.arrangement.blocks.filter(block => block.id !== selectedBlockId)
+
+      if (blocks.length === currentProject.arrangement.blocks.length) {
+        throw new Error(`Block ${selectedBlockId} no longer exists.`)
+      }
+
+      const nextProject = stampProject({
+        ...currentProject,
+        arrangement: {
+          ...currentProject.arrangement,
+          blocks,
+        },
+      })
+
+      setSelectedBlockId(null)
+      setBlockName('')
+
+      return nextProject
+    })
+  }
+
   const trackOptions = project.tracks.map(track => ({
     label: `${track.name} (${track.role})`,
     value: track.id,
@@ -526,7 +574,6 @@ export default function Play() {
     label: `${pattern.name} (${pattern.kind})`,
     value: pattern.id,
   }))
-
   return (
     <AppProvider>
       <AppLayout>
@@ -535,7 +582,7 @@ export default function Play() {
             <Box>
               <Title order={1}>Playback Lab</Title>
               <Text c="dimmed" size="sm">
-                Project domain data with a Web Audio transport clock.
+                Project domain data with a transport engine clock.
               </Text>
             </Box>
           </Group>
@@ -569,7 +616,7 @@ export default function Play() {
                   <SelectField
                     label="Denominator"
                     value={`${projectDenominator}`}
-                    data={DENOMINATOR_OPTIONS.map(value => ({ label: `${value}`, value: `${value}` }))}
+                    data={TIME_SIGNATURE_DENOMINATORS.map(value => ({ label: `${value}`, value: `${value}` }))}
                     onChange={value => setProjectDenominator(parseInteger(value) as TimeSignatureDenominator)}
                   />
                 </SimpleGrid>
@@ -594,7 +641,7 @@ export default function Play() {
                 <Title order={2} size="h3">Add Track</Title>
                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
                   <Field label="Name" value={trackName} onChange={setTrackName} />
-                  <SelectField label="Role" value={trackRole} data={TRACK_ROLE_OPTIONS} onChange={setTrackRole} />
+                  <SelectField label="Role" value={trackRole} data={TRACK_ROLES} onChange={setTrackRole} />
                   <Field label="Volume" value={trackVolume} onChange={setTrackVolume} />
                 </SimpleGrid>
                 <Button onClick={handleAddTrack}>Add Track</Button>
@@ -614,13 +661,13 @@ export default function Play() {
                 </Group>
                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
                   <Field label="Name" value={sectionName} onChange={setSectionName} />
-                  <Field label="Start tick" value={sectionStartTick} onChange={setSectionStartTick} />
-                  <Field label="Length ticks" value={sectionLengthTicks} onChange={setSectionLengthTicks} />
-                  <Checkbox label="Loop enabled" checked={sectionLoopEnabled} onChange={event => setSectionLoopEnabled(event.currentTarget.checked)} />
+                  <SelectField label="Start bar" value={sectionStartBar} data={STATIC_BAR_OPTIONS} onChange={setSectionStartBar} />
+                  <SelectField label="Length" value={sectionLengthBars} data={STATIC_DURATION_BAR_OPTIONS} onChange={setSectionLengthBars} />
                 </SimpleGrid>
                 <Group gap="xs">
                   <Button onClick={handleAddSection}>Add Section</Button>
                   <Button variant="light" disabled={selectedSectionId === null} onClick={handleUpdateSection}>Update Selected</Button>
+                  <Button variant="light" color="red" disabled={selectedSectionId === null} onClick={handleDeleteSelectedSection}>Delete Selected</Button>
                   <Button variant="subtle" disabled={selectedSectionId === null} onClick={handleClearSelectedSection}>Clear Selection</Button>
                 </Group>
               </Stack>
@@ -631,10 +678,10 @@ export default function Play() {
                 <Title order={2} size="h3">Add Pattern</Title>
                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
                   <Field label="Name" value={patternName} onChange={setPatternName} />
-                  <SelectField label="Kind" value={patternKind} data={PATTERN_KIND_OPTIONS} onChange={setPatternKind} />
-                  <Field label="Length ticks" value={patternLengthTicks} onChange={setPatternLengthTicks} />
+                  <SelectField label="Kind" value={patternKind} data={PATTERN_KINDS} onChange={setPatternKind} />
+                  <SelectField label="Length" value={patternLengthBars} data={STATIC_DURATION_BAR_OPTIONS} onChange={setPatternLengthBars} />
                   <SelectField label="Chord root" value={chordRoot} data={PITCH_CLASS_OPTIONS} onChange={setChordRoot} />
-                  <SelectField label="Chord quality" value={chordQuality} data={CHORD_QUALITY_OPTIONS} onChange={setChordQuality} />
+                  <SelectField label="Chord quality" value={chordQuality} data={CHORD_QUALITIES} onChange={setChordQuality} />
                   <Field label="Note pitch" value={notePitch} onChange={setNotePitch} />
                   <Field label="Drum piece" value={drumPiece} onChange={setDrumPiece} />
                 </SimpleGrid>
@@ -657,15 +704,16 @@ export default function Play() {
                   <Field label="Name" value={blockName} onChange={setBlockName} />
                   <SelectField label="Track" value={selectedTrackId} data={trackOptions} onChange={setSelectedTrackId} />
                   <SelectField label="Pattern" value={selectedPatternId} data={patternOptions} onChange={setSelectedPatternId} />
-                  <Field label="Start tick" value={blockStartTick} onChange={setBlockStartTick} />
-                  <Field label="Length ticks" value={blockLengthTicks} onChange={setBlockLengthTicks} />
-                  <SelectField label="Playback mode" value={blockPlaybackMode} data={BLOCK_PLAYBACK_MODE_OPTIONS} onChange={setBlockPlaybackMode} />
+                  <SelectField label="Start bar" value={blockStartBar} data={STATIC_BAR_OPTIONS} onChange={setBlockStartBar} />
+                  <SelectField label="Length" value={blockLengthBars} data={STATIC_DURATION_BAR_OPTIONS} onChange={setBlockLengthBars} />
+                  <SelectField label="Playback mode" value={blockPlaybackMode} data={BLOCK_PLAYBACK_MODES} onChange={setBlockPlaybackMode} />
                   <Checkbox label="Muted" checked={blockMuted} onChange={event => setBlockMuted(event.currentTarget.checked)} />
                 </SimpleGrid>
                 <Group gap="xs">
                   <Button onClick={() => handleAddBlock()}>Add Block</Button>
                   <Button variant="light" onClick={() => handleAddBlock(engine.getPlayheadTick())}>Add At Playhead</Button>
                   <Button variant="light" disabled={selectedBlockId === null} onClick={handleUpdateBlock}>Update Selected</Button>
+                  <Button variant="light" color="red" disabled={selectedBlockId === null} onClick={handleDeleteSelectedBlock}>Delete Selected</Button>
                   <Button variant="subtle" disabled={selectedBlockId === null} onClick={handleClearSelectedBlock}>Clear Selection</Button>
                 </Group>
               </Stack>
@@ -681,19 +729,19 @@ export default function Play() {
 
             <DomainList title="Patterns">
               {project.patterns.map(pattern => (
-                <PatternRow key={pattern.id} pattern={pattern} />
+                <PatternRow key={pattern.id} pattern={pattern} project={project} />
               ))}
             </DomainList>
 
             <DomainList title="Sections">
               {project.arrangement.sections.map(section => (
-                <SectionRow key={section.id} section={section} />
+                <SectionRow key={section.id} project={project} section={section} />
               ))}
             </DomainList>
 
             <DomainList title="Blocks">
               {project.arrangement.blocks.map(block => (
-                <BlockRow key={block.id} block={block} pattern={getProjectPattern(project, block.patternId)} track={getProjectTrack(project, block.trackId)} />
+                <BlockRow key={block.id} block={block} pattern={getProjectPattern(project, block.patternId)} project={project} track={getProjectTrack(project, block.trackId)} />
               ))}
             </DomainList>
           </SimpleGrid>
@@ -727,18 +775,22 @@ function PlaybackRuntime({
 }) {
   const playheadRef = useRef<HTMLDivElement>(null)
   const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => engine.getSnapshot())
-  const [sliderTick, setSliderTick] = useState(() => engine.getPlayheadTick())
+  const [sliderTick, setSliderTick] = useState(() => toTimelineTick(engine.getPlayheadTick()))
   const projectEndTick = transportSnapshot.projectEndTick
   const timelineWidth = Math.max(860, Math.ceil(projectEndTick * TICK_WIDTH))
-  const activeTempo = getTempoAtTick(project.timeline, transportSnapshot.playheadTick)
-  const activeMeter = getMeterAtTick(project.timeline, transportSnapshot.playheadTick)
+  const barOptions = STATIC_BAR_OPTIONS
+  const activeTimelineTick = toTimelineTick(transportSnapshot.playheadTick)
+  const activeTempo = getTempoAtTick(project.timeline, activeTimelineTick)
+  const activeMeter = getMeterAtTick(project.timeline, activeTimelineTick)
   const activeBlocks = useMemo(
     () => project.arrangement.blocks.filter(block => transportSnapshot.activeBlockIds.includes(block.id)),
     [project.arrangement.blocks, transportSnapshot.activeBlockIds],
   )
   const handleSeek = useCallback((tick: Tick) => {
-    setSliderTick(tick)
-    engine.seek(tick)
+    const nextTick = toTimelineTick(tick)
+
+    setSliderTick(nextTick)
+    engine.seek(nextTick)
   }, [engine])
 
   useEffect(() => {
@@ -754,6 +806,7 @@ function PlaybackRuntime({
   useEffect(() => {
     let frameId = 0
     let lastSliderUpdateMs = 0
+    let lastSliderTick = toTimelineTick(engine.getPlayheadTick())
 
     function updatePlayheadTransform(nowMs: number) {
       const playheadTick = engine.getPlayheadTick()
@@ -763,8 +816,14 @@ function PlaybackRuntime({
       }
 
       if (nowMs - lastSliderUpdateMs >= SLIDER_FRAME_INTERVAL_MS) {
+        const nextSliderTick = toTimelineTick(playheadTick)
+
         lastSliderUpdateMs = nowMs
-        setSliderTick(playheadTick)
+
+        if (nextSliderTick !== lastSliderTick) {
+          lastSliderTick = nextSliderTick
+          setSliderTick(nextSliderTick)
+        }
       }
 
       frameId = requestAnimationFrame(updatePlayheadTransform)
@@ -833,13 +892,7 @@ function PlaybackRuntime({
                 {activeMeter.denominator}
               </Badge>
               <Badge variant="light">
-                Bar
-                {' '}
-                {transportSnapshot.barBeat.bar}
-                .
-                {transportSnapshot.barBeat.beat}
-                .
-                {transportSnapshot.barBeat.tick}
+                {formatTickAsBars(project.timeline, transportSnapshot.playheadTick)}
               </Badge>
               <Badge variant="light">
                 {transportSnapshot.scheduledEventCount}
@@ -862,7 +915,7 @@ function PlaybackRuntime({
           </Group>
 
           <Slider
-            label={value => `${value} ticks`}
+            label={null}
             max={projectEndTick}
             min={0}
             step={1}
@@ -871,9 +924,9 @@ function PlaybackRuntime({
           />
 
           <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
-            <Field label="Loop start" value={`${transportSnapshot.loopRange?.startTick ?? 0}`} onChange={value => updateLoopRange({ startTick: parseInteger(value) })} />
-            <Field label="Loop end" value={`${transportSnapshot.loopRange?.endTick ?? projectEndTick}`} onChange={value => updateLoopRange({ endTick: parseInteger(value) })} />
-            <Field label="Playhead tick" value={`${transportSnapshot.playheadTick}`} onChange={value => handleSeek(parseInteger(value))} />
+            <SelectField label="Loop start bar" value={tickToStartBarValue(project.timeline, transportSnapshot.loopRange?.startTick ?? 0)} data={barOptions} onChange={value => updateLoopRange({ startTick: barStartValueToTick(project.timeline, value) })} />
+            <SelectField label="Loop end bar" value={tickToEndBarValue(project.timeline, transportSnapshot.loopRange?.endTick ?? projectEndTick)} data={barOptions} onChange={value => updateLoopRange({ endTick: barEndValueToTick(project.timeline, value) })} />
+            <SelectField label="Playhead bar" value={tickToStartBarValue(project.timeline, transportSnapshot.playheadTick)} data={barOptions} onChange={value => handleSeek(barStartValueToTick(project.timeline, value))} />
             <SelectField label="Status" value={transportSnapshot.status} data={['stopped', 'playing', 'paused']} onChange={setTransportStatus} />
           </SimpleGrid>
         </Stack>
@@ -1116,9 +1169,9 @@ function TimelineArrangement({
                 event.stopPropagation()
                 onSelectSection(section)
               }}
-              title={`${section.name}: ${section.startTick}-${section.startTick + section.lengthTicks}`}
+              title={`${section.name}: ${formatTickRangeAsBars(project.timeline, section.startTick, section.startTick + section.lengthTicks)}`}
               style={{
-                background: section.loopEnabled ? 'var(--mantine-color-teal-1)' : 'var(--mantine-color-gray-1)',
+                background: 'var(--mantine-color-gray-1)',
                 border: '1px solid var(--mantine-color-gray-3)',
                 borderRadius: 4,
                 cursor: 'pointer',
@@ -1237,7 +1290,7 @@ function TimelineTrackRow({
                 event.stopPropagation()
                 onSelectBlock(block)
               }}
-              title={`${block.name}: ${block.startTick}-${getBlockEndTick(block)}`}
+              title={`${block.name}: ${formatTickRangeAsBars(project.timeline, block.startTick, getBlockEndTick(block))}`}
               style={{
                 background: block.muted ? 'var(--mantine-color-gray-4)' : block.color,
                 border: '1px solid rgba(0, 0, 0, 0.2)',
@@ -1308,7 +1361,7 @@ function TrackRow({ track }: { track: Track }) {
   )
 }
 
-function PatternRow({ pattern }: { pattern: Pattern }) {
+function PatternRow({ pattern, project }: { pattern: Pattern, project: Project }) {
   return (
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between" align="flex-start">
@@ -1319,9 +1372,7 @@ function PatternRow({ pattern }: { pattern: Pattern }) {
             {' '}
             |
             {' '}
-            {pattern.lengthTicks}
-            {' '}
-            ticks
+            {formatDurationAsBars(project.timeline, pattern.lengthTicks)}
           </Text>
           <Text c="dimmed" size="xs">{getPatternEventSummary(pattern)}</Text>
         </Box>
@@ -1360,21 +1411,16 @@ function getPatternEventSummary(pattern: Pattern): string {
   }).join(', ')
 }
 
-function SectionRow({ section }: { section: Section }) {
+function SectionRow({ project, section }: { project: Project, section: Section }) {
   return (
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between">
         <Box>
           <Text fw={600} size="sm">{section.name}</Text>
           <Text c="dimmed" size="xs">
-            {section.startTick}
-            {' '}
-            -
-            {' '}
-            {section.startTick + section.lengthTicks}
+            {formatTickRangeAsBars(project.timeline, section.startTick, section.startTick + section.lengthTicks)}
           </Text>
         </Box>
-        {section.loopEnabled && <Badge color="teal" variant="light">loop</Badge>}
       </Group>
     </Paper>
   )
@@ -1383,10 +1429,12 @@ function SectionRow({ section }: { section: Section }) {
 function BlockRow({
   block,
   pattern,
+  project,
   track,
 }: {
   block: Block
   pattern?: Pattern
+  project: Project
   track?: Track
 }) {
   return (
@@ -1405,11 +1453,7 @@ function BlockRow({
         <Stack gap={4} align="flex-end">
           <Badge variant="light">{block.playbackMode}</Badge>
           <Text c="dimmed" size="xs">
-            {block.startTick}
-            {' '}
-            -
-            {' '}
-            {getBlockEndTick(block)}
+            {formatTickRangeAsBars(project.timeline, block.startTick, getBlockEndTick(block))}
           </Text>
         </Stack>
       </Group>
@@ -1457,209 +1501,12 @@ function SelectField<TValue extends string>({
   )
 }
 
-function createProjectDraft(input: {
-  bpm: number
-  denominator: TimeSignatureDenominator
-  name: string
-  numerator: number
-}): Project {
-  const now = new Date().toISOString()
-
-  return createBlankProject({
-    createdAt: now,
-    id: `project_${Date.now()}`,
-    metadata: createProjectMetadata({
-      tags: ['playback'],
-    }),
-    name: input.name,
-    timeline: createTimeline({
-      keyEvents: [createKeyEvent({ key: createDefaultKey(), tick: 0 })],
-      meterEvents: [createMeterEvent({
-        tick: 0,
-        timeSignature: {
-          denominator: input.denominator,
-          numerator: input.numerator,
-        },
-      })],
-      tempoEvents: [createTempoEvent({ bpm: input.bpm, tick: 0 })],
-    }),
-    updatedAt: now,
-    version: createProjectVersion(),
-  })
+function getNameOrFallback(value: string, fallback: string): string {
+  return value.trim() === '' ? fallback : value.trim()
 }
 
-function createSeedPatternEvents(
-  patternKind: PatternKind,
-  lengthTicks: number,
-  options: {
-    chordQuality: ChordQuality
-    chordRoot: PitchClass
-    drumPiece: string
-    notePitch: number
-  },
-): PatternEvent[] {
-  const halfLengthTicks = Math.max(120, Math.floor(lengthTicks / 2))
-
-  switch (patternKind) {
-    case 'automation':
-      return [
-        createAutomationEvent({
-          id: 'event_automation_1',
-          parameter: 'filterCutoff',
-          timeTick: 0,
-          value: 0.65,
-        }),
-      ]
-    case 'chord':
-      return [
-        createChordEvent({
-          chord: createChordSymbol({
-            extensions: ['7'],
-            quality: options.chordQuality,
-            root: options.chordRoot,
-          }),
-          durationTicks: halfLengthTicks,
-          id: 'event_chord_1',
-          timeTick: 0,
-          velocity: 96,
-        }),
-        createChordEvent({
-          chord: createChordSymbol({
-            quality: 'major',
-            root: ((options.chordRoot + 5) % 12) as PitchClass,
-          }),
-          durationTicks: Math.max(120, lengthTicks - halfLengthTicks),
-          id: 'event_chord_2',
-          timeTick: halfLengthTicks,
-          velocity: 88,
-        }),
-      ]
-    case 'drum':
-      return [
-        createDrumHitEvent({
-          id: 'event_drum_1',
-          kitPiece: options.drumPiece,
-          timeTick: 0,
-          velocity: 112,
-        }),
-        createDrumHitEvent({
-          id: 'event_drum_2',
-          kitPiece: 'snare',
-          timeTick: halfLengthTicks,
-          velocity: 98,
-        }),
-      ]
-    case 'note':
-      return [
-        createNoteEvent({
-          durationTicks: halfLengthTicks,
-          id: 'event_note_1',
-          pitch: options.notePitch,
-          timeTick: 0,
-          velocity: 96,
-        }),
-        createNoteEvent({
-          durationTicks: Math.max(120, lengthTicks - halfLengthTicks),
-          id: 'event_note_2',
-          pitch: options.notePitch + 7,
-          timeTick: halfLengthTicks,
-          velocity: 88,
-        }),
-      ]
-  }
-}
-
-function createLargeSketchProject(sourceProject: Project): Project {
-  const now = new Date().toISOString()
-  const tracks: Track[] = []
-  const patterns: Pattern[] = []
-  const blocks: Block[] = []
-  const roles: TrackRole[] = ['chords', 'bass', 'melody', 'drums']
-
-  for (let index = 0; index < 10; index += 1) {
-    const role = roles[index % roles.length]
-
-    tracks.push(createTrack({
-      id: `stress_track_${index + 1}`,
-      name: `Track ${index + 1}`,
-      role,
-      volume: role === 'drums' ? 0.72 : 0.58,
-    }))
-  }
-
-  for (let index = 0; index < tracks.length; index += 1) {
-    const track = tracks[index]
-    const kind = getPatternKindForTrack(track)
-    const pattern = createPattern({
-      events: createSeedPatternEvents(kind, 960, {
-        chordQuality: index % 2 === 0 ? 'minor' : 'major',
-        chordRoot: (index % 12) as PitchClass,
-        drumPiece: index % 2 === 0 ? 'kick' : 'hat',
-        notePitch: 48 + (index % 24),
-      }),
-      id: `stress_pattern_${index + 1}`,
-      kind,
-      lengthTicks: 960,
-      metadata: { generatedBy: 'playback stress seed' },
-      name: `Pattern ${index + 1}`,
-    })
-
-    patterns.push(pattern)
-  }
-
-  for (let index = 0; index < 100; index += 1) {
-    const track = tracks[index % tracks.length]
-    const pattern = patterns[index % patterns.length]
-    const barIndex = Math.floor(index / tracks.length)
-
-    blocks.push(createBlock({
-      color: track.color,
-      id: `stress_block_${index + 1}`,
-      lengthTicks: 960,
-      muted: index % 23 === 0,
-      name: `Block ${index + 1}`,
-      patternId: pattern.id,
-      playbackMode: index % 17 === 0 ? 'stretch' : 'loop',
-      startTick: barIndex * 960,
-      trackId: track.id,
-    }))
-  }
-
-  return {
-    ...sourceProject,
-    arrangement: {
-      blocks,
-      sections: [
-        createSection({
-          id: 'stress_section_1',
-          lengthTicks: 20 * 4 * PPQ,
-          name: 'Stress Section',
-          startTick: 0,
-        }),
-      ],
-    },
-    createdAt: sourceProject.createdAt,
-    id: sourceProject.id,
-    patterns,
-    tracks,
-    updatedAt: now,
-  }
-}
-
-function getPatternKindForTrack(track: Track): PatternKind {
-  if (track.accepts.includes('chord')) {
-    return 'chord'
-  }
-
-  if (track.accepts.includes('drum')) {
-    return 'drum'
-  }
-
-  if (track.role === 'bass' || track.role === 'melody') {
-    return 'note'
-  }
-
-  return track.accepts[0] ?? 'note'
+function capitalize(value: string): string {
+  return value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`
 }
 
 function getBarMarkers(project: Project, timelineWidth: number): Array<{
@@ -1687,24 +1534,6 @@ function getBarMarkers(project: Project, timelineWidth: number): Array<{
   }
 
   return markers
-}
-
-function summarizeProjectAction(project: Project): Record<string, number | string> {
-  return {
-    blocks: project.arrangement.blocks.length,
-    patterns: project.patterns.length,
-    projectId: project.id,
-    sections: project.arrangement.sections.length,
-    tracks: project.tracks.length,
-    updatedAt: project.updatedAt,
-  }
-}
-
-function stampProject(project: Project): Project {
-  return {
-    ...project,
-    updatedAt: new Date().toISOString(),
-  }
 }
 
 function createEntityId(prefix: string, existingCount: number): string {

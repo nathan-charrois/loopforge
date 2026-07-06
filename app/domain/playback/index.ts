@@ -7,9 +7,14 @@ export type PlaybackRange = {
   endTick: Tick
 }
 
-export type PlaybackStyle = 'block' | 'strum' | 'arpeggio' | 'rhythm'
-export type ArpeggioPattern = 'up' | 'down' | 'upDown' | 'random'
-export type StrumPattern = 'down' | 'up' | 'alternate'
+export const PLAYBACK_STYLES = ['block', 'strum', 'arpeggio', 'rhythm'] as const
+export type PlaybackStyle = typeof PLAYBACK_STYLES[number]
+
+export const ARPEGGIO_PATTERNS = ['up', 'down', 'upDown', 'random'] as const
+export type ArpeggioPattern = typeof ARPEGGIO_PATTERNS[number]
+
+export const STRUM_PATTERNS = ['down', 'up', 'alternate'] as const
+export type StrumPattern = typeof STRUM_PATTERNS[number]
 export type EffectPresetRef = string
 export type InstrumentPresetRef = string
 

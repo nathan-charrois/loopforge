@@ -1,13 +1,15 @@
 export type CommandId = string
-export type CommandKind
-  = | 'addBlock'
-    | 'moveBlock'
-    | 'resizeBlock'
-    | 'deleteBlock'
-    | 'addPatternEvent'
-    | 'movePatternEvent'
-    | 'deletePatternEvent'
-    | 'renameEntity'
+export const COMMAND_KINDS = [
+  'addBlock',
+  'moveBlock',
+  'resizeBlock',
+  'deleteBlock',
+  'addPatternEvent',
+  'movePatternEvent',
+  'deletePatternEvent',
+  'renameEntity',
+] as const
+export type CommandKind = typeof COMMAND_KINDS[number]
 
 export type CommandPayload = Record<string, boolean | null | number | string | string[]>
 

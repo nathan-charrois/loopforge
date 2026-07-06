@@ -36,6 +36,26 @@ export const NOTE_NAME_TO_PITCH_CLASS = {
 
 export type NoteName = keyof typeof NOTE_NAME_TO_PITCH_CLASS
 
+export const NOTE_NAMES = [
+  'C',
+  'C#',
+  'Db',
+  'D',
+  'D#',
+  'Eb',
+  'E',
+  'F',
+  'F#',
+  'Gb',
+  'G',
+  'G#',
+  'Ab',
+  'A',
+  'A#',
+  'Bb',
+  'B',
+] as const satisfies readonly NoteName[]
+
 export const PITCH_CLASS_TO_NOTE_NAME = [
   'C',
   'C#',

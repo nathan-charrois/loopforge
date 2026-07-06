@@ -8,9 +8,11 @@ import {
   pitchClassFromMidiNote,
 } from '../musicPrimitives'
 
-export type VoicingType = 'close' | 'open' | 'drop2' | 'spread'
+export const VOICING_TYPES = ['close', 'open', 'drop2', 'spread'] as const
+export type VoicingType = typeof VOICING_TYPES[number]
 export type Inversion = number
-export type Register = 'low' | 'mid' | 'high'
+export const REGISTERS = ['low', 'mid', 'high'] as const
+export type Register = typeof REGISTERS[number]
 export type Spread = number
 
 export type ChordVoicing = {

@@ -6,11 +6,10 @@ import {
   isPositiveDurationTicks,
   type Tick,
 } from '../musicPrimitives'
-
-export const PPQ = 480
+import { GRID_DIVISIONS, PPQ, TIME_SIGNATURE_DENOMINATORS } from './constants'
 
 export type BeatsPerMinute = number
-export type TimeSignatureDenominator = 1 | 2 | 4 | 8 | 16 | 32
+export type TimeSignatureDenominator = typeof TIME_SIGNATURE_DENOMINATORS[number]
 
 export type TimeSignature = {
   numerator: number
@@ -46,14 +45,7 @@ export type BarBeat = {
   tick: Tick
 }
 
-export type GridDivision
-  = | 'bar'
-    | 'beat'
-    | 'halfNote'
-    | 'quarterNote'
-    | 'eighthNote'
-    | 'sixteenthNote'
-    | 'thirtySecondNote'
+export type GridDivision = typeof GRID_DIVISIONS[number]
 
 type TimelineEvent = {
   tick: Tick
@@ -255,7 +247,7 @@ export function snapTickToGrid(timeline: Timeline, tick: Tick, gridDivision = ti
 export function isValidTimeSignature(timeSignature: TimeSignature): boolean {
   return Number.isInteger(timeSignature.numerator)
     && timeSignature.numerator > 0
-    && [1, 2, 4, 8, 16, 32].includes(timeSignature.denominator)
+    && (TIME_SIGNATURE_DENOMINATORS as readonly number[]).includes(timeSignature.denominator)
 }
 
 export function validateTimeline(timeline: Timeline): string[] {
@@ -381,3 +373,6 @@ function validateMeterEventsAtBarBoundaries(timeline: Timeline): string[] {
 
   return errors
 }
+
+export * from './constants'
+export * from './format'

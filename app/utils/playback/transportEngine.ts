@@ -4,19 +4,16 @@ import {
   type PlaybackScheduleWarning,
 } from './buildPlaybackSchedule'
 import {
-  type BarBeat,
   getTempoAtTick,
   isTickInPlaybackRange,
   type PlaybackRange,
   type Project,
   type Tick,
-  tickToBarBeat,
   type TransportStatus,
 } from '~/domain'
 
 export type TransportSnapshot = {
   activeBlockIds: string[]
-  barBeat: BarBeat
   compileWarnings: PlaybackScheduleWarning[]
   loopEnabled: boolean
   loopRange?: PlaybackRange
@@ -56,9 +53,9 @@ export class TransportEngine {
     const fallbackStartTick = this.playheadTick >= this.compiled.projectEndTick
       ? this.loopRange?.startTick ?? 0
       : this.playheadTick
-    const startTick = this.loopEnabled && this.loopRange !== undefined
+    const startTick = toTimelineTick(this.loopEnabled && this.loopRange !== undefined
       ? this.getTickInsideLoop(fallbackStartTick, this.loopRange)
-      : fallbackStartTick
+      : fallbackStartTick)
 
     this.status = 'playing'
     this.anchorTick = startTick
@@ -136,11 +133,11 @@ export class TransportEngine {
   }
 
   getSnapshot(): TransportSnapshot {
-    const playheadTick = this.getComputedPlayheadTick()
+    const computedPlayheadTick = this.getComputedPlayheadTick()
+    const playheadTick = toTimelineTick(computedPlayheadTick)
 
     return {
-      activeBlockIds: this.getActiveBlockIds(playheadTick),
-      barBeat: tickToBarBeat(this.project.timeline, playheadTick),
+      activeBlockIds: this.getActiveBlockIds(computedPlayheadTick),
       compileWarnings: this.compiled.warnings,
       loopEnabled: this.loopEnabled,
       loopRange: this.loopRange,
@@ -196,7 +193,7 @@ export class TransportEngine {
   }
 
   private getRawPlayheadTick(nowMs: number): Tick {
-    const currentBpm = getTempoAtTick(this.project.timeline, this.anchorTick)
+    const currentBpm = getTempoAtTick(this.project.timeline, toTimelineTick(this.anchorTick))
     const ticksPerMs = (currentBpm * this.project.timeline.ppq) / 60000
 
     return this.anchorTick + ((nowMs - this.anchorMs) * ticksPerMs)
@@ -266,4 +263,8 @@ export class TransportEngine {
 
 function positiveModulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor
+}
+
+function toTimelineTick(tick: number): Tick {
+  return Math.max(0, Math.floor(tick))
 }
