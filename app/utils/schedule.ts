@@ -32,7 +32,7 @@ export type PlaybackSchedule = {
   warnings: PlaybackScheduleWarning[]
 }
 
-export function buildPlaybackSchedule(project: Project): PlaybackSchedule {
+export function buildSchedule(project: Project): PlaybackSchedule {
   const events: ScheduledPlaybackEvent[] = []
   const warnings: PlaybackScheduleWarning[] = []
 
@@ -131,22 +131,4 @@ export function buildPlaybackSchedule(project: Project): PlaybackSchedule {
     projectEndTick: getProjectEndTick(project),
     warnings,
   }
-}
-
-export function findFirstScheduledEventAtOrAfter(schedule: PlaybackSchedule, tick: Tick): number {
-  let low = 0
-  let high = schedule.eventStartTicks.length
-
-  while (low < high) {
-    const midpoint = Math.floor((low + high) / 2)
-
-    if (schedule.eventStartTicks[midpoint] < tick) {
-      low = midpoint + 1
-    }
-    else {
-      high = midpoint
-    }
-  }
-
-  return low
 }

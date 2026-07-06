@@ -1,8 +1,8 @@
 import {
-  buildPlaybackSchedule,
+  buildSchedule,
   type PlaybackSchedule,
   type PlaybackScheduleWarning,
-} from './buildPlaybackSchedule'
+} from './schedule'
 import {
   getTempoAtTick,
   isTickInPlaybackRange,
@@ -27,7 +27,7 @@ export type TransportListener = (snapshot: TransportSnapshot) => void
 
 const SNAPSHOT_INTERVAL_MS = 33
 
-export class TransportEngine {
+export class Transport {
   private anchorMs = 0
   private anchorTick: Tick = 0
   private compiled: PlaybackSchedule
@@ -41,7 +41,7 @@ export class TransportEngine {
 
   constructor(project: Project) {
     this.project = project
-    this.compiled = buildPlaybackSchedule(project)
+    this.compiled = buildSchedule(project)
     this.loopRange = this.getDefaultLoopRange()
   }
 
@@ -113,7 +113,7 @@ export class TransportEngine {
 
   setProject(project: Project) {
     this.project = project
-    this.compiled = buildPlaybackSchedule(project)
+    this.compiled = buildSchedule(project)
 
     if (this.loopRange === undefined) {
       this.loopRange = this.getDefaultLoopRange()

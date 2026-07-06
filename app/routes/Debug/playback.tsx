@@ -81,9 +81,9 @@ import {
   validateProject,
 } from '~/domain'
 import {
-  TransportEngine,
+  Transport,
   type TransportSnapshot,
-} from '~/utils/playback'
+} from '~/utils/transport'
 
 const TICK_WIDTH = 0.09
 const TRACK_ROW_HEIGHT = 58
@@ -139,13 +139,13 @@ export default function Play() {
     name: 'Playback Sketch',
     numerator: 4,
   }))
-  const engineRef = useRef<TransportEngine | null>(null)
+  const transportRef = useRef<Transport | null>(null)
 
-  if (engineRef.current === null) {
-    engineRef.current = new TransportEngine(project)
+  if (transportRef.current === null) {
+    transportRef.current = new Transport(project)
   }
 
-  const engine = engineRef.current
+  const transport = transportRef.current
 
   const [trackName, setTrackName] = useState('')
   const [trackRole, setTrackRole] = useState<TrackRole>('melody')
@@ -178,14 +178,14 @@ export default function Play() {
   const projectErrors = useMemo(() => validateProject(project), [project])
 
   useEffect(() => {
-    engine.setProject(project)
-  }, [engine, project])
+    transport.setProject(project)
+  }, [transport, project])
 
   useEffect(() => {
     return () => {
-      engine.destroy()
+      transport.destroy()
     }
-  }, [engine])
+  }, [transport])
 
   function runAction(label: string, action: () => unknown) {
     try {
@@ -223,8 +223,8 @@ export default function Play() {
       setSelectedPatternId(nextProject.patterns[0]?.id ?? '')
       setSelectedSectionId(null)
       setSelectedBlockId(null)
-      engine.seek(0)
-      engine.setLoop({
+      transport.seek(0)
+      transport.setLoop({
         endTick: getProjectEndTick(nextProject),
         startTick: 0,
       }, true)
@@ -270,8 +270,8 @@ export default function Play() {
       setSelectedPatternId(nextProject.patterns[0]?.id ?? '')
       setSelectedSectionId(null)
       setSelectedBlockId(null)
-      engine.seek(0)
-      engine.setLoop({
+      transport.seek(0)
+      transport.setLoop({
         endTick: getProjectEndTick(nextProject),
         startTick: 0,
       }, true)
@@ -582,7 +582,7 @@ export default function Play() {
             <Box>
               <Title order={1}>Playback Lab</Title>
               <Text c="dimmed" size="sm">
-                Project domain data with a transport engine clock.
+                Project domain data with a transport transport clock.
               </Text>
             </Box>
           </Group>
@@ -594,7 +594,7 @@ export default function Play() {
           )}
 
           <PlaybackRuntime
-            engine={engine}
+            transport={transport}
             lastAction={lastAction}
             onError={setErrorMessage}
             onSelectBlock={handleSelectBlock}
@@ -711,7 +711,7 @@ export default function Play() {
                 </SimpleGrid>
                 <Group gap="xs">
                   <Button onClick={() => handleAddBlock()}>Add Block</Button>
-                  <Button variant="light" onClick={() => handleAddBlock(engine.getPlayheadTick())}>Add At Playhead</Button>
+                  <Button variant="light" onClick={() => handleAddBlock(transport.getPlayheadTick())}>Add At Playhead</Button>
                   <Button variant="light" disabled={selectedBlockId === null} onClick={handleUpdateBlock}>Update Selected</Button>
                   <Button variant="light" color="red" disabled={selectedBlockId === null} onClick={handleDeleteSelectedBlock}>Delete Selected</Button>
                   <Button variant="subtle" disabled={selectedBlockId === null} onClick={handleClearSelectedBlock}>Clear Selection</Button>
@@ -753,7 +753,7 @@ export default function Play() {
 }
 
 function PlaybackRuntime({
-  engine,
+  transport,
   lastAction,
   onError,
   onSelectBlock,
@@ -763,7 +763,7 @@ function PlaybackRuntime({
   selectedBlockId,
   selectedSectionId,
 }: {
-  engine: TransportEngine
+  transport: Transport
   lastAction: LastAction | null
   onError: (message: string | null) => void
   onSelectBlock: (block: Block) => void
@@ -774,8 +774,8 @@ function PlaybackRuntime({
   selectedSectionId: string | null
 }) {
   const playheadRef = useRef<HTMLDivElement>(null)
-  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => engine.getSnapshot())
-  const [sliderTick, setSliderTick] = useState(() => toTimelineTick(engine.getPlayheadTick()))
+  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => transport.getSnapshot())
+  const [sliderTick, setSliderTick] = useState(() => toTimelineTick(transport.getPlayheadTick()))
   const projectEndTick = transportSnapshot.projectEndTick
   const timelineWidth = Math.max(860, Math.ceil(projectEndTick * TICK_WIDTH))
   const barOptions = STATIC_BAR_OPTIONS
@@ -790,26 +790,26 @@ function PlaybackRuntime({
     const nextTick = toTimelineTick(tick)
 
     setSliderTick(nextTick)
-    engine.seek(nextTick)
-  }, [engine])
+    transport.seek(nextTick)
+  }, [transport])
 
   useEffect(() => {
-    return engine.subscribe((snapshot) => {
+    return transport.subscribe((snapshot) => {
       setTransportSnapshot(snapshot)
 
       if (snapshot.status !== 'playing') {
         setSliderTick(snapshot.playheadTick)
       }
     })
-  }, [engine])
+  }, [transport])
 
   useEffect(() => {
     let frameId = 0
     let lastSliderUpdateMs = 0
-    let lastSliderTick = toTimelineTick(engine.getPlayheadTick())
+    let lastSliderTick = toTimelineTick(transport.getPlayheadTick())
 
     function updatePlayheadTransform(nowMs: number) {
-      const playheadTick = engine.getPlayheadTick()
+      const playheadTick = transport.getPlayheadTick()
 
       if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
         playheadRef.current.style.transform = `translateX(${playheadTick * TICK_WIDTH}px)`
@@ -834,24 +834,24 @@ function PlaybackRuntime({
     return () => {
       cancelAnimationFrame(frameId)
     }
-  }, [engine])
+  }, [transport])
 
   function handlePlay() {
-    void engine.play().catch((error: unknown) => {
+    void transport.play().catch((error: unknown) => {
       onError(error instanceof Error ? error.message : String(error))
     })
   }
 
   function handlePause() {
-    engine.pause()
+    transport.pause()
   }
 
   function handleStop() {
-    engine.stop()
+    transport.stop()
   }
 
   function updateLoopRange(partialRange: Partial<{ endTick: Tick, startTick: Tick }>) {
-    engine.setLoop({
+    transport.setLoop({
       endTick: partialRange.endTick ?? transportSnapshot.loopRange?.endTick ?? projectEndTick,
       startTick: partialRange.startTick ?? transportSnapshot.loopRange?.startTick ?? 0,
     }, transportSnapshot.loopEnabled)
@@ -908,7 +908,7 @@ function PlaybackRuntime({
             <Button variant="light" color="red" onClick={handleStop}>Stop</Button>
             <Button
               variant={transportSnapshot.loopEnabled ? 'filled' : 'light'}
-              onClick={() => engine.setLoop(transportSnapshot.loopRange, !transportSnapshot.loopEnabled)}
+              onClick={() => transport.setLoop(transportSnapshot.loopRange, !transportSnapshot.loopEnabled)}
             >
               Loop
             </Button>
