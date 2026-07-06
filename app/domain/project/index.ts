@@ -1,4 +1,5 @@
-import type { Arrangement } from '../arrangement'
+import { type Arrangement, getBlockEndTick } from '../arrangement'
+import type { Tick } from '../musicPrimitives'
 import { type Pattern, type PatternId, validatePattern } from '../patterns'
 import { type Timeline, validateTimeline } from '../timeline'
 import { type Track, type TrackId, validateTrack } from '../tracks'
@@ -64,5 +65,15 @@ export function getProjectPattern(project: Project, patternId: PatternId): Patte
   return project.patterns.find(pattern => pattern.id === patternId)
 }
 
+export function getProjectEndTick(project: Project): Tick {
+  const sectionEndTicks = project.arrangement.sections.map(section => section.startTick + section.lengthTicks)
+  const blockEndTicks = project.arrangement.blocks.map(getBlockEndTick)
+
+  return Math.max(0, ...sectionEndTicks, ...blockEndTicks)
+}
+
+export function getHighestBlockEndTick(project: Project): Tick {
+  return project.arrangement.blocks.reduce((latestEndTick, block) => Math.max(latestEndTick, getBlockEndTick(block)), 0)
+}
+
 export * from './factory'
-export * from './timing'
