@@ -1,7 +1,6 @@
 import type { BlockId, SectionId } from '../arrangement'
 import type { ChordSymbol } from '../harmony'
 import type { PatternEventId } from '../patternEvents'
-import { createDefaultTransportState, type TransportState } from '../playback'
 import type { TrackId } from '../tracks'
 
 export type ActiveTool = 'select' | 'draw' | 'erase' | 'split' | 'resize' | 'audition'
@@ -30,7 +29,6 @@ export type EditorState = {
   hoveredChord?: ChordSymbol
   inspector: InspectorState
   selection: SelectionState
-  transport: TransportState
 }
 
 export function createDefaultSelectionState(): SelectionState {
@@ -62,7 +60,6 @@ export function createDefaultEditorState(input: Partial<EditorState> = {}): Edit
     hoveredChord: input.hoveredChord,
     inspector: input.inspector ?? createDefaultInspectorState(),
     selection: input.selection ?? createDefaultSelectionState(),
-    transport: input.transport ?? createDefaultTransportState(),
   }
 }
 

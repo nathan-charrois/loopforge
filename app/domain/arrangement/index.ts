@@ -32,7 +32,7 @@ export type Arrangement = {
   blocks: Block[]
 }
 
-export const DEFAULT_SECTION_LENGTH_TICKS = 16 * 4 * PPQ
+export const DEFAULT_SECTION_LENGTH_TICKS = 2 * 4 * PPQ
 
 export function createSection(input: {
   id: SectionId

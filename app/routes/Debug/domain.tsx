@@ -45,7 +45,6 @@ import {
   createDefaultSelectionState,
   createDefaultTimeline,
   createDefaultTracks,
-  createDefaultTransportState,
   createDrumHitEvent,
   createDurationTicks,
   createEmptyCommandHistory,
@@ -129,7 +128,6 @@ import {
   tickToBarBeat,
   type TimeSignatureDenominator,
   type TrackRole,
-  type TransportStatus,
   transposeChordSymbol,
   transposePitchClass,
   undoCommand,
@@ -182,7 +180,6 @@ const REGISTER_OPTIONS: Register[] = ['low', 'mid', 'high']
 const PLAYBACK_STYLE_OPTIONS: PlaybackStyle[] = ['block', 'strum', 'arpeggio', 'rhythm']
 const ARPEGGIO_PATTERN_OPTIONS: ArpeggioPattern[] = ['up', 'down', 'upDown', 'random']
 const STRUM_PATTERN_OPTIONS: StrumPattern[] = ['down', 'up', 'alternate']
-const TRANSPORT_STATUS_OPTIONS: TransportStatus[] = ['stopped', 'playing', 'paused']
 const PATTERN_KIND_OPTIONS: PatternKind[] = ['chord', 'note', 'drum', 'automation']
 const TRACK_ROLE_OPTIONS: TrackRole[] = ['chords', 'bass', 'melody', 'drums']
 const BLOCK_PLAYBACK_MODE_OPTIONS: BlockPlaybackMode[] = ['loop', 'oneShot', 'stretch']
@@ -247,9 +244,7 @@ export default function Debug() {
   const [voicingOctave, setVoicingOctave] = useState('4')
   const [voicingBassEnabled, setVoicingBassEnabled] = useState(false)
 
-  const [transportStatus, setTransportStatus] = useState<TransportStatus>('stopped')
   const [playheadTick, setPlayheadTick] = useState('480')
-  const [loopEnabled, setLoopEnabled] = useState(true)
   const [loopStartTick, setLoopStartTick] = useState('0')
   const [loopEndTick, setLoopEndTick] = useState('1920')
   const [playbackStyle, setPlaybackStyle] = useState<PlaybackStyle>('arpeggio')
@@ -615,7 +610,6 @@ export default function Debug() {
 
           <DomainPanel id="playback" title="Playback" outputs={outputs}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
-              <SelectField label="Transport status" value={transportStatus} data={TRANSPORT_STATUS_OPTIONS} onChange={setTransportStatus} />
               <Field label="Playhead tick" value={playheadTick} onChange={setPlayheadTick} />
               <Field label="Loop start" value={loopStartTick} onChange={setLoopStartTick} />
               <Field label="Loop end" value={loopEndTick} onChange={setLoopEndTick} />
@@ -625,20 +619,7 @@ export default function Debug() {
               <SelectField label="Arpeggio" value={arpeggioPattern} data={ARPEGGIO_PATTERN_OPTIONS} onChange={setArpeggioPattern} />
               <SelectField label="Strum" value={strumPattern} data={STRUM_PATTERN_OPTIONS} onChange={setStrumPattern} />
             </SimpleGrid>
-            <Checkbox label="Loop enabled" checked={loopEnabled} onChange={event => setLoopEnabled(event.currentTarget.checked)} />
             <ButtonGroup>
-              <RunButton
-                label="createDefaultTransportState"
-                onClick={() => run('playback', 'createDefaultTransportState', () => createDefaultTransportState({
-                  loopEnabled,
-                  loopRange: {
-                    endTick: parseInteger(loopEndTick),
-                    startTick: parseInteger(loopStartTick),
-                  },
-                  playheadTick: parseInteger(playheadTick),
-                  status: transportStatus,
-                }))}
-              />
               <RunButton label="createDefaultChordPlayback" onClick={() => run('playback', 'createDefaultChordPlayback', chordPlayback)} />
               <RunButton
                 label="isTickInPlaybackRange"

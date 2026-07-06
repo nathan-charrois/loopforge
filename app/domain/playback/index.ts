@@ -7,14 +7,6 @@ export type PlaybackRange = {
   endTick: Tick
 }
 
-export type TransportState = {
-  status: TransportStatus
-  playheadTick: Tick
-  loopEnabled: boolean
-  loopRange?: PlaybackRange
-  bpmOverride?: number
-}
-
 export type PlaybackStyle = 'block' | 'strum' | 'arpeggio' | 'rhythm'
 export type ArpeggioPattern = 'up' | 'down' | 'upDown' | 'random'
 export type StrumPattern = 'down' | 'up' | 'alternate'
@@ -29,16 +21,6 @@ export type ChordPlayback = {
   strumPattern?: StrumPattern
   effectPresetId?: EffectPresetRef
   instrumentPresetId?: InstrumentPresetRef
-}
-
-export function createDefaultTransportState(input: Partial<TransportState> = {}): TransportState {
-  return {
-    bpmOverride: input.bpmOverride,
-    loopEnabled: input.loopEnabled ?? false,
-    loopRange: input.loopRange,
-    playheadTick: input.playheadTick ?? 0,
-    status: input.status ?? 'stopped',
-  }
 }
 
 export function createDefaultChordPlayback(input: Partial<ChordPlayback> = {}): ChordPlayback {
