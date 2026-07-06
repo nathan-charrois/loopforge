@@ -18,6 +18,14 @@ export type CommandHistory = {
   redoStack: Command[]
 }
 
+export function canUndoCommand(history: CommandHistory): boolean {
+  return history.undoStack.length > 0
+}
+
+export function canRedoCommand(history: CommandHistory): boolean {
+  return history.redoStack.length > 0
+}
+
 export function pushCommand(history: CommandHistory, command: Command): CommandHistory {
   return {
     redoStack: [],
