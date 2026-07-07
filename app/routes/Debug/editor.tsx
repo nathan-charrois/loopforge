@@ -72,16 +72,6 @@ function EditorDebugContent() {
           </Badge>
         </Group>
 
-        <DebugPanel title="CommandKind">
-          <Group gap="xs">
-            {COMMAND_KINDS.map(kind => (
-              <Button key={kind} size="xs" variant="light" onClick={() => handlePushCommand(kind)}>
-                {kind}
-              </Button>
-            ))}
-          </Group>
-        </DebugPanel>
-
         <DebugPanel title="ActiveTool">
           <Group gap="xs">
             {ACTIVE_TOOLS.map(tool => (
@@ -112,6 +102,24 @@ function EditorDebugContent() {
           </Group>
         </DebugPanel>
 
+        <SimpleGrid cols={{ base: 1, md: 2 }}>
+          <DebugPanel title="EditorState JSON">
+            <JsonBlock value={editorState} />
+          </DebugPanel>
+          <DebugPanel title="CommandHistory JSON">
+            <JsonBlock value={commandHistory} />
+          </DebugPanel>
+        </SimpleGrid>
+        <DebugPanel title="CommandKind">
+          <Group gap="xs">
+            {COMMAND_KINDS.map(kind => (
+              <Button key={kind} size="xs" variant="light" onClick={() => handlePushCommand(kind)}>
+                {kind}
+              </Button>
+            ))}
+          </Group>
+        </DebugPanel>
+
         <DebugPanel title="Command History">
           <Group gap="xs">
             <Button
@@ -137,14 +145,6 @@ function EditorDebugContent() {
           </SimpleGrid>
         </DebugPanel>
 
-        <SimpleGrid cols={{ base: 1, md: 2 }}>
-          <DebugPanel title="EditorState JSON">
-            <JsonBlock value={editorState} />
-          </DebugPanel>
-          <DebugPanel title="CommandHistory JSON">
-            <JsonBlock value={commandHistory} />
-          </DebugPanel>
-        </SimpleGrid>
       </Stack>
     </AppLayout>
   )

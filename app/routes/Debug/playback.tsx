@@ -128,7 +128,8 @@ const STATIC_DURATION_BAR_OPTIONS = Array.from({ length: 16 }, (_, index) => {
   }
 })
 
-type LastAction = {
+type ActionLogEntry = {
+  id: string
   label: string
   value: unknown
 }
@@ -184,7 +185,7 @@ export default function Play() {
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
 
-  const [lastAction, setLastAction] = useState<LastAction | null>(null)
+  const [actions, setActions] = useState<ActionLogEntry[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
 
@@ -202,7 +203,14 @@ export default function Play() {
     try {
       const value = action()
 
-      setLastAction({ label, value })
+      setActions(currentActions => [
+        ...currentActions,
+        {
+          id: `action_${currentActions.length + 1}`,
+          label,
+          value,
+        },
+      ])
       setErrorMessage(null)
     }
     catch (error) {
@@ -556,7 +564,7 @@ export default function Play() {
 
           <PlaybackRuntime
             transport={transport}
-            lastAction={lastAction}
+            actions={actions}
             onError={setErrorMessage}
             onSelectBlock={handleSelectBlock}
             onSelectSection={handleSelectSection}
@@ -714,8 +722,8 @@ export default function Play() {
 }
 
 function PlaybackRuntime({
+  actions,
   transport,
-  lastAction,
   onError,
   onSelectBlock,
   onSelectSection,
@@ -724,8 +732,8 @@ function PlaybackRuntime({
   selectedBlockId,
   selectedSectionId,
 }: {
+  actions: ActionLogEntry[]
   transport: Transport
-  lastAction: LastAction | null
   onError: (message: string | null) => void
   onSelectBlock: (block: Block) => void
   onSelectSection: (section: Section) => void
@@ -907,8 +915,8 @@ function PlaybackRuntime({
       />
 
       <MemoizedPlaybackDomainState
+        actions={actions}
         compileWarnings={transportSnapshot.compileWarnings}
-        lastAction={lastAction}
         workspaceErrors={workspaceErrors}
       />
     </>
@@ -918,12 +926,12 @@ function PlaybackRuntime({
 const MemoizedPlaybackDomainState = memo(PlaybackDomainState)
 
 function PlaybackDomainState({
+  actions,
   compileWarnings,
-  lastAction,
   workspaceErrors,
 }: {
+  actions: ActionLogEntry[]
   compileWarnings: TransportSnapshot['compileWarnings']
-  lastAction: LastAction | null
   workspaceErrors: string[]
 }) {
   return (
@@ -949,13 +957,29 @@ function PlaybackDomainState({
             ))}
           </Stack>
         )}
-        {lastAction !== null && (
+        <Divider />
+        <Group justify="space-between">
+          <Text size="sm" fw={600}>Actions</Text>
+          <Badge color="gray" variant="light">{actions.length}</Badge>
+        </Group>
+        {actions.length === 0 && (
+          <Text c="dimmed" size="sm">No actions yet</Text>
+        )}
+        {actions.length > 0 && (
           <>
-            <Divider />
-            <Text size="sm" fw={600}>{lastAction.label}</Text>
-            <Box component="pre" m={0} p="sm" style={preStyle}>
-              {formatOutput(lastAction.value)}
-            </Box>
+            {actions.map(action => (
+              <Paper key={action.id} withBorder radius="sm" p="sm">
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Text size="sm" fw={600}>{action.label}</Text>
+                    <Badge color="gray" variant="light">{action.id}</Badge>
+                  </Group>
+                  <Box component="pre" m={0} p="sm" style={preStyle}>
+                    {formatOutput(action.value)}
+                  </Box>
+                </Stack>
+              </Paper>
+            ))}
           </>
         )}
       </Stack>
