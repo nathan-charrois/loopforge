@@ -7,10 +7,10 @@ import {
   getTempoAtTick,
   isTickInPlaybackRange,
   type PlaybackRange,
-  type Project,
   type Tick,
   type TransportStatus,
 } from '~/domain'
+import type { Workspace } from '~/store/workspace'
 
 export type TransportSnapshot = {
   activeBlockIds: string[]
@@ -35,13 +35,13 @@ export class Transport {
   private loopEnabled = true
   private loopRange: PlaybackRange | undefined
   private playheadTick: Tick = 0
-  private project: Project
   private snapshotTimerId: number | undefined
   private status: TransportStatus = 'stopped'
+  private workspace: Workspace
 
-  constructor(project: Project) {
-    this.project = project
-    this.compiled = buildSchedule(project)
+  constructor(workspace: Workspace) {
+    this.workspace = workspace
+    this.compiled = buildSchedule(workspace)
     this.loopRange = this.getDefaultLoopRange()
   }
 
@@ -111,9 +111,9 @@ export class Transport {
     this.emitSnapshot()
   }
 
-  setProject(project: Project) {
-    this.project = project
-    this.compiled = buildSchedule(project)
+  setWorkspace(workspace: Workspace) {
+    this.workspace = workspace
+    this.compiled = buildSchedule(workspace)
 
     if (this.loopRange === undefined) {
       this.loopRange = this.getDefaultLoopRange()
@@ -193,14 +193,14 @@ export class Transport {
   }
 
   private getRawPlayheadTick(nowMs: number): Tick {
-    const currentBpm = getTempoAtTick(this.project.timeline, toTimelineTick(this.anchorTick))
-    const ticksPerMs = (currentBpm * this.project.timeline.ppq) / 60000
+    const currentBpm = getTempoAtTick(this.workspace.timeline, toTimelineTick(this.anchorTick))
+    const ticksPerMs = (currentBpm * this.workspace.timeline.ppq) / 60000
 
     return this.anchorTick + ((nowMs - this.anchorMs) * ticksPerMs)
   }
 
   private getActiveBlockIds(playheadTick: Tick): string[] {
-    return this.project.arrangement.blocks
+    return this.workspace.arrangement.blocks
       .filter(block => isTickInPlaybackRange(playheadTick, {
         endTick: block.startTick + block.lengthTicks,
         startTick: block.startTick,

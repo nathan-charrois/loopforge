@@ -1,13 +1,15 @@
 import {
   getBlockEndTick,
-  getProjectEndTick,
-  getProjectPattern,
-  getProjectTrack,
   getScheduledEventDurationTicks,
   type PatternEvent,
-  type Project,
   type Tick,
 } from '~/domain'
+import {
+  selectPattern,
+  selectTrack,
+  selectWorkspaceEndTick,
+  type Workspace,
+} from '~/store/workspace'
 
 export type ScheduledPlaybackEvent = {
   id: string
@@ -32,16 +34,16 @@ export type PlaybackSchedule = {
   warnings: PlaybackScheduleWarning[]
 }
 
-export function buildSchedule(project: Project): PlaybackSchedule {
+export function buildSchedule(workspace: Workspace): PlaybackSchedule {
   const events: ScheduledPlaybackEvent[] = []
   const warnings: PlaybackScheduleWarning[] = []
 
-  for (const block of project.arrangement.blocks) {
+  for (const block of workspace.arrangement.blocks) {
     if (block.muted) {
       continue
     }
 
-    const track = getProjectTrack(project, block.trackId)
+    const track = selectTrack(workspace, block.trackId)
 
     if (track === undefined) {
       warnings.push({
@@ -55,7 +57,7 @@ export function buildSchedule(project: Project): PlaybackSchedule {
       continue
     }
 
-    const pattern = getProjectPattern(project, block.patternId)
+    const pattern = selectPattern(workspace, block.patternId)
 
     if (pattern === undefined) {
       warnings.push({
@@ -128,7 +130,7 @@ export function buildSchedule(project: Project): PlaybackSchedule {
   return {
     eventStartTicks: sortedEvents.map(event => event.startTick),
     events: sortedEvents,
-    projectEndTick: getProjectEndTick(project),
+    projectEndTick: selectWorkspaceEndTick(workspace),
     warnings,
   }
 }

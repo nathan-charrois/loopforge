@@ -37,7 +37,6 @@ import {
   COMMAND_KINDS,
   type CommandKind,
   createAutomationEvent,
-  createBlankProject,
   createBlock,
   createChordEvent,
   createChordSymbol,
@@ -63,6 +62,7 @@ import {
   createPattern,
   createPitchClass,
   createPositiveDurationTicks,
+  createProject,
   createProjectMetadata,
   createProjectVersion,
   createSection,
@@ -87,8 +87,6 @@ import {
   getPatternEventEndTick,
   getPatternEventKind,
   getPitchClassForNoteName,
-  getProjectPattern,
-  getProjectTrack,
   getRomanNumeral,
   getScalePitchClasses,
   getTempoAtTick,
@@ -144,11 +142,13 @@ import {
   tickToBarBeat,
   TIME_SIGNATURE_DENOMINATORS,
   type TimeSignatureDenominator,
+  touchProject,
   TRACK_ROLES,
   type TrackRole,
   transposeChordSymbol,
   transposePitchClass,
   undoCommand,
+  updateProjectMetadata,
   validatePattern,
   validateProject,
   validateTimeline,
@@ -156,6 +156,13 @@ import {
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
+import {
+  addPattern as addWorkspacePattern,
+  createBlankWorkspace,
+  selectPattern,
+  selectTrack,
+  validateWorkspace,
+} from '~/store/workspace'
 
 type OutputStatus = 'ok' | 'error'
 
@@ -457,7 +464,7 @@ export default function Debug() {
     selectedTrackIds: parseCsv(selectedTrackIds),
   })
 
-  const projectWithSampleContent = () => createBlankProject({
+  const project = () => createProject({
     createdAt: projectCreatedAt,
     id: projectId,
     metadata: createProjectMetadata({
@@ -465,11 +472,24 @@ export default function Debug() {
       tags: parseCsv(projectTags),
     }),
     name: projectName,
-    patterns: [pattern('chord')],
-    tracks: createDefaultTracks(),
     updatedAt: projectCreatedAt,
     version: createProjectVersion({ revision: parseInteger(projectRevision) }),
   })
+
+  const workspaceWithSampleContent = () => addWorkspacePattern(
+    createBlankWorkspace({
+      createdAt: projectCreatedAt,
+      id: projectId,
+      metadata: createProjectMetadata({
+        description: projectDescription,
+        tags: parseCsv(projectTags),
+      }),
+      name: projectName,
+      updatedAt: projectCreatedAt,
+      version: createProjectVersion({ revision: parseInteger(projectRevision) }),
+    }),
+    pattern('chord'),
+  )
 
   return (
     <AppProvider>
@@ -860,10 +880,25 @@ export default function Debug() {
                 }))}
               />
               <RunButton label="createProjectVersion" onClick={() => run('project', 'createProjectVersion', () => createProjectVersion({ revision: parseInteger(projectRevision) }))} />
-              <RunButton label="createBlankProject" onClick={() => run('project', 'createBlankProject', projectWithSampleContent)} />
-              <RunButton label="validateProject" onClick={() => run('project', 'validateProject', () => validateProject(projectWithSampleContent()))} />
-              <RunButton label="getProjectTrack" onClick={() => run('project', 'getProjectTrack', () => getProjectTrack(projectWithSampleContent(), 'track_chords'))} />
-              <RunButton label="getProjectPattern" onClick={() => run('project', 'getProjectPattern', () => getProjectPattern(projectWithSampleContent(), patternId))} />
+              <RunButton label="createProject" onClick={() => run('project', 'createProject', project)} />
+              <RunButton label="touchProject" onClick={() => run('project', 'touchProject', () => touchProject(project()))} />
+              <RunButton
+                label="updateProjectMetadata"
+                onClick={() => run('project', 'updateProjectMetadata', () => updateProjectMetadata(project(), createProjectMetadata({
+                  description: projectDescription,
+                  tags: parseCsv(projectTags),
+                })))}
+              />
+              <RunButton label="validateProject" onClick={() => run('project', 'validateProject', () => validateProject(project()))} />
+            </ButtonGroup>
+          </DomainPanel>
+
+          <DomainPanel id="workspace" title="Workspace" outputs={outputs}>
+            <ButtonGroup>
+              <RunButton label="createBlankWorkspace" onClick={() => run('workspace', 'createBlankWorkspace', workspaceWithSampleContent)} />
+              <RunButton label="validateWorkspace" onClick={() => run('workspace', 'validateWorkspace', () => validateWorkspace(workspaceWithSampleContent()))} />
+              <RunButton label="selectTrack" onClick={() => run('workspace', 'selectTrack', () => selectTrack(workspaceWithSampleContent(), 'track_chords'))} />
+              <RunButton label="selectPattern" onClick={() => run('workspace', 'selectPattern', () => selectPattern(workspaceWithSampleContent(), patternId))} />
             </ButtonGroup>
           </DomainPanel>
         </Stack>
