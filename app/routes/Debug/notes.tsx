@@ -70,7 +70,6 @@ import {
   STRUM_PATTERNS,
   type StrumPattern,
   type Tick,
-  type TransportStatus,
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
@@ -88,6 +87,7 @@ import {
 import {
   Transport,
   type TransportSnapshot,
+  type TransportStatus,
 } from '~/utils/transport'
 
 const LOOP_WIDTH = 760

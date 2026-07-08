@@ -9,9 +9,10 @@ import {
   isTickInPlaybackRange,
   type PlaybackRange,
   type Tick,
-  type TransportStatus,
 } from '~/domain'
 import type { Workspace } from '~/store/workspace'
+
+export type TransportStatus = 'stopped' | 'playing' | 'paused'
 
 export type TransportSnapshot = {
   activeBlockIds: string[]

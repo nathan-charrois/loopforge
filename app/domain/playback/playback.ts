@@ -1,8 +1,6 @@
 import type { DurationTicks, Tick } from '../musicPrimitives'
 import type { ArpeggioPattern, PlaybackStyle, StrumPattern } from './constants'
 
-export type TransportStatus = 'stopped' | 'playing' | 'paused'
-
 export type PlaybackRange = {
   startTick: Tick
   endTick: Tick

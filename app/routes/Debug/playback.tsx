@@ -67,7 +67,6 @@ import {
   type Track,
   TRACK_ROLES,
   type TrackRole,
-  type TransportStatus,
 } from '~/domain'
 import {
   addBlock as addWorkspaceBlock,
@@ -94,6 +93,7 @@ import {
 import {
   Transport,
   type TransportSnapshot,
+  type TransportStatus,
 } from '~/utils/transport'
 
 const TICK_WIDTH = 0.09
