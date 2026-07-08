@@ -48,11 +48,14 @@ import {
   createVelocity,
   formatChordSymbol,
   getChordPitchClasses,
+  getGatedDurationTick,
   getNashvilleNumber,
   getNoteNameForPitchClass,
+  getRepeatOrDurationTick,
   getRomanNumeral,
   getScalePitchClasses,
   materializeChordVoicing,
+  type MaterializedNote,
   type Mode,
   MODES,
   normalizePitchClass,
@@ -73,6 +76,16 @@ import {
 } from '~/domain'
 import { createBlankWorkspace, type Workspace } from '~/store/workspace'
 import {
+  clampInteger,
+  clampNumber,
+  parseInteger,
+  parseNumber,
+} from '~/utils/number'
+import {
+  buildSchedule,
+  type ScheduledPlaybackEvent,
+} from '~/utils/schedule'
+import {
   Transport,
   type TransportSnapshot,
 } from '~/utils/transport'
@@ -83,8 +96,6 @@ const LOOP_LANE_LEFT = 36
 const LOOP_LANE_TOP = 148
 const LOOP_LANE_WIDTH = 688
 const LOOP_LANE_HEIGHT = 237
-const PATTERN_WINDOW_TOP = 45
-const PATTERN_WINDOW_HEIGHT = 170
 const EVENT_WINDOW_TOP = 62
 const EVENT_WINDOW_HEIGHT = 145
 const NOTE_LANE_TOP = 94
@@ -107,43 +118,21 @@ type NotesModel = {
   chordPitchLabels: string[]
   event: PatternEvent
   loopLengthTicks: number
-  materializedNotes: MaterializedPatternNote[]
   pattern: Pattern
+  renderedNotes: RenderedScheduledNote[]
   scalePitchLabels: string[]
-  scheduledEvents: ScheduledPatternEventRange[]
-  scheduledPatterns: ScheduledPatternRange[]
+  scheduledEvents: ScheduledPlaybackEvent[]
   tonalLabels: string[]
   voicingPitchLabels: string[]
   workspace: Workspace
 }
 
-type ScheduledPatternRange = {
-  blockPlaybackMode: BlockPlaybackMode
-  durationTicks: number
-  id: string
-  label: string
-  patternId: string
-  startTick: Tick
-}
-
-type ScheduledPatternEventRange = {
-  blockPlaybackMode: BlockPlaybackMode
-  durationTicks: number
-  eventId: string
-  event: PatternEvent
-  id: string
-  label: string
-  patternId: string
-  startTick: Tick
-}
-
-type MaterializedPatternNote = {
-  blockPlaybackMode: BlockPlaybackMode
+type RenderedScheduledNote = {
   durationTicks: number
   eventId: string
   id: string
-  label: string
-  midiNote: number
+  note: MaterializedNote
+  offsetTicks: number
   startTick: Tick
   toneIndex: number
   velocity: number
@@ -388,7 +377,7 @@ export default function Notes() {
           <PresetBank presets={NOTES_PRESETS} onSelect={applyPreset} />
 
           <NotesLooper model={notesModel} />
-          <PatternNotesPanel notes={notesModel.materializedNotes} />
+          <PatternNotesPanel notes={notesModel.renderedNotes} />
 
           <SimpleGrid cols={{ base: 1, md: 4 }}>
             <Paper withBorder radius="sm" p="md">
@@ -467,7 +456,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
   const transport = transportRef.current
   const playheadRef = useRef<HTMLDivElement>(null)
   const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => transport.getSnapshot())
-  const noteRows = getNoteRows(model.materializedNotes)
+  const noteRows = getNoteRows(model.renderedNotes)
   const noteBarHeight = getNoteBarHeight(noteRows.length)
   const playheadX = getLoopX(transportSnapshot.playheadTick, model.loopLengthTicks)
 
@@ -626,32 +615,6 @@ function NotesLooper({ model }: { model: NotesModel }) {
                 </Text>
               </Box>
 
-              {model.scheduledPatterns.map(scheduledPattern => (
-                <Box
-                  key={scheduledPattern.id}
-                  style={{
-                    background: 'rgba(64, 192, 87, 0.18)',
-                    border: '1px solid rgba(43, 138, 62, 0.55)',
-                    borderRadius: 5,
-                    height: PATTERN_WINDOW_HEIGHT,
-                    left: getLaneX(scheduledPattern.startTick, model.loopLengthTicks),
-                    position: 'absolute',
-                    top: PATTERN_WINDOW_TOP,
-                    width: getScheduledPatternWidth(scheduledPattern, model.loopLengthTicks),
-                  }}
-                >
-                  <Text c="green.9" fw={600} size="10px" style={{ marginLeft: 6, marginTop: 3 }}>
-                    pattern
-                    {' '}
-                    {scheduledPattern.startTick}
-                    {' '}
-                    -
-                    {' '}
-                    {scheduledPattern.startTick + scheduledPattern.durationTicks}
-                  </Text>
-                </Box>
-              ))}
-
               {model.scheduledEvents.map(scheduledEvent => (
                 <Box
                   key={scheduledEvent.id}
@@ -713,11 +676,11 @@ function NotesLooper({ model }: { model: NotesModel }) {
                   }}
                 >
                   <Text fw={600} size="11px" truncate="end">
-                    {note.label}
+                    {formatScheduledNoteLabel(note)}
                     {' '}
                     midi
                     {' '}
-                    {note.midiNote}
+                    {note.note.midiNote}
                   </Text>
                 </Box>
               ))}
@@ -738,7 +701,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
 
             <Group gap="xs" style={{ bottom: 10, left: 24, position: 'absolute' }}>
               <LooperValue label="Chord tones" value={model.chordPitchLabels.join(' ')} />
-              <LooperValue label="Rendered tones" value={model.materializedNotes.map(note => `${note.label}@${note.startTick}`).join(' ')} />
+              <LooperValue label="Rendered tones" value={model.renderedNotes.map(note => `${formatScheduledNoteLabel(note)}@${note.startTick}`).join(' ')} />
               <LooperValue label="Scale" value={model.scalePitchLabels.join(' ')} />
             </Group>
           </Box>
@@ -880,10 +843,10 @@ function createNotesModel(input: {
     tracks: [track],
   })
   const chordPitchLabels = getChordPitchClasses(chord).map(getNoteNameForPitchClass)
-  const scheduledEvents = buildNotesSchedule(workspace)
-  const scheduledPatterns = buildScheduledPatternRanges(workspace)
-  const materializedNotes = materializeScheduledEventsTones(scheduledEvents)
-  const voicingPitchLabels = materializedNotes.map(note => note.label)
+  const playbackSchedule = buildSchedule(workspace)
+  const scheduledEvents = playbackSchedule.events
+  const renderedNotes = renderScheduledPlaybackEvents(playbackSchedule.events)
+  const voicingPitchLabels = renderedNotes.map(formatScheduledNoteLabel)
   const scalePitchLabels = getScalePitchClasses(key).map(getNoteNameForPitchClass)
 
   return {
@@ -891,11 +854,10 @@ function createNotesModel(input: {
     chordPitchLabels,
     event,
     loopLengthTicks: blockLengthTicks,
-    materializedNotes,
     pattern,
+    renderedNotes,
     scalePitchLabels,
     scheduledEvents,
-    scheduledPatterns,
     tonalLabels: [
       `Roman ${getRomanNumeral(chord, key)}`,
       `Nashville ${getNashvilleNumber(chord, key)}`,
@@ -937,7 +899,7 @@ function PresetBank({
   )
 }
 
-function PatternNotesPanel({ notes }: { notes: MaterializedPatternNote[] }) {
+function PatternNotesPanel({ notes }: { notes: RenderedScheduledNote[] }) {
   return (
     <Stack gap="xs">
       <Group justify="space-between">
@@ -957,7 +919,7 @@ function PatternNotesPanel({ notes }: { notes: MaterializedPatternNote[] }) {
               padding: '8px 10px',
             }}
           >
-            <Text fw={700}>{note.label}</Text>
+            <Text fw={700}>{formatScheduledNoteLabel(note)}</Text>
             <Text c="dimmed" size="xs">
               tone
               {' '}
@@ -966,7 +928,7 @@ function PatternNotesPanel({ notes }: { notes: MaterializedPatternNote[] }) {
             <Text c="dimmed" size="xs">
               midi
               {' '}
-              {note.midiNote}
+              {note.note.midiNote}
             </Text>
             <Text c="dimmed" size="xs">
               {note.startTick}
@@ -1080,461 +1042,132 @@ function createNotesPreset(input: NotesPresetInput): NotesPreset {
   }
 }
 
-function buildScheduledPatternRanges(workspace: Workspace): ScheduledPatternRange[] {
-  const scheduledPatterns: ScheduledPatternRange[] = []
-
-  for (const block of workspace.arrangement.blocks) {
-    const pattern = workspace.patterns.byId[block.patternId]
-
-    if (pattern === undefined) {
-      continue
+function renderScheduledPlaybackEvents(events: ScheduledPlaybackEvent[]): RenderedScheduledNote[] {
+  return events.flatMap((scheduledEvent) => {
+    if (scheduledEvent.event.kind !== 'chord') {
+      return []
     }
 
-    const blockEndTick = block.startTick + block.lengthTicks
-
-    if (block.playbackMode === 'stretch') {
-      scheduledPatterns.push({
-        blockPlaybackMode: block.playbackMode,
-        durationTicks: block.lengthTicks,
-        id: `${block.id}:stretch:${pattern.id}`,
-        label: pattern.id,
-        patternId: pattern.id,
-        startTick: block.startTick,
-      })
-      continue
+    const event = {
+      ...scheduledEvent.event,
+      durationTicks: scheduledEvent.durationTicks,
     }
 
-    const repeatPattern = block.playbackMode === 'loop'
-
-    for (let offsetTick = 0; offsetTick < block.lengthTicks; offsetTick += pattern.lengthTicks) {
-      const startTick = block.startTick + offsetTick
-
-      scheduledPatterns.push({
-        blockPlaybackMode: block.playbackMode,
-        durationTicks: Math.max(1, Math.min(pattern.lengthTicks, blockEndTick - startTick)),
-        id: `${block.id}:${offsetTick}:${pattern.id}`,
-        label: pattern.id,
-        patternId: pattern.id,
-        startTick,
-      })
-
-      if (!repeatPattern) {
-        break
-      }
-    }
-  }
-
-  return scheduledPatterns
-}
-
-function buildNotesSchedule(workspace: Workspace): ScheduledPatternEventRange[] {
-  const scheduledEvents: ScheduledPatternEventRange[] = []
-
-  for (const block of workspace.arrangement.blocks) {
-    const pattern = workspace.patterns.byId[block.patternId]
-
-    if (pattern === undefined || pattern.kind !== 'chord') {
-      continue
-    }
-
-    const blockEndTick = block.startTick + block.lengthTicks
-
-    if (block.playbackMode === 'stretch') {
-      const scale = block.lengthTicks / pattern.lengthTicks
-
-      for (const event of pattern.events) {
-        const startTick = Math.floor(block.startTick + (event.timeTick * scale))
-        const durationTicks = Math.max(1, Math.min(blockEndTick - startTick, Math.floor(getTimedEventDuration(event) * scale)))
-
-        scheduledEvents.push({
-          blockPlaybackMode: block.playbackMode,
-          durationTicks,
-          event,
-          eventId: event.id,
-          id: `${block.id}:stretch:${event.id}`,
-          label: event.id,
-          patternId: pattern.id,
-          startTick,
-        })
-      }
-
-      continue
-    }
-
-    const repeatPattern = block.playbackMode === 'loop'
-
-    for (let offsetTick = 0; offsetTick < block.lengthTicks; offsetTick += pattern.lengthTicks) {
-      for (const event of pattern.events) {
-        const startTick = block.startTick + offsetTick + event.timeTick
-
-        if (startTick >= blockEndTick) {
-          continue
-        }
-
-        scheduledEvents.push({
-          blockPlaybackMode: block.playbackMode,
-          durationTicks: Math.max(1, Math.min(getTimedEventDuration(event), blockEndTick - startTick)),
-          event,
-          eventId: event.id,
-          id: `${block.id}:${offsetTick}:${event.id}`,
-          label: event.id,
-          patternId: pattern.id,
-          startTick,
-        })
-      }
-
-      if (!repeatPattern) {
-        break
-      }
-    }
-  }
-
-  return scheduledEvents.sort((left, right) => {
-    if (left.startTick !== right.startTick) {
-      return left.startTick - right.startTick
-    }
-
-    return left.id.localeCompare(right.id)
+    return getScheduledEventNotes(scheduledEvent, event)
   })
 }
 
-function materializeScheduledEventsTones(scheduledEvents: ScheduledPatternEventRange[]): MaterializedPatternNote[] {
-  return scheduledEvents.flatMap(materializeScheduledEventTones)
-}
+export function getChordEventNotes(event: Extract<PatternEvent, { kind: 'chord' }>): MaterializedNote[] {
+  const notes = materializeChordVoicing(event.chord, event.voicing)
 
-function materializeScheduledEventTones(scheduledEvent: ScheduledPatternEventRange): MaterializedPatternNote[] {
-  const { event } = scheduledEvent
-
-  if (event.kind !== 'chord') {
-    return []
-  }
-
-  const clippedEvent = {
-    ...event,
-    durationTicks: scheduledEvent.durationTicks,
-    timeTick: scheduledEvent.startTick,
-  }
-
-  return materializeChordEventTones(clippedEvent, scheduledEvent.id, scheduledEvent.blockPlaybackMode)
-}
-
-function materializeChordEventTones(
-  event: Extract<PatternEvent, { kind: 'chord' }>,
-  scheduledEventId: string,
-  blockPlaybackMode: BlockPlaybackMode,
-): MaterializedPatternNote[] {
-  const voicedNotes = materializeChordVoicing(event.chord, event.voicing).map(note => ({
-    label: `${getNoteNameForPitchClass(note.pitchClass)}${note.octave}`,
-    midiNote: note.midiNote,
-  }))
-  const timing = getEffectiveToneTiming(event, voicedNotes.length, blockPlaybackMode)
-
-  switch (event.playback.style) {
-    case 'arpeggio':
-      return materializeArpeggioTones({
-        blockPlaybackMode,
-        event,
-        gate: timing.gate,
-        repeatTicks: timing.repeatTicks,
-        scheduledEventId,
-        voicedNotes,
-      })
-    case 'rhythm':
-      return materializeRhythmTones({
-        blockPlaybackMode,
-        event,
-        gate: timing.gate,
-        repeatTicks: timing.repeatTicks,
-        scheduledEventId,
-        voicedNotes,
-      })
-    case 'strum':
-      return materializeStrumTones({
-        blockPlaybackMode,
-        event,
-        gate: timing.gate,
-        repeatTicks: timing.repeatTicks,
-        scheduledEventId,
-        voicedNotes,
-      })
-    case 'block':
-      return materializeBlockTones({
-        blockPlaybackMode,
-        event,
-        gate: timing.gate,
-        scheduledEventId,
-        voicedNotes,
-      })
-  }
-}
-
-function getEffectiveToneTiming(
-  event: Extract<PatternEvent, { kind: 'chord' }>,
-  voicedNoteCount: number,
-  blockPlaybackMode: BlockPlaybackMode,
-): { gate: number, repeatTicks: number } {
-  const authoredRepeatTicks = event.playback.repeatEveryTicks ?? event.durationTicks
-  const authoredGate = Math.max(0.05, Math.min(1, event.playback.gate))
-
-  if (blockPlaybackMode !== 'stretch') {
-    return {
-      gate: authoredGate,
-      repeatTicks: Math.max(1, authoredRepeatTicks),
-    }
-  }
-
-  if (event.playback.style === 'arpeggio' || event.playback.style === 'strum') {
-    return {
-      gate: 1,
-      repeatTicks: Math.max(1, Math.floor(event.durationTicks / Math.max(1, voicedNoteCount))),
-    }
-  }
-
-  return {
-    gate: 1,
-    repeatTicks: event.durationTicks,
-  }
-}
-
-function materializeBlockTones({
-  blockPlaybackMode,
-  event,
-  gate,
-  scheduledEventId,
-  voicedNotes,
-}: {
-  blockPlaybackMode: BlockPlaybackMode
-  event: Extract<PatternEvent, { kind: 'chord' }>
-  gate: number
-  scheduledEventId: string
-  voicedNotes: Array<{ label: string, midiNote: number }>
-}): MaterializedPatternNote[] {
-  return voicedNotes.map((note, index) => createMaterializedPatternNote({
-    durationTicks: Math.max(1, Math.floor(event.durationTicks * gate)),
-    blockPlaybackMode,
-    event,
-    note,
-    scheduledEventId,
-    startTick: event.timeTick,
-    toneIndex: index,
-  }))
-}
-
-function materializeArpeggioTones({
-  blockPlaybackMode,
-  event,
-  gate,
-  repeatTicks,
-  scheduledEventId,
-  voicedNotes,
-}: {
-  blockPlaybackMode: BlockPlaybackMode
-  event: Extract<PatternEvent, { kind: 'chord' }>
-  gate: number
-  repeatTicks: number
-  scheduledEventId: string
-  voicedNotes: Array<{ label: string, midiNote: number }>
-}): MaterializedPatternNote[] {
-  const orderedNotes = orderArpeggioNotes(voicedNotes, event.playback.arpeggioPattern ?? 'up')
-  const stepTicks = Math.max(1, repeatTicks)
-  const eventEndTick = event.timeTick + event.durationTicks
-  const notes: MaterializedPatternNote[] = []
-  let toneIndex = 0
-
-  for (let startTick = event.timeTick; startTick < eventEndTick; startTick += stepTicks) {
-    const note = orderedNotes[toneIndex % orderedNotes.length]
-
-    if (note === undefined) {
-      break
-    }
-
-    notes.push(createMaterializedPatternNote({
-      durationTicks: Math.max(1, Math.min(eventEndTick - startTick, Math.floor(stepTicks * gate))),
-      blockPlaybackMode,
-      event,
-      note,
-      scheduledEventId,
-      startTick,
-      toneIndex,
-    }))
-    toneIndex += 1
-
-    if (blockPlaybackMode === 'oneShot' && toneIndex >= orderedNotes.length) {
-      break
-    }
+  if (event.playback.style === 'arpeggio') {
+    return getArpeggioNotes(notes, event)
   }
 
   return notes
 }
 
-function materializeRhythmTones({
-  blockPlaybackMode,
-  event,
-  gate,
-  repeatTicks,
-  scheduledEventId,
-  voicedNotes,
-}: {
-  blockPlaybackMode: BlockPlaybackMode
-  event: Extract<PatternEvent, { kind: 'chord' }>
-  gate: number
-  repeatTicks: number
-  scheduledEventId: string
-  voicedNotes: Array<{ label: string, midiNote: number }>
-}): MaterializedPatternNote[] {
-  const stepTicks = Math.max(1, repeatTicks)
-  const eventEndTick = event.timeTick + event.durationTicks
-  const notes: MaterializedPatternNote[] = []
-  let toneIndex = 0
-
-  for (let startTick = event.timeTick; startTick < eventEndTick; startTick += stepTicks) {
-    for (const note of voicedNotes) {
-      notes.push(createMaterializedPatternNote({
-        durationTicks: Math.max(1, Math.min(eventEndTick - startTick, Math.floor(stepTicks * gate))),
-        blockPlaybackMode,
-        event,
-        note,
-        scheduledEventId,
-        startTick,
-        toneIndex,
-      }))
-      toneIndex += 1
-    }
-  }
-
-  return notes
-}
-
-function materializeStrumTones({
-  blockPlaybackMode,
-  event,
-  gate,
-  repeatTicks,
-  scheduledEventId,
-  voicedNotes,
-}: {
-  blockPlaybackMode: BlockPlaybackMode
-  event: Extract<PatternEvent, { kind: 'chord' }>
-  gate: number
-  repeatTicks: number
-  scheduledEventId: string
-  voicedNotes: Array<{ label: string, midiNote: number }>
-}): MaterializedPatternNote[] {
-  const orderedNotes = orderStrumNotes(voicedNotes, event.playback.strumPattern ?? 'down')
-  const stepTicks = Math.max(1, Math.min(120, repeatTicks))
-  const eventEndTick = event.timeTick + event.durationTicks
-
-  return orderedNotes
-    .map((note, index) => {
-      const startTick = event.timeTick + (index * stepTicks)
-
-      if (startTick >= eventEndTick) {
-        return null
-      }
-
-      return createMaterializedPatternNote({
-        durationTicks: Math.max(1, Math.min(eventEndTick - startTick, Math.floor((event.durationTicks - (index * stepTicks)) * gate))),
-        blockPlaybackMode,
-        event,
-        note,
-        scheduledEventId,
-        startTick,
-        toneIndex: index,
-      })
-    })
-    .filter((note): note is MaterializedPatternNote => note !== null)
-}
-
-function createMaterializedPatternNote({
-  durationTicks,
-  blockPlaybackMode,
-  event,
-  note,
-  scheduledEventId,
-  startTick,
-  toneIndex,
-}: {
-  durationTicks: number
-  blockPlaybackMode: BlockPlaybackMode
-  event: Extract<PatternEvent, { kind: 'chord' }>
-  note: { label: string, midiNote: number }
-  scheduledEventId: string
-  startTick: number
-  toneIndex: number
-}): MaterializedPatternNote {
-  return {
-    blockPlaybackMode,
-    durationTicks,
-    eventId: event.id,
-    id: `${scheduledEventId}:${toneIndex}:${note.midiNote}:${startTick}`,
-    label: note.label,
-    midiNote: note.midiNote,
-    startTick: startTick as Tick,
-    toneIndex,
-    velocity: event.velocity,
-  }
-}
-
-function orderArpeggioNotes(
-  notes: Array<{ label: string, midiNote: number }>,
-  pattern: ArpeggioPattern,
-): Array<{ label: string, midiNote: number }> {
+export function getArpeggioNotes(
+  notes: MaterializedNote[],
+  event: Extract<PatternEvent, { kind: 'chord' }>,
+): MaterializedNote[] {
   const ascending = [...notes].sort((left, right) => left.midiNote - right.midiNote)
 
-  switch (pattern) {
+  switch (event.playback.arpeggioPattern ?? 'up') {
     case 'down':
       return [...ascending].reverse()
     case 'random':
-      return deterministicShuffle(ascending)
+    case 'up':
+      return ascending
     case 'upDown':
       return [
         ...ascending,
         ...ascending.slice(1, -1).reverse(),
       ]
-    case 'up':
-      return ascending
   }
 }
 
-function orderStrumNotes(
-  notes: Array<{ label: string, midiNote: number }>,
-  pattern: StrumPattern,
-): Array<{ label: string, midiNote: number }> {
-  const ascending = [...notes].sort((left, right) => left.midiNote - right.midiNote)
+function getScheduledEventNotes(
+  scheduledEvent: ScheduledPlaybackEvent,
+  event: Extract<PatternEvent, { kind: 'chord' }>,
+): RenderedScheduledNote[] {
+  const notes = getChordEventNotes(event)
 
-  switch (pattern) {
-    case 'alternate':
-    case 'down':
-      return ascending
-    case 'up':
-      return [...ascending].reverse()
+  if (event.playback.style === 'arpeggio') {
+    return getScheduledArpeggioNotes(scheduledEvent, event, notes)
+  }
+
+  return notes.map((note, index) => createRenderedScheduledNote({
+    durationTicks: getGatedDurationTick(event.durationTicks, event.durationTicks, event.playback.gate),
+    event,
+    note,
+    offsetTicks: 0,
+    scheduledEvent,
+    toneIndex: index,
+  }))
+}
+
+function getScheduledArpeggioNotes(
+  scheduledEvent: ScheduledPlaybackEvent,
+  event: Extract<PatternEvent, { kind: 'chord' }>,
+  notes: MaterializedNote[],
+): RenderedScheduledNote[] {
+  const repeatTicks = getRepeatOrDurationTick(event.durationTicks, event.playback)
+  const scheduledNotes: RenderedScheduledNote[] = []
+  let toneIndex = 0
+
+  for (let offsetTicks = 0; offsetTicks < event.durationTicks; offsetTicks += repeatTicks) {
+    const note = notes[toneIndex % notes.length]
+
+    if (note === undefined) {
+      break
+    }
+
+    scheduledNotes.push(createRenderedScheduledNote({
+      durationTicks: getGatedDurationTick(repeatTicks, event.durationTicks - offsetTicks, event.playback.gate),
+      event,
+      note,
+      offsetTicks,
+      scheduledEvent,
+      toneIndex,
+    }))
+    toneIndex += 1
+  }
+
+  return scheduledNotes
+}
+
+function createRenderedScheduledNote({
+  durationTicks,
+  event,
+  note,
+  offsetTicks,
+  scheduledEvent,
+  toneIndex,
+}: {
+  durationTicks: number
+  event: Extract<PatternEvent, { kind: 'chord' }>
+  note: MaterializedNote
+  offsetTicks: number
+  scheduledEvent: ScheduledPlaybackEvent
+  toneIndex: number
+}): RenderedScheduledNote {
+  return {
+    durationTicks,
+    eventId: event.id,
+    id: `${scheduledEvent.id}:${toneIndex}:${note.midiNote}:${offsetTicks}`,
+    note,
+    offsetTicks,
+    startTick: scheduledEvent.startTick + offsetTicks,
+    toneIndex,
+    velocity: event.velocity,
   }
 }
 
-function deterministicShuffle<TItem>(items: TItem[]): TItem[] {
-  return [...items].sort((left, right) => {
-    const leftHash = hashString(JSON.stringify(left))
-    const rightHash = hashString(JSON.stringify(right))
-
-    return leftHash - rightHash
-  })
-}
-
-function hashString(value: string): number {
-  let hash = 0
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) - hash) + value.charCodeAt(index)
-    hash |= 0
-  }
-
-  return hash
-}
-
-function getNoteRows(notes: MaterializedPatternNote[]): MaterializedPatternNote[] {
+function getNoteRows(notes: RenderedScheduledNote[]): RenderedScheduledNote[] {
   return [...notes].sort((left, right) => {
-    if (left.midiNote !== right.midiNote) {
-      return right.midiNote - left.midiNote
+    if (left.note.midiNote !== right.note.midiNote) {
+      return right.note.midiNote - left.note.midiNote
     }
 
     return left.id.localeCompare(right.id)
@@ -1550,28 +1183,23 @@ function getNoteBarTop(index: number, noteCount: number): number {
 function getNoteBarHeight(noteCount: number): number {
   const rowStep = NOTE_LANE_HEIGHT / Math.max(1, noteCount)
 
-  return Math.max(12, Math.min(24, rowStep - 2))
+  return clampNumber(rowStep - 2, 12, 24)
 }
 
-function getNoteWidth(note: MaterializedPatternNote, loopLengthTicks: number): number {
-  return Math.max(28, Math.min(
-    LOOP_LANE_WIDTH - getLaneX(note.startTick, loopLengthTicks),
+function getNoteWidth(note: RenderedScheduledNote, loopLengthTicks: number): number {
+  return clampNumber(
     (note.durationTicks / loopLengthTicks) * LOOP_LANE_WIDTH,
-  ))
+    2,
+    LOOP_LANE_WIDTH - getLaneX(note.startTick, loopLengthTicks),
+  )
 }
 
-function getScheduledPatternWidth(pattern: ScheduledPatternRange, loopLengthTicks: number): number {
-  return Math.max(36, Math.min(
-    LOOP_LANE_WIDTH - getLaneX(pattern.startTick, loopLengthTicks),
-    (pattern.durationTicks / loopLengthTicks) * LOOP_LANE_WIDTH,
-  ))
-}
-
-function getScheduledEventWidth(event: ScheduledPatternEventRange, loopLengthTicks: number): number {
-  return Math.max(28, Math.min(
-    LOOP_LANE_WIDTH - getLaneX(event.startTick, loopLengthTicks),
+function getScheduledEventWidth(event: ScheduledPlaybackEvent, loopLengthTicks: number): number {
+  return clampNumber(
     (event.durationTicks / loopLengthTicks) * LOOP_LANE_WIDTH,
-  ))
+    28,
+    LOOP_LANE_WIDTH - getLaneX(event.startTick, loopLengthTicks),
+  )
 }
 
 function getLoopMarkers(loopLengthTicks: number): Array<{ label: string, tick: Tick }> {
@@ -1590,7 +1218,7 @@ function getLoopX(tick: number, loopLengthTicks: number): number {
 }
 
 function getLaneX(tick: number, loopLengthTicks: number): number {
-  return (Math.min(tick, loopLengthTicks) / loopLengthTicks) * LOOP_LANE_WIDTH
+  return (clampNumber(tick, 0, loopLengthTicks) / loopLengthTicks) * LOOP_LANE_WIDTH
 }
 
 function getTimedEventDuration(event: PatternEvent): number {
@@ -1605,24 +1233,8 @@ function parsePitchClass(value: string) {
   return createPitchClass(normalizePitchClass(parseInteger(value)))
 }
 
-function parseInteger(value: string): number {
-  const parsed = Number.parseInt(value, 10)
-
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function parseNumber(value: string): number {
-  const parsed = Number.parseFloat(value)
-
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function clampInteger(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)))
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
+function formatScheduledNoteLabel(note: RenderedScheduledNote): string {
+  return `${getNoteNameForPitchClass(note.note.pitchClass)}${note.note.octave}`
 }
 
 function getTransportColor(status: TransportStatus): string {

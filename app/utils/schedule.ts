@@ -1,8 +1,11 @@
 import {
+  type Block,
   getBlockEndTick,
   getScheduledEventDurationTicks,
+  type Pattern,
   type PatternEvent,
   type Tick,
+  type Track,
 } from '~/domain'
 import {
   selectPattern,
@@ -39,78 +42,34 @@ export function buildSchedule(workspace: Workspace): PlaybackSchedule {
   const warnings: PlaybackScheduleWarning[] = []
 
   for (const block of workspace.arrangement.blocks) {
-    if (block.muted) {
-      continue
-    }
+    const context = getSchedulableBlockContext(workspace, block, warnings)
 
-    const track = selectTrack(workspace, block.trackId)
-
-    if (track === undefined) {
-      warnings.push({
-        id: `missing-track-${block.id}`,
-        message: `Block ${block.name} references missing track ${block.trackId}.`,
-      })
-      continue
-    }
-
-    if (track.muted) {
-      continue
-    }
-
-    const pattern = selectPattern(workspace, block.patternId)
-
-    if (pattern === undefined) {
-      warnings.push({
-        id: `missing-pattern-${block.id}`,
-        message: `Block ${block.name} references missing pattern ${block.patternId}.`,
-      })
-      continue
-    }
-
-    if (!track.accepts.includes(pattern.kind)) {
-      warnings.push({
-        id: `track-accepts-${block.id}`,
-        message: `${track.name} does not accept ${pattern.kind} patterns.`,
-      })
+    if (context === null) {
       continue
     }
 
     if (block.playbackMode === 'stretch') {
       warnings.push({
         id: `stretch-${block.id}`,
-        message: `${block.name} uses stretch playback; v1 schedules it as loop playback.`,
+        message: `${block.name} uses stretch playback; v1 schedules it as a single clipped pattern pass.`,
       })
     }
 
-    if (pattern.lengthTicks <= 0) {
-      warnings.push({
-        id: `pattern-length-${pattern.id}`,
-        message: `${pattern.name} has no positive length and cannot be scheduled.`,
-      })
-      continue
-    }
+    const repeatPattern = block.playbackMode === 'loop'
 
-    const repeatPattern = block.playbackMode === 'loop' || block.playbackMode === 'stretch'
-    const blockEndTick = getBlockEndTick(block)
-
-    for (let offsetTick = 0; offsetTick < block.lengthTicks; offsetTick += pattern.lengthTicks) {
-      for (const event of pattern.events) {
-        const startTick = block.startTick + offsetTick + event.timeTick
-
-        if (startTick >= blockEndTick) {
-          continue
-        }
-
-        events.push({
-          blockId: block.id,
-          durationTicks: getScheduledEventDurationTicks(event, blockEndTick - startTick),
+    for (let offsetTick = 0; offsetTick < block.lengthTicks; offsetTick += context.pattern.lengthTicks) {
+      for (const event of context.pattern.events) {
+        const scheduledEvent = createScheduledPlaybackEvent({
+          block,
           event,
-          id: `${block.id}:${offsetTick}:${event.id}`,
-          patternId: pattern.id,
-          startTick,
-          trackId: track.id,
-          trackVolume: track.volume,
+          offsetTick,
+          pattern: context.pattern,
+          track: context.track,
         })
+
+        if (scheduledEvent !== null) {
+          events.push(scheduledEvent)
+        }
       }
 
       if (!repeatPattern) {
@@ -119,13 +78,7 @@ export function buildSchedule(workspace: Workspace): PlaybackSchedule {
     }
   }
 
-  const sortedEvents = events.sort((left, right) => {
-    if (left.startTick !== right.startTick) {
-      return left.startTick - right.startTick
-    }
-
-    return left.id.localeCompare(right.id)
-  })
+  const sortedEvents = events.sort(sortScheduledEvents)
 
   return {
     eventStartTicks: sortedEvents.map(event => event.startTick),
@@ -133,4 +86,101 @@ export function buildSchedule(workspace: Workspace): PlaybackSchedule {
     projectEndTick: selectWorkspaceEndTick(workspace),
     warnings,
   }
+}
+
+function getSchedulableBlockContext(
+  workspace: Workspace,
+  block: Block,
+  warnings: PlaybackScheduleWarning[],
+): { pattern: Pattern, track: Track } | null {
+  if (block.muted) {
+    return null
+  }
+
+  const track = selectTrack(workspace, block.trackId)
+
+  if (track === undefined) {
+    warnings.push({
+      id: `missing-track-${block.id}`,
+      message: `Block ${block.name} references missing track ${block.trackId}.`,
+    })
+    return null
+  }
+
+  if (track.muted) {
+    return null
+  }
+
+  const pattern = selectPattern(workspace, block.patternId)
+
+  if (pattern === undefined) {
+    warnings.push({
+      id: `missing-pattern-${block.id}`,
+      message: `Block ${block.name} references missing pattern ${block.patternId}.`,
+    })
+    return null
+  }
+
+  if (!track.accepts.includes(pattern.kind)) {
+    warnings.push({
+      id: `track-accepts-${block.id}`,
+      message: `${track.name} does not accept ${pattern.kind} patterns.`,
+    })
+    return null
+  }
+
+  if (pattern.lengthTicks <= 0) {
+    warnings.push({
+      id: `pattern-length-${pattern.id}`,
+      message: `${pattern.name} has no positive length and cannot be scheduled.`,
+    })
+    return null
+  }
+
+  return {
+    pattern,
+    track,
+  }
+}
+
+function createScheduledPlaybackEvent({
+  block,
+  event,
+  offsetTick,
+  pattern,
+  track,
+}: {
+  block: Block
+  event: PatternEvent
+  offsetTick: number
+  pattern: Pattern
+  track: Track
+}): ScheduledPlaybackEvent | null {
+  const blockEndTick = getBlockEndTick(block)
+  const startTick = block.startTick + offsetTick + event.timeTick
+
+  if (startTick >= blockEndTick) {
+    return null
+  }
+
+  const maxDurationTicks = blockEndTick - startTick
+
+  return {
+    blockId: block.id,
+    durationTicks: getScheduledEventDurationTicks(event, maxDurationTicks),
+    event,
+    id: `${block.id}:${offsetTick}:${event.id}`,
+    patternId: pattern.id,
+    startTick,
+    trackId: track.id,
+    trackVolume: track.volume,
+  }
+}
+
+function sortScheduledEvents(left: ScheduledPlaybackEvent, right: ScheduledPlaybackEvent): number {
+  if (left.startTick !== right.startTick) {
+    return left.startTick - right.startTick
+  }
+
+  return left.id.localeCompare(right.id)
 }

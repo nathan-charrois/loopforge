@@ -1,3 +1,4 @@
+import { positiveModulo } from './number'
 import {
   buildSchedule,
   type PlaybackSchedule,
@@ -259,10 +260,6 @@ export class Transport {
       listener(snapshot)
     }
   }
-}
-
-function positiveModulo(value: number, divisor: number): number {
-  return ((value % divisor) + divisor) % divisor
 }
 
 function toTimelineTick(tick: number): Tick {

@@ -24,3 +24,11 @@ export type ChordPlayback = {
 export function isTickInPlaybackRange(tick: Tick, range: PlaybackRange): boolean {
   return tick >= range.startTick && tick < range.endTick
 }
+
+export function getGatedDurationTick(durationTicks: DurationTicks, maxDurationTicks: DurationTicks, gate: number): DurationTicks {
+  return Math.max(1, Math.min(maxDurationTicks, Math.floor(durationTicks * gate)))
+}
+
+export function getRepeatOrDurationTick(durationTicks: DurationTicks, playback: ChordPlayback): DurationTicks {
+  return Math.max(1, playback.repeatEveryTicks ?? durationTicks)
+}
