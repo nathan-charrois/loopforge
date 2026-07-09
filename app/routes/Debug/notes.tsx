@@ -48,14 +48,12 @@ import {
   createVelocity,
   formatChordSymbol,
   getChordPitchClasses,
-  getGatedDurationTick,
   getNashvilleNumber,
   getNoteNameForPitchClass,
-  getRepeatOrDurationTick,
+  getOctaveForMidiNote,
   getRomanNumeral,
   getScalePitchClasses,
-  materializeChordVoicing,
-  type MaterializedNote,
+  type MidiNote,
   type Mode,
   MODES,
   normalizePitchClass,
@@ -63,6 +61,7 @@ import {
   PATTERN_KINDS,
   type PatternEvent,
   PITCH_CLASSES,
+  pitchClassFromMidiNote,
   PLAYBACK_STYLES,
   type PlaybackStyle,
   type Register,
@@ -82,6 +81,8 @@ import {
 } from '~/utils/number'
 import {
   buildSchedule,
+  type NotePlaybackTrigger,
+  type PlaybackTrigger,
   type ScheduledPlaybackEvent,
 } from '~/utils/schedule'
 import {
@@ -119,6 +120,7 @@ type NotesModel = {
   event: PatternEvent
   loopLengthTicks: number
   pattern: Pattern
+  playbackTriggers: PlaybackTrigger[]
   renderedNotes: RenderedScheduledNote[]
   scalePitchLabels: string[]
   scheduledEvents: ScheduledPlaybackEvent[]
@@ -131,8 +133,7 @@ type RenderedScheduledNote = {
   durationTicks: number
   eventId: string
   id: string
-  note: MaterializedNote
-  offsetTicks: number
+  pitch: MidiNote
   startTick: Tick
   toneIndex: number
   velocity: number
@@ -437,7 +438,13 @@ export default function Notes() {
 
           <SimpleGrid cols={{ base: 1, md: 3 }}>
             <JsonPanel title="Event" value={notesModel.event} />
-            <JsonPanel title="Model" value={notesModel} />
+            <JsonPanel
+              title="Schedule"
+              value={{
+                events: notesModel.scheduledEvents,
+                triggers: notesModel.playbackTriggers,
+              }}
+            />
             <JsonPanel title="Pattern" value={notesModel.pattern} />
           </SimpleGrid>
         </Stack>
@@ -680,7 +687,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
                     {' '}
                     midi
                     {' '}
-                    {note.note.midiNote}
+                    {note.pitch}
                   </Text>
                 </Box>
               ))}
@@ -844,8 +851,9 @@ function createNotesModel(input: {
   })
   const chordPitchLabels = getChordPitchClasses(chord).map(getNoteNameForPitchClass)
   const playbackSchedule = buildSchedule(workspace)
+  const playbackTriggers = playbackSchedule.triggers
   const scheduledEvents = playbackSchedule.events
-  const renderedNotes = renderScheduledPlaybackEvents(playbackSchedule.events)
+  const renderedNotes = renderNotePlaybackTriggers(playbackTriggers)
   const voicingPitchLabels = renderedNotes.map(formatScheduledNoteLabel)
   const scalePitchLabels = getScalePitchClasses(key).map(getNoteNameForPitchClass)
 
@@ -855,6 +863,7 @@ function createNotesModel(input: {
     event,
     loopLengthTicks: blockLengthTicks,
     pattern,
+    playbackTriggers,
     renderedNotes,
     scalePitchLabels,
     scheduledEvents,
@@ -928,7 +937,7 @@ function PatternNotesPanel({ notes }: { notes: RenderedScheduledNote[] }) {
             <Text c="dimmed" size="xs">
               midi
               {' '}
-              {note.note.midiNote}
+              {note.pitch}
             </Text>
             <Text c="dimmed" size="xs">
               {note.startTick}
@@ -1042,132 +1051,32 @@ function createNotesPreset(input: NotesPresetInput): NotesPreset {
   }
 }
 
-function renderScheduledPlaybackEvents(events: ScheduledPlaybackEvent[]): RenderedScheduledNote[] {
-  return events.flatMap((scheduledEvent) => {
-    if (scheduledEvent.event.kind !== 'chord') {
-      return []
-    }
-
-    const event = {
-      ...scheduledEvent.event,
-      durationTicks: scheduledEvent.durationTicks,
-    }
-
-    return getScheduledEventNotes(scheduledEvent, event)
-  })
+function renderNotePlaybackTriggers(triggers: PlaybackTrigger[]): RenderedScheduledNote[] {
+  return triggers
+    .filter(isNotePlaybackTrigger)
+    .map(createRenderedScheduledNote)
 }
 
-export function getChordEventNotes(event: Extract<PatternEvent, { kind: 'chord' }>): MaterializedNote[] {
-  const notes = materializeChordVoicing(event.chord, event.voicing)
-
-  if (event.playback.style === 'arpeggio') {
-    return getArpeggioNotes(notes, event)
-  }
-
-  return notes
+function isNotePlaybackTrigger(trigger: PlaybackTrigger): trigger is NotePlaybackTrigger {
+  return trigger.kind === 'note'
 }
 
-export function getArpeggioNotes(
-  notes: MaterializedNote[],
-  event: Extract<PatternEvent, { kind: 'chord' }>,
-): MaterializedNote[] {
-  const ascending = [...notes].sort((left, right) => left.midiNote - right.midiNote)
-
-  switch (event.playback.arpeggioPattern ?? 'up') {
-    case 'down':
-      return [...ascending].reverse()
-    case 'random':
-    case 'up':
-      return ascending
-    case 'upDown':
-      return [
-        ...ascending,
-        ...ascending.slice(1, -1).reverse(),
-      ]
-  }
-}
-
-function getScheduledEventNotes(
-  scheduledEvent: ScheduledPlaybackEvent,
-  event: Extract<PatternEvent, { kind: 'chord' }>,
-): RenderedScheduledNote[] {
-  const notes = getChordEventNotes(event)
-
-  if (event.playback.style === 'arpeggio') {
-    return getScheduledArpeggioNotes(scheduledEvent, event, notes)
-  }
-
-  return notes.map((note, index) => createRenderedScheduledNote({
-    durationTicks: getGatedDurationTick(event.durationTicks, event.durationTicks, event.playback.gate),
-    event,
-    note,
-    offsetTicks: 0,
-    scheduledEvent,
-    toneIndex: index,
-  }))
-}
-
-function getScheduledArpeggioNotes(
-  scheduledEvent: ScheduledPlaybackEvent,
-  event: Extract<PatternEvent, { kind: 'chord' }>,
-  notes: MaterializedNote[],
-): RenderedScheduledNote[] {
-  const repeatTicks = getRepeatOrDurationTick(event.durationTicks, event.playback)
-  const scheduledNotes: RenderedScheduledNote[] = []
-  let toneIndex = 0
-
-  for (let offsetTicks = 0; offsetTicks < event.durationTicks; offsetTicks += repeatTicks) {
-    const note = notes[toneIndex % notes.length]
-
-    if (note === undefined) {
-      break
-    }
-
-    scheduledNotes.push(createRenderedScheduledNote({
-      durationTicks: getGatedDurationTick(repeatTicks, event.durationTicks - offsetTicks, event.playback.gate),
-      event,
-      note,
-      offsetTicks,
-      scheduledEvent,
-      toneIndex,
-    }))
-    toneIndex += 1
-  }
-
-  return scheduledNotes
-}
-
-function createRenderedScheduledNote({
-  durationTicks,
-  event,
-  note,
-  offsetTicks,
-  scheduledEvent,
-  toneIndex,
-}: {
-  durationTicks: number
-  event: Extract<PatternEvent, { kind: 'chord' }>
-  note: MaterializedNote
-  offsetTicks: number
-  scheduledEvent: ScheduledPlaybackEvent
-  toneIndex: number
-}): RenderedScheduledNote {
+function createRenderedScheduledNote(trigger: NotePlaybackTrigger): RenderedScheduledNote {
   return {
-    durationTicks,
-    eventId: event.id,
-    id: `${scheduledEvent.id}:${toneIndex}:${note.midiNote}:${offsetTicks}`,
-    note,
-    offsetTicks,
-    startTick: scheduledEvent.startTick + offsetTicks,
-    toneIndex,
-    velocity: event.velocity,
+    durationTicks: trigger.durationTicks,
+    eventId: trigger.source.eventId,
+    id: trigger.id,
+    pitch: trigger.pitch,
+    startTick: trigger.startTick,
+    toneIndex: trigger.toneIndex ?? 0,
+    velocity: trigger.velocity,
   }
 }
 
 function getNoteRows(notes: RenderedScheduledNote[]): RenderedScheduledNote[] {
   return [...notes].sort((left, right) => {
-    if (left.note.midiNote !== right.note.midiNote) {
-      return right.note.midiNote - left.note.midiNote
+    if (left.pitch !== right.pitch) {
+      return right.pitch - left.pitch
     }
 
     return left.id.localeCompare(right.id)
@@ -1234,7 +1143,7 @@ function parsePitchClass(value: string) {
 }
 
 function formatScheduledNoteLabel(note: RenderedScheduledNote): string {
-  return `${getNoteNameForPitchClass(note.note.pitchClass)}${note.note.octave}`
+  return `${getNoteNameForPitchClass(pitchClassFromMidiNote(note.pitch))}${getOctaveForMidiNote(note.pitch)}`
 }
 
 function getTransportColor(status: TransportStatus): string {

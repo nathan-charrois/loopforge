@@ -69,6 +69,14 @@ export function getScheduledEventDurationTicks(event: PatternEvent, maxDurationT
   return Math.max(0, Math.min(getPatternEventEndTick(event) - event.timeTick, maxDurationTicks))
 }
 
+export function getScheduledEventStartTick(event: PatternEvent, offset: Tick): Tick {
+  if (isTimedPatternEvent(event)) {
+    return event.timeTick + offset
+  }
+
+  return event.timeTick
+}
+
 export function isPatternEventWithinLength(event: PatternEvent, lengthTicks: DurationTicks): boolean {
   return event.timeTick >= 0 && getPatternEventEndTick(event) <= lengthTicks
 }

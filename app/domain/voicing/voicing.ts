@@ -7,6 +7,7 @@ import {
   type PitchClass,
   pitchClassFromMidiNote,
 } from '../musicPrimitives'
+import type { ArpeggioPattern } from '../playback'
 import { type Register, REGISTER_BASE_OCTAVES, type VoicingType } from './constants'
 
 export type Inversion = number
@@ -127,5 +128,23 @@ function midiNoteToMaterializedNote(midiNote: MidiNote): MaterializedNote {
     midiNote,
     octave: getOctaveForMidiNote(midiNote),
     pitchClass: pitchClassFromMidiNote(midiNote),
+  }
+}
+
+export function orderArpeggioNotes(notes: MaterializedNote[], pattern?: ArpeggioPattern): MaterializedNote[] {
+  const ascending = [...notes].sort((left, right) => left.midiNote - right.midiNote)
+
+  switch (pattern) {
+    case 'down':
+      return [...ascending].reverse()
+    case 'random':
+    default:
+    case 'up':
+      return ascending
+    case 'upDown':
+      return [
+        ...ascending,
+        ...ascending.slice(1, -1).reverse(),
+      ]
   }
 }
