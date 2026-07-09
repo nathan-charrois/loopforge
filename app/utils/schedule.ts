@@ -108,25 +108,13 @@ export function buildSchedule(workspace: Workspace): PlaybackSchedule {
       continue
     }
 
-    for (let offsetTick = 0; offsetTick < block.lengthTicks; offsetTick += context.pattern.lengthTicks) {
-      for (const event of context.pattern.events) {
-        const scheduledEvent = createScheduledPlaybackEvent({
-          block,
-          event,
-          offsetTick,
-          pattern: context.pattern,
-          track: context.track,
-        })
-
-        if (scheduledEvent !== null) {
-          events.push(scheduledEvent)
-        }
-      }
-    }
-
-    if (block.playbackMode !== 'loop') {
-      break
-    }
+    events.push(
+      ...createScheduledPlaybackEventsForBlock({
+        block,
+        pattern: context.pattern,
+        track: context.track,
+      }),
+    )
   }
 
   const sortedEvents = sortByStartTick(events)
@@ -195,6 +183,161 @@ function getBlockContext(
     pattern,
     track,
   }
+}
+
+function createScheduledPlaybackEventsForBlock({
+  block,
+  pattern,
+  track,
+}: {
+  block: Block
+  pattern: Pattern
+  track: Track
+}): ScheduledPlaybackEvent[] {
+  switch (block.playbackMode) {
+    case 'oneShot':
+      return createOneShotScheduledEvents({ block, pattern, track })
+    case 'stretch':
+      return createStretchScheduledEvents({ block, pattern, track })
+    case 'loop':
+    default:
+      return createLoopScheduledEvents({ block, pattern, track })
+  }
+}
+
+function createOneShotScheduledEvents({
+  block,
+  pattern,
+  track,
+}: {
+  block: Block
+  pattern: Pattern
+  track: Track
+}): ScheduledPlaybackEvent[] {
+  const events: ScheduledPlaybackEvent[] = []
+
+  for (const event of pattern.events) {
+    const scheduledEvent = createScheduledPlaybackEvent({
+      block,
+      event,
+      offsetTick: 0,
+      pattern,
+      track,
+    })
+
+    if (scheduledEvent !== null) {
+      events.push(scheduledEvent)
+    }
+  }
+
+  return events
+}
+
+function createStretchScheduledEvents({
+  block,
+  pattern,
+  track,
+}: {
+  block: Block
+  pattern: Pattern
+  track: Track
+}): ScheduledPlaybackEvent[] {
+  const events: ScheduledPlaybackEvent[] = []
+  const blockEndTick = getBlockEndTick(block)
+
+  for (const event of pattern.events) {
+    const eventDurationTicks = getPatternEventDurationTicks(event)
+
+    const stretchedStartOffset = stretchTickToBlock(
+      event.timeTick,
+      pattern.lengthTicks,
+      block.lengthTicks,
+    )
+
+    const stretchedEndOffset = stretchTickToBlock(
+      event.timeTick + eventDurationTicks,
+      pattern.lengthTicks,
+      block.lengthTicks,
+    )
+
+    const startTick = block.startTick + stretchedStartOffset
+
+    if (startTick >= blockEndTick) {
+      continue
+    }
+
+    const durationTicks = Math.max(
+      1,
+      Math.min(stretchedEndOffset - stretchedStartOffset, blockEndTick - startTick),
+    ) as DurationTicks
+
+    const scheduledEventBase: ScheduledPlaybackEventBase = {
+      blockId: block.id,
+      durationTicks,
+      event,
+      id: `${block.id}:stretch:${event.id}`,
+      patternId: pattern.id,
+      startTick,
+      trackId: track.id,
+      trackVolume: track.volume,
+    }
+
+    events.push({
+      ...scheduledEventBase,
+      triggers: createPlaybackTriggers(scheduledEventBase),
+    })
+  }
+
+  return events
+}
+
+function getPatternEventDurationTicks(event: PatternEvent): DurationTicks {
+  switch (event.kind) {
+    case 'chord':
+    case 'note':
+      return event.durationTicks
+    case 'drumHit':
+    case 'automation':
+      return 1 as DurationTicks
+  }
+}
+
+function stretchTickToBlock(
+  patternTick: Tick,
+  patternLengthTicks: DurationTicks,
+  blockLengthTicks: DurationTicks,
+): Tick {
+  return Math.round((patternTick * blockLengthTicks) / patternLengthTicks) as Tick
+}
+
+function createLoopScheduledEvents({
+  block,
+  pattern,
+  track,
+}: {
+  block: Block
+  pattern: Pattern
+  track: Track
+}): ScheduledPlaybackEvent[] {
+  const events: ScheduledPlaybackEvent[] = []
+
+  for (let offsetTick = 0; offsetTick < block.lengthTicks; offsetTick += pattern.lengthTicks) {
+    for (const event of pattern.events) {
+      const scheduledEvent = createScheduledPlaybackEvent({
+        block,
+        event,
+        offsetTick,
+        pattern,
+        track,
+      })
+
+      if (scheduledEvent !== null) {
+        events.push(scheduledEvent)
+      }
+    }
+  }
+
+  return events
 }
 
 function createScheduledPlaybackEvent({
