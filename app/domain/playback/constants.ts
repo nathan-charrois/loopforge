@@ -1,4 +1,4 @@
-export const PLAYBACK_STYLES = ['block', 'strum', 'arpeggio', 'rhythm'] as const
+export const PLAYBACK_STYLES = ['block', 'arpeggio'] as const
 export type PlaybackStyle = typeof PLAYBACK_STYLES[number]
 
 export const ARPEGGIO_PATTERNS = ['up', 'down', 'upDown', 'random'] as const
