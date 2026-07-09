@@ -23,14 +23,14 @@ export type ChordVoicing = {
   bassNote?: PitchClass
 }
 
-export type MaterializedNote = {
+export type VoicedNote = {
   voiceIndex: VoiceIndex
   midiNote: MidiNote
   pitchClass: PitchClass
   octave: Octave
 }
 
-export function materializeChordVoicing(chord: ChordSymbol, voicing: ChordVoicing): MaterializedNote[] {
+export function materializeChordVoicing(chord: ChordSymbol, voicing: ChordVoicing): VoicedNote[] {
   const pitchClasses = orderPitchClassesFromRoot(getChordPitchClasses(chord), chord.root)
   const baseOctave = voicing.octave ?? REGISTER_BASE_OCTAVES[voicing.register]
   const closedNotes = pitchClassesToAscendingMidiNotes(pitchClasses, baseOctave)
@@ -40,7 +40,7 @@ export function materializeChordVoicing(chord: ChordSymbol, voicing: ChordVoicin
 
   return [...bassNotes, ...spreadNotes]
     .sort((left, right) => left - right)
-    .map(midiNoteToMaterializedNote)
+    .map(midiNoteToVoicedNote)
 }
 
 function orderPitchClassesFromRoot(pitchClasses: PitchClass[], root: PitchClass): PitchClass[] {
@@ -125,7 +125,7 @@ function getBassNotes(voicing: ChordVoicing, baseOctave: Octave, notes: MidiNote
   return [bassNote]
 }
 
-function midiNoteToMaterializedNote(midiNote: MidiNote, voiceIndex: VoiceIndex): MaterializedNote {
+function midiNoteToVoicedNote(midiNote: MidiNote, voiceIndex: VoiceIndex): VoicedNote {
   return {
     voiceIndex,
     midiNote,
@@ -134,7 +134,7 @@ function midiNoteToMaterializedNote(midiNote: MidiNote, voiceIndex: VoiceIndex):
   }
 }
 
-export function orderArpeggioNotes(notes: MaterializedNote[], pattern?: ArpeggioPattern): MaterializedNote[] {
+export function orderArpeggioNotes(notes: VoicedNote[], pattern?: ArpeggioPattern): VoicedNote[] {
   const ascending = [...notes].sort((left, right) => left.midiNote - right.midiNote)
 
   switch (pattern) {

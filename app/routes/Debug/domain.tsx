@@ -114,7 +114,6 @@ import {
   isValidTimeSignature,
   isVelocity,
   materializeChordVoicing,
-  type MaterializedNote,
   midiNoteFromPitchClass,
   type Mode,
   MODES,
@@ -154,6 +153,7 @@ import {
   validateProject,
   validateTimeline,
   validateTrack,
+  type VoicedNote,
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
@@ -491,7 +491,7 @@ export default function Debug() {
     }),
     pattern('chord'),
   )
-  const materializedVoicingNotes = materializeChordVoicing(harmonyChord(), chordVoicing())
+  const voicedNotes = materializeChordVoicing(harmonyChord(), chordVoicing())
 
   return (
     <AppProvider>
@@ -589,7 +589,7 @@ export default function Debug() {
               <Field label="Octave" value={voicingOctave} onChange={setVoicingOctave} />
             </SimpleGrid>
             <Checkbox label="Add bass note from Harmony bass" checked={voicingBassEnabled} onChange={event => setVoicingBassEnabled(event.currentTarget.checked)} />
-            <MaterializedNotesPreview notes={materializedVoicingNotes} />
+            <VoicedNotePreview notes={voicedNotes} />
             <ButtonGroup>
               <RunButton label="createDefaultChordVoicing" onClick={() => run('voicing', 'createDefaultChordVoicing', chordVoicing)} />
               <RunButton label="materializeChordVoicing" onClick={() => run('voicing', 'materializeChordVoicing', () => materializeChordVoicing(harmonyChord(), chordVoicing()))} />
@@ -1008,7 +1008,7 @@ function RunButton({ label, onClick }: { label: string, onClick: () => void }) {
   )
 }
 
-function MaterializedNotesPreview({ notes }: { notes: MaterializedNote[] }) {
+function VoicedNotePreview({ notes }: { notes: VoicedNote[] }) {
   return (
     <SimpleGrid cols={{ base: 2, sm: 4, md: 6 }}>
       {notes.map(note => (
@@ -1020,7 +1020,7 @@ function MaterializedNotesPreview({ notes }: { notes: MaterializedNote[] }) {
             borderRadius: 4,
           }}
         >
-          <Text fw={700} size="sm">{formatMaterializedNoteLabel(note)}</Text>
+          <Text fw={700} size="sm">{formatVoicedNoteLabel(note)}</Text>
           <Text c="dimmed" size="xs">
             voice
             {' '}
@@ -1103,7 +1103,7 @@ function parseAutomationValue(value: string): boolean | number | string {
   return Number.isFinite(parsed) ? parsed : value
 }
 
-function formatMaterializedNoteLabel(note: MaterializedNote): string {
+function formatVoicedNoteLabel(note: VoicedNote): string {
   return `${getNoteNameForPitchClass(note.pitchClass)}${note.octave}`
 }
 
