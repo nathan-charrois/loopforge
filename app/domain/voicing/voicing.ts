@@ -10,6 +10,7 @@ import {
 import type { ArpeggioPattern } from '../playback'
 import { type Register, REGISTER_BASE_OCTAVES, type VoicingType } from './constants'
 
+export type VoiceIndex = number
 export type Inversion = number
 export type Spread = number
 
@@ -23,6 +24,7 @@ export type ChordVoicing = {
 }
 
 export type MaterializedNote = {
+  voiceIndex: VoiceIndex
   midiNote: MidiNote
   pitchClass: PitchClass
   octave: Octave
@@ -123,8 +125,9 @@ function getBassNotes(voicing: ChordVoicing, baseOctave: Octave, notes: MidiNote
   return [bassNote]
 }
 
-function midiNoteToMaterializedNote(midiNote: MidiNote): MaterializedNote {
+function midiNoteToMaterializedNote(midiNote: MidiNote, voiceIndex: VoiceIndex): MaterializedNote {
   return {
+    voiceIndex,
     midiNote,
     octave: getOctaveForMidiNote(midiNote),
     pitchClass: pitchClassFromMidiNote(midiNote),

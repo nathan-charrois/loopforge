@@ -114,6 +114,7 @@ import {
   isValidTimeSignature,
   isVelocity,
   materializeChordVoicing,
+  type MaterializedNote,
   midiNoteFromPitchClass,
   type Mode,
   MODES,
@@ -490,6 +491,7 @@ export default function Debug() {
     }),
     pattern('chord'),
   )
+  const materializedVoicingNotes = materializeChordVoicing(harmonyChord(), chordVoicing())
 
   return (
     <AppProvider>
@@ -587,6 +589,7 @@ export default function Debug() {
               <Field label="Octave" value={voicingOctave} onChange={setVoicingOctave} />
             </SimpleGrid>
             <Checkbox label="Add bass note from Harmony bass" checked={voicingBassEnabled} onChange={event => setVoicingBassEnabled(event.currentTarget.checked)} />
+            <MaterializedNotesPreview notes={materializedVoicingNotes} />
             <ButtonGroup>
               <RunButton label="createDefaultChordVoicing" onClick={() => run('voicing', 'createDefaultChordVoicing', chordVoicing)} />
               <RunButton label="materializeChordVoicing" onClick={() => run('voicing', 'materializeChordVoicing', () => materializeChordVoicing(harmonyChord(), chordVoicing()))} />
@@ -1005,6 +1008,35 @@ function RunButton({ label, onClick }: { label: string, onClick: () => void }) {
   )
 }
 
+function MaterializedNotesPreview({ notes }: { notes: MaterializedNote[] }) {
+  return (
+    <SimpleGrid cols={{ base: 2, sm: 4, md: 6 }}>
+      {notes.map(note => (
+        <Box
+          key={`${note.voiceIndex}-${note.midiNote}`}
+          p="xs"
+          style={{
+            border: '1px solid var(--mantine-color-gray-3)',
+            borderRadius: 4,
+          }}
+        >
+          <Text fw={700} size="sm">{formatMaterializedNoteLabel(note)}</Text>
+          <Text c="dimmed" size="xs">
+            voice
+            {' '}
+            {note.voiceIndex}
+          </Text>
+          <Text c="dimmed" size="xs">
+            midi
+            {' '}
+            {note.midiNote}
+          </Text>
+        </Box>
+      ))}
+    </SimpleGrid>
+  )
+}
+
 function OutputBlock({ output }: { output: PlaygroundOutput }) {
   return (
     <Box>
@@ -1069,6 +1101,10 @@ function parseAutomationValue(value: string): boolean | number | string {
   const parsed = Number.parseFloat(value)
 
   return Number.isFinite(parsed) ? parsed : value
+}
+
+function formatMaterializedNoteLabel(note: MaterializedNote): string {
+  return `${getNoteNameForPitchClass(note.pitchClass)}${note.octave}`
 }
 
 function formatOutput(value: unknown): string {

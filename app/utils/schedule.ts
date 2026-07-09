@@ -20,6 +20,7 @@ import {
   type Track,
   type TrackId,
   type Velocity,
+  type VoiceIndex,
 } from '~/domain'
 import {
   selectPattern,
@@ -59,7 +60,8 @@ export type NotePlaybackTrigger = {
   pitch: MidiNote
   velocity: Velocity
   trackVolume: number
-  toneIndex?: number
+  stepIndex?: number
+  voiceIndex?: VoiceIndex
   source: PlaybackTriggerSource
 }
 
@@ -409,10 +411,10 @@ function createChordPlaybackTriggers(
     const repeatTicks = getRepeatOrDurationTick(scheduledEvent.durationTicks, event.playback)
     const arpeggioNotes = orderArpeggioNotes(notes, event.playback.arpeggioPattern ?? 'up')
 
-    let toneIndex = 0
+    let stepIndex = 0
 
     for (let offsetTicks = 0; offsetTicks < scheduledEvent.durationTicks; offsetTicks += repeatTicks) {
-      const note = arpeggioNotes[toneIndex % arpeggioNotes.length]
+      const note = arpeggioNotes[stepIndex % arpeggioNotes.length]
 
       if (note === undefined) {
         break
@@ -420,12 +422,13 @@ function createChordPlaybackTriggers(
 
       triggers.push({
         kind: 'note',
-        id: `${scheduledEvent.id}:note:${toneIndex}:${note.midiNote}:${offsetTicks}`,
+        id: `${scheduledEvent.id}:note:${stepIndex}:${note.midiNote}:${offsetTicks}`,
         pitch: note.midiNote,
         trackVolume: scheduledEvent.trackVolume,
         velocity: event.velocity,
         source,
-        toneIndex,
+        stepIndex,
+        voiceIndex: note.voiceIndex,
         startTick: scheduledEvent.startTick + offsetTicks,
         durationTicks: getGatedDurationTick(
           repeatTicks,
@@ -433,21 +436,22 @@ function createChordPlaybackTriggers(
           event.playback.gate,
         ),
       })
-      toneIndex += 1
+      stepIndex += 1
     }
 
     return triggers
   }
 
-  return notes.map((note, toneIndex) => ({
+  return notes.map((note, stepIndex) => ({
     kind: 'note',
-    id: `${scheduledEvent.id}:note:${toneIndex}:${note.midiNote}`,
+    id: `${scheduledEvent.id}:note:${stepIndex}:${note.midiNote}`,
     pitch: note.midiNote,
     trackVolume: scheduledEvent.trackVolume,
     velocity: event.velocity,
     startTick: scheduledEvent.startTick,
     source,
-    toneIndex,
+    stepIndex,
+    voiceIndex: note.voiceIndex,
     durationTicks: getGatedDurationTick(
       scheduledEvent.durationTicks,
       scheduledEvent.durationTicks,

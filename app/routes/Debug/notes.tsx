@@ -69,6 +69,7 @@ import {
   STRUM_PATTERNS,
   type StrumPattern,
   type Tick,
+  type VoiceIndex,
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
@@ -135,8 +136,9 @@ type RenderedScheduledNote = {
   id: string
   pitch: MidiNote
   startTick: Tick
-  toneIndex: number
+  stepIndex: number
   velocity: number
+  voiceIndex?: VoiceIndex
 }
 
 type NotesPreset = {
@@ -682,6 +684,9 @@ function NotesLooper({ model }: { model: NotesModel }) {
                   <Text fw={600} size="11px" truncate="end">
                     {formatScheduledNoteLabel(note)}
                     {' '}
+                    v
+                    {formatScheduledNoteVoiceIndex(note)}
+                    {' '}
                     midi
                     {' '}
                     {note.pitch}
@@ -705,7 +710,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
 
             <Group gap="xs" style={{ bottom: 10, left: 24, position: 'absolute' }}>
               <LooperValue label="Chord tones" value={model.chordPitchLabels.join(' ')} />
-              <LooperValue label="Rendered tones" value={model.renderedNotes.map(note => `${formatScheduledNoteLabel(note)}@${note.startTick}`).join(' ')} />
+              <LooperValue label="Rendered tones" value={model.renderedNotes.map(note => `${formatScheduledNoteVoiceLabel(note)}@${note.startTick}`).join(' ')} />
               <LooperValue label="Scale" value={model.scalePitchLabels.join(' ')} />
             </Group>
           </Box>
@@ -851,7 +856,7 @@ function createNotesModel(input: {
   const playbackTriggers = playbackSchedule.triggers
   const scheduledEvents = playbackSchedule.events
   const renderedNotes = renderNotePlaybackTriggers(playbackTriggers)
-  const voicingPitchLabels = renderedNotes.map(formatScheduledNoteLabel)
+  const voicingPitchLabels = renderedNotes.map(formatScheduledNoteVoiceLabel)
   const scalePitchLabels = getScalePitchClasses(key).map(getNoteNameForPitchClass)
 
   return {
@@ -929,7 +934,12 @@ function PatternNotesPanel({ notes }: { notes: RenderedScheduledNote[] }) {
             <Text c="dimmed" size="xs">
               tone
               {' '}
-              {note.toneIndex + 1}
+              {note.stepIndex + 1}
+            </Text>
+            <Text c="dimmed" size="xs">
+              voice
+              {' '}
+              {formatScheduledNoteVoiceIndex(note)}
             </Text>
             <Text c="dimmed" size="xs">
               midi
@@ -1065,8 +1075,9 @@ function createRenderedScheduledNote(trigger: NotePlaybackTrigger): RenderedSche
     id: trigger.id,
     pitch: trigger.pitch,
     startTick: trigger.startTick,
-    toneIndex: trigger.toneIndex ?? 0,
     velocity: trigger.velocity,
+    stepIndex: trigger.stepIndex ?? 0,
+    voiceIndex: trigger.voiceIndex,
   }
 }
 
@@ -1141,6 +1152,14 @@ function parsePitchClass(value: string) {
 
 function formatScheduledNoteLabel(note: RenderedScheduledNote): string {
   return `${getNoteNameForPitchClass(pitchClassFromMidiNote(note.pitch))}${getOctaveForMidiNote(note.pitch)}`
+}
+
+function formatScheduledNoteVoiceIndex(note: RenderedScheduledNote): string {
+  return note.voiceIndex === undefined ? '-' : `${note.voiceIndex}`
+}
+
+function formatScheduledNoteVoiceLabel(note: RenderedScheduledNote): string {
+  return `${formatScheduledNoteLabel(note)} v${formatScheduledNoteVoiceIndex(note)}`
 }
 
 function getTransportColor(status: TransportStatus): string {
