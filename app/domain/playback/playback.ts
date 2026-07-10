@@ -1,4 +1,4 @@
-import { createPositiveDurationTicks, type DurationTicks, type MidiNote, type Tick, type Velocity } from '../musicPrimitives'
+import { clampVelocity, createPositiveDurationTicks, type DurationTicks, type MidiNote, type Tick, type Velocity } from '../musicPrimitives'
 import type { ChordEvent } from '../patternEvents'
 import type { VoicedNote } from '../voicing'
 import { CHORD_PLAYBACK_RECIPES } from './constants'
@@ -32,11 +32,20 @@ export type ChordPlaybackRecipeOutOfRange
 export type ChordPlaybackRecipeStep = {
   voiceIndex: number
   offsetSteps?: number
-  durationSteps?: number
+  durationSteps?: number | 'toEventEnd'
   gate?: number
   velocityScale?: number
   octaveShift?: number
 }
+
+export type ChordPlaybackRecipeHeldStep = {
+  voiceIndex: number
+  gate?: number
+  velocityScale?: number
+  octaveShift?: number
+}
+
+export type ChordPlaybackRecipeStepOrHeldStep = ChordPlaybackRecipeStep | ChordPlaybackRecipeHeldStep
 
 export type ChordPlaybackRecipe = {
   id: ChordPlaybackRecipeId
@@ -44,6 +53,7 @@ export type ChordPlaybackRecipe = {
   style: ChordPlaybackStyle
   steps: ChordPlaybackRecipeStep[]
   outOfRange: ChordPlaybackRecipeOutOfRange
+  heldSteps?: ChordPlaybackRecipeHeldStep[]
   defaultStepTicks?: DurationTicks
   defaultGate?: number
 }
@@ -106,7 +116,7 @@ export function getDefaultRecipeIdForStyle(style: ChordPlaybackStyle): ChordPlay
 
 export function getRecipeStepNote(
   notes: VoicedNote[],
-  step: ChordPlaybackRecipeStep,
+  step: ChordPlaybackRecipeStepOrHeldStep,
   outOfRange: ChordPlaybackRecipeOutOfRange,
 ): VoicedNote | null {
   if (notes.length === 0) {
@@ -131,12 +141,16 @@ export function getRecipeStepNote(
   return notes.find(note => note.voiceIndex === resolvedVoiceIndex) ?? null
 }
 
-export function getRecipeStepPitch(note: VoicedNote, step: ChordPlaybackRecipeStep): MidiNote {
+export function getRecipeStepPitch(note: VoicedNote, step: ChordPlaybackRecipeStepOrHeldStep): MidiNote {
   return note.midiNote + ((step.octaveShift ?? 0) * 12)
 }
 
-export function getRecipeStepVelocity(velocity: Velocity, step: ChordPlaybackRecipeStep): Velocity {
-  return Math.max(0, Math.min(127, Math.round(velocity * (step.velocityScale ?? 1))))
+export function scaleVelocity(velocity: Velocity, scale = 1): Velocity {
+  return clampVelocity(velocity * scale)
+}
+
+export function getRecipeStepVelocity(velocity: Velocity, step: ChordPlaybackRecipeStepOrHeldStep): Velocity {
+  return scaleVelocity(velocity, step.velocityScale)
 }
 
 export function getRecipeArpeggioSteps(
@@ -198,8 +212,7 @@ export function getRecipeStepDurationTicks(
   const recipeDurationTicks = getRecipeDurationTicks(
     step,
     stepTicks,
-    durationTicks,
-    recipe,
+    maxDurationTicks,
   )
 
   return getGatedDurationTick(
@@ -212,12 +225,13 @@ export function getRecipeStepDurationTicks(
 export function getRecipeDurationTicks(
   step: ChordPlaybackRecipeStep,
   stepTicks: DurationTicks,
-  durationTicks: DurationTicks,
-  recipe: ChordPlaybackRecipe,
+  maxDurationTicks: DurationTicks,
 ): DurationTicks {
-  if (step.durationSteps === undefined) {
-    return recipe.style === 'arpeggio' ? stepTicks : durationTicks
+  if (step.durationSteps === 'toEventEnd') {
+    return createPositiveDurationTicks(maxDurationTicks)
   }
 
-  return createPositiveDurationTicks(step.durationSteps * stepTicks)
+  const durationSteps = step.durationSteps ?? 1
+
+  return createPositiveDurationTicks(durationSteps * stepTicks)
 }

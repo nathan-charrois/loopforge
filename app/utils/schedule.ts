@@ -4,6 +4,7 @@ import {
   type BlockId,
   type ChordEvent,
   type ChordPlaybackRecipe,
+  type ChordPlaybackRecipeHeldStep,
   type ChordPlaybackRecipeStep,
   type DrumKitPiece,
   type DurationTicks,
@@ -403,15 +404,20 @@ function createChordPlaybackTriggers(
     return []
   }
 
-  return createChordPlaybackTriggersFromRecipe({
+  const params = {
     event,
     notes,
     recipe: getChordPlaybackRecipe(event.playback),
     scheduledEvent,
-  })
+  }
+
+  return [
+    ...createHeldChordPlaybackTriggers(params),
+    ...createRecipeStepChordPlaybackTriggers(params),
+  ]
 }
 
-function createChordPlaybackTriggersFromRecipe({
+function createRecipeStepChordPlaybackTriggers({
   event,
   notes,
   recipe,
@@ -445,6 +451,47 @@ function createChordPlaybackTriggersFromRecipe({
     recipe,
     scheduledEvent,
   })
+}
+
+function createHeldChordPlaybackTriggers({
+  event,
+  notes,
+  recipe,
+  scheduledEvent,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  notes: VoicedNote[]
+  recipe: ChordPlaybackRecipe
+}): NotePlaybackTrigger[] {
+  if (recipe.heldSteps === undefined || recipe.heldSteps.length === 0) {
+    return []
+  }
+
+  const source = createPlaybackTriggerSource(scheduledEvent)
+
+  const triggers: NotePlaybackTrigger[] = []
+
+  for (const [heldIndex, heldStep] of recipe.heldSteps.entries()) {
+    const note = getRecipeStepNote(notes, heldStep, recipe.outOfRange)
+
+    if (note === null) {
+      continue
+    }
+
+    const trigger = createRecipeHeldStepPlaybackTrigger({
+      event,
+      heldIndex,
+      heldStep,
+      note,
+      scheduledEvent,
+      source,
+    })
+
+    triggers.push(trigger)
+  }
+
+  return triggers
 }
 
 function createBlockChordPlaybackTriggers({
@@ -487,8 +534,9 @@ function createSteppedChordPlaybackTriggers({
   notes: VoicedNote[]
   recipe: ChordPlaybackRecipe
 }): NotePlaybackTrigger[] {
-  const stepTicks = event.playback.microStaggerTicks ?? recipe.defaultStepTicks ?? 0
   const source = createPlaybackTriggerSource(scheduledEvent)
+  const offsetStepTicks = getRecipeStepOffsetTicks(event, recipe)
+
   const triggers: NotePlaybackTrigger[] = []
 
   for (const [stepIndex, step] of recipe.steps.entries()) {
@@ -498,14 +546,18 @@ function createSteppedChordPlaybackTriggers({
       continue
     }
 
-    const startOffsetTicks = (step.offsetSteps ?? stepIndex) * stepTicks
+    const startOffsetTicks = getRecipeStepStartOffsetTicks(
+      step,
+      stepIndex,
+      offsetStepTicks,
+    )
 
     const durationTicks = getRecipeStepDurationTicks(
       scheduledEvent.durationTicks,
       event,
       recipe,
       step,
-      stepTicks,
+      offsetStepTicks,
       startOffsetTicks,
     )
 
@@ -528,6 +580,23 @@ function createSteppedChordPlaybackTriggers({
   return triggers
 }
 
+function getRecipeStepOffsetTicks(
+  event: ChordEvent,
+  recipe: ChordPlaybackRecipe,
+): DurationTicks {
+  return event.playback.microStaggerTicks ?? recipe.defaultStepTicks ?? 0
+}
+
+function getRecipeStepStartOffsetTicks(
+  step: ChordPlaybackRecipeStep,
+  stepIndex: number,
+  offsetStepTicks: DurationTicks,
+): DurationTicks {
+  const offsetSteps = step.offsetSteps ?? stepIndex
+
+  return offsetSteps * offsetStepTicks
+}
+
 function createArpeggioChordPlaybackTriggers({
   event,
   notes,
@@ -546,7 +615,6 @@ function createArpeggioChordPlaybackTriggers({
   }
 
   const source = createPlaybackTriggerSource(scheduledEvent)
-
   const stepTicks = getRecipeStepTicks(
     event,
     recipe,
@@ -632,6 +700,40 @@ function createRecipeNotePlaybackTrigger({
     voiceIndex: note.voiceIndex,
     startTick: scheduledEvent.startTick + startOffsetTicks,
     durationTicks,
+  }
+}
+
+function createRecipeHeldStepPlaybackTrigger({
+  event,
+  heldIndex,
+  heldStep,
+  note,
+  scheduledEvent,
+  source,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  heldStep: ChordPlaybackRecipeHeldStep
+  heldIndex: number
+  note: VoicedNote
+  source: PlaybackTriggerSource
+}): NotePlaybackTrigger {
+  const pitch = getRecipeStepPitch(note, heldStep)
+
+  return {
+    kind: 'note',
+    id: `${scheduledEvent.id}:held:${heldIndex}:${note.voiceIndex}:${pitch}`,
+    pitch,
+    trackVolume: scheduledEvent.trackVolume,
+    velocity: getRecipeStepVelocity(event.velocity, heldStep),
+    source,
+    voiceIndex: note.voiceIndex,
+    startTick: scheduledEvent.startTick,
+    durationTicks: getGatedDurationTick(
+      scheduledEvent.durationTicks,
+      scheduledEvent.durationTicks,
+      heldStep.gate ?? 1,
+    ),
   }
 }
 
