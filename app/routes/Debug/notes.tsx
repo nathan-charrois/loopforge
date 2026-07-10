@@ -92,11 +92,11 @@ import {
   type TransportStatus,
 } from '~/utils/transport'
 
-const LOOP_WIDTH = 760
+const LOOP_WIDTH = 850
 const LOOP_HEIGHT = 460
 const LOOP_LANE_LEFT = 36
 const LOOP_LANE_TOP = 148
-const LOOP_LANE_WIDTH = 688
+const LOOP_LANE_WIDTH = 775
 const LOOP_LANE_HEIGHT = 237
 const EVENT_WINDOW_TOP = 62
 const EVENT_WINDOW_HEIGHT = 145
@@ -461,6 +461,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
   const playheadRef = useRef<HTMLDivElement>(null)
   const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => transport.getSnapshot())
   const noteRows = getNoteRows(model.renderedNotes)
+  const noteRowIndexByKey = getNoteRowIndexByKey(noteRows)
   const noteBarHeight = getNoteBarHeight(noteRows.length)
   const playheadX = getLoopX(transportSnapshot.playheadTick, model.loopLengthTicks)
 
@@ -663,7 +664,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
                 </Box>
               ))}
 
-              {noteRows.map((note, index) => (
+              {model.renderedNotes.map(note => (
                 <Box
                   key={note.id}
                   style={{
@@ -675,15 +676,12 @@ function NotesLooper({ model }: { model: NotesModel }) {
                     overflow: 'hidden',
                     padding: '1px 6px',
                     position: 'absolute',
-                    top: getNoteBarTop(index, noteRows.length),
+                    top: getNoteBarTop(getNoteRowIndex(noteRowIndexByKey, note), noteRows.length),
                     width: getNoteWidth(note, model.loopLengthTicks),
                   }}
                 >
-                  <Text fw={600} size="11px" truncate="end">
+                  <Text fw={600} size="10px" truncate="end">
                     {formatScheduledNoteLabel(note)}
-                    {' '}
-                    v
-                    {formatScheduledNoteVoiceIndex(note)}
                     {' '}
                     midi
                     {' '}
@@ -708,7 +706,6 @@ function NotesLooper({ model }: { model: NotesModel }) {
 
             <Group gap="xs" style={{ bottom: 10, left: 24, position: 'absolute' }}>
               <LooperValue label="Chord tones" value={model.chordPitchLabels.join(' ')} />
-              <LooperValue label="Rendered tones" value={model.renderedNotes.map(note => `${formatScheduledNoteVoiceLabel(note)}@${note.startTick}`).join(' ')} />
               <LooperValue label="Scale" value={model.scalePitchLabels.join(' ')} />
             </Group>
           </Box>
@@ -853,7 +850,7 @@ function createNotesModel(input: {
   const playbackTriggers = playbackSchedule.triggers
   const scheduledEvents = playbackSchedule.events
   const renderedNotes = renderNotePlaybackTriggers(playbackTriggers)
-  const voicingPitchLabels = renderedNotes.map(formatScheduledNoteVoiceLabel)
+  const voicingPitchLabels = renderedNotes.map(formatScheduledNoteLabel)
   const scalePitchLabels = getScalePitchClasses(key).map(getNoteNameForPitchClass)
 
   return {
@@ -1084,13 +1081,39 @@ function createRenderedScheduledNote(trigger: NotePlaybackTrigger): RenderedSche
 }
 
 function getNoteRows(notes: RenderedScheduledNote[]): RenderedScheduledNote[] {
-  return [...notes].sort((left, right) => {
+  const noteRowsByKey = new Map<string, RenderedScheduledNote>()
+
+  for (const note of notes) {
+    const rowKey = getNoteRowKey(note)
+
+    if (!noteRowsByKey.has(rowKey)) {
+      noteRowsByKey.set(rowKey, note)
+    }
+  }
+
+  return [...noteRowsByKey.values()].sort((left, right) => {
     if (left.pitch !== right.pitch) {
       return right.pitch - left.pitch
     }
 
+    if (left.voiceIndex !== right.voiceIndex) {
+      return (left.voiceIndex ?? Number.MAX_SAFE_INTEGER) - (right.voiceIndex ?? Number.MAX_SAFE_INTEGER)
+    }
+
     return left.id.localeCompare(right.id)
   })
+}
+
+function getNoteRowIndexByKey(notes: RenderedScheduledNote[]): Map<string, number> {
+  return new Map(notes.map((note, index) => [getNoteRowKey(note), index]))
+}
+
+function getNoteRowIndex(rowIndexByKey: Map<string, number>, note: RenderedScheduledNote): number {
+  return rowIndexByKey.get(getNoteRowKey(note)) ?? 0
+}
+
+function getNoteRowKey(note: RenderedScheduledNote): string {
+  return `${note.pitch}:${note.voiceIndex ?? 'unvoiced'}`
 }
 
 function getNoteBarTop(index: number, noteCount: number): number {
@@ -1102,7 +1125,7 @@ function getNoteBarTop(index: number, noteCount: number): number {
 function getNoteBarHeight(noteCount: number): number {
   const rowStep = NOTE_LANE_HEIGHT / Math.max(1, noteCount)
 
-  return clampNumber(rowStep - 2, 12, 24)
+  return clampNumber(rowStep - 2, 14, 24)
 }
 
 function getNoteWidth(note: RenderedScheduledNote, loopLengthTicks: number): number {
@@ -1158,10 +1181,6 @@ function formatScheduledNoteLabel(note: RenderedScheduledNote): string {
 
 function formatScheduledNoteVoiceIndex(note: RenderedScheduledNote): string {
   return note.voiceIndex === undefined ? '-' : `${note.voiceIndex}`
-}
-
-function formatScheduledNoteVoiceLabel(note: RenderedScheduledNote): string {
-  return `${formatScheduledNoteLabel(note)} v${formatScheduledNoteVoiceIndex(note)}`
 }
 
 function getTransportColor(status: TransportStatus): string {
