@@ -2,16 +2,23 @@ import {
   type AutomationValue,
   type Block,
   type BlockId,
+  type ChordEvent,
+  type ChordPlaybackRecipe,
+  type ChordPlaybackRecipeStep,
   type DrumKitPiece,
   type DurationTicks,
   getBlockEndTick,
+  getChordPlaybackRecipe,
   getGatedDurationTick,
-  getRepeatOrDurationTick,
+  getPatternEventDurationTicks,
+  getRecipeArpeggioSteps,
+  getRecipeStepNote,
+  getRecipeStepPitch,
+  getRecipeStepVelocity,
   getScheduledEventDurationTicks,
   getScheduledEventStartTick,
   materializeChordVoicing,
   type MidiNote,
-  orderArpeggioNotes,
   type Pattern,
   type PatternEvent,
   type PatternEventId,
@@ -20,6 +27,7 @@ import {
   type Track,
   type TrackId,
   type Velocity,
+  type VoicedNote,
   type VoiceIndex,
 } from '~/domain'
 import {
@@ -293,17 +301,6 @@ function createStretchScheduledEvents({
   return events
 }
 
-function getPatternEventDurationTicks(event: PatternEvent): DurationTicks {
-  switch (event.kind) {
-    case 'chord':
-    case 'note':
-      return event.durationTicks
-    case 'drumHit':
-    case 'automation':
-      return 1 as DurationTicks
-  }
-}
-
 function stretchTickToBlock(
   patternTick: Tick,
   patternLengthTicks: DurationTicks,
@@ -396,51 +393,68 @@ function createPlaybackTriggers(scheduledEvent: ScheduledPlaybackEventBase): Pla
 
 function createChordPlaybackTriggers(
   scheduledEvent: ScheduledPlaybackEventBase,
-  event: Extract<PatternEvent, { kind: 'chord' }>,
+  event: ChordEvent,
 ): NotePlaybackTrigger[] {
-  const source = createPlaybackTriggerSource(scheduledEvent)
   const notes = materializeChordVoicing(event.chord, event.voicing)
 
   if (notes.length === 0) {
     return []
   }
 
-  if (event.playback.style === 'arpeggio') {
-    const triggers: NotePlaybackTrigger[] = []
+  return createChordPlaybackTriggersFromRecipe({
+    event,
+    notes,
+    recipe: getChordPlaybackRecipe(event.playback),
+    scheduledEvent,
+  })
+}
 
-    const repeatTicks = getRepeatOrDurationTick(scheduledEvent.durationTicks, event.playback)
-    const arpeggioNotes = orderArpeggioNotes(notes, event.playback.arpeggioPattern ?? 'up')
-
-    let stepIndex = 0
-
-    for (let offsetTicks = 0; offsetTicks < scheduledEvent.durationTicks; offsetTicks += repeatTicks) {
-      const note = arpeggioNotes[stepIndex % arpeggioNotes.length]
-
-      if (note === undefined) {
-        break
-      }
-
-      triggers.push({
-        kind: 'note',
-        id: `${scheduledEvent.id}:note:${stepIndex}:${note.midiNote}:${offsetTicks}`,
-        pitch: note.midiNote,
-        trackVolume: scheduledEvent.trackVolume,
-        velocity: event.velocity,
-        source,
-        stepIndex,
-        voiceIndex: note.voiceIndex,
-        startTick: scheduledEvent.startTick + offsetTicks,
-        durationTicks: getGatedDurationTick(
-          repeatTicks,
-          scheduledEvent.durationTicks - offsetTicks,
-          event.playback.gate,
-        ),
-      })
-      stepIndex += 1
-    }
-
-    return triggers
+function createChordPlaybackTriggersFromRecipe({
+  event,
+  notes,
+  recipe,
+  scheduledEvent,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  notes: VoicedNote[]
+  recipe: ChordPlaybackRecipe
+}): NotePlaybackTrigger[] {
+  if (recipe.style === 'arpeggio') {
+    return createArpeggioChordPlaybackTriggers({
+      event,
+      notes,
+      recipe,
+      scheduledEvent,
+    })
   }
+
+  if (recipe.id === 'block' || recipe.steps.length === 0) {
+    return createBlockChordPlaybackTriggers({
+      event,
+      notes,
+      scheduledEvent,
+    })
+  }
+
+  return createSteppedChordPlaybackTriggers({
+    event,
+    notes,
+    recipe,
+    scheduledEvent,
+  })
+}
+
+function createBlockChordPlaybackTriggers({
+  event,
+  notes,
+  scheduledEvent,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  notes: VoicedNote[]
+}): NotePlaybackTrigger[] {
+  const source = createPlaybackTriggerSource(scheduledEvent)
 
   return notes.map((note, stepIndex) => ({
     kind: 'note',
@@ -458,6 +472,195 @@ function createChordPlaybackTriggers(
       event.playback.gate,
     ),
   }))
+}
+
+function createSteppedChordPlaybackTriggers({
+  event,
+  notes,
+  recipe,
+  scheduledEvent,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  notes: VoicedNote[]
+  recipe: ChordPlaybackRecipe
+}): NotePlaybackTrigger[] {
+  const stepTicks = event.playback.microStaggerTicks ?? recipe.defaultStepTicks ?? 0
+  const source = createPlaybackTriggerSource(scheduledEvent)
+  const triggers: NotePlaybackTrigger[] = []
+
+  for (const [stepIndex, step] of recipe.steps.entries()) {
+    const note = getRecipeStepNote(notes, step, recipe.outOfRange)
+
+    if (note === null) {
+      continue
+    }
+
+    const startOffsetTicks = (step.offsetSteps ?? stepIndex) * stepTicks
+
+    const durationTicks = getRecipeStepDurationTicks({
+      event,
+      recipe,
+      scheduledEvent,
+      startOffsetTicks,
+      step,
+      stepTicks,
+    })
+
+    const trigger = createRecipeNotePlaybackTrigger({
+      durationTicks,
+      event,
+      note,
+      scheduledEvent,
+      source,
+      startOffsetTicks,
+      step,
+      stepIndex,
+    })
+
+    if (trigger !== null) {
+      triggers.push(trigger)
+    }
+  }
+
+  return triggers
+}
+
+function createArpeggioChordPlaybackTriggers({
+  event,
+  notes,
+  recipe,
+  scheduledEvent,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  notes: VoicedNote[]
+  recipe: ChordPlaybackRecipe
+}): NotePlaybackTrigger[] {
+  const stepTicks = Math.max(
+    1,
+    event.playback.stepTicks ?? recipe.defaultStepTicks ?? scheduledEvent.durationTicks,
+  )
+  const source = createPlaybackTriggerSource(scheduledEvent)
+  const triggers: NotePlaybackTrigger[] = []
+  const arpeggioSteps = getRecipeArpeggioSteps(notes, recipe)
+
+  if (arpeggioSteps.length === 0) {
+    return []
+  }
+
+  let stepIndex = 0
+
+  for (let startOffsetTicks = 0; startOffsetTicks < scheduledEvent.durationTicks; startOffsetTicks += stepTicks) {
+    const step = arpeggioSteps[stepIndex % arpeggioSteps.length]
+
+    if (step === undefined) {
+      break
+    }
+
+    const note = getRecipeStepNote(notes, step, recipe.outOfRange)
+
+    if (note !== null) {
+      const durationTicks = getRecipeStepDurationTicks({
+        event,
+        recipe,
+        scheduledEvent,
+        startOffsetTicks,
+        step,
+        stepTicks,
+      })
+
+      const trigger = createRecipeNotePlaybackTrigger({
+        durationTicks,
+        event,
+        note,
+        scheduledEvent,
+        source,
+        startOffsetTicks,
+        step,
+        stepIndex,
+      })
+
+      if (trigger !== null) {
+        triggers.push(trigger)
+      }
+    }
+
+    stepIndex += 1
+  }
+
+  return triggers
+}
+
+function createRecipeNotePlaybackTrigger({
+  durationTicks,
+  event,
+  note,
+  scheduledEvent,
+  source,
+  startOffsetTicks,
+  step,
+  stepIndex,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  note: VoicedNote
+  source: PlaybackTriggerSource
+  step: ChordPlaybackRecipeStep
+  stepIndex: number
+  startOffsetTicks: number
+  durationTicks: DurationTicks | null
+}): NotePlaybackTrigger | null {
+  if (durationTicks === null) {
+    return null
+  }
+
+  const pitch = getRecipeStepPitch(note, step)
+
+  return {
+    kind: 'note',
+    id: `${scheduledEvent.id}:note:${stepIndex}:${note.voiceIndex}:${pitch}:${startOffsetTicks}`,
+    pitch,
+    trackVolume: scheduledEvent.trackVolume,
+    velocity: getRecipeStepVelocity(event.velocity, step),
+    source,
+    stepIndex,
+    voiceIndex: note.voiceIndex,
+    startTick: scheduledEvent.startTick + startOffsetTicks,
+    durationTicks,
+  }
+}
+
+function getRecipeStepDurationTicks({
+  event,
+  recipe,
+  scheduledEvent,
+  startOffsetTicks,
+  step,
+  stepTicks,
+}: {
+  scheduledEvent: ScheduledPlaybackEventBase
+  event: ChordEvent
+  recipe: ChordPlaybackRecipe
+  step: ChordPlaybackRecipeStep
+  stepTicks: DurationTicks
+  startOffsetTicks: number
+}): DurationTicks | null {
+  const maxDurationTicks = scheduledEvent.durationTicks - startOffsetTicks
+
+  if (maxDurationTicks <= 0) {
+    return null
+  }
+
+  const durationTicks = step.durationSteps === undefined
+    ? recipe.style === 'arpeggio' ? stepTicks : scheduledEvent.durationTicks
+    : Math.max(1, step.durationSteps * stepTicks)
+
+  return getGatedDurationTick(
+    durationTicks,
+    maxDurationTicks,
+    step.gate ?? event.playback.gate ?? recipe.defaultGate ?? 1,
+  )
 }
 
 function createNotePlaybackTrigger(

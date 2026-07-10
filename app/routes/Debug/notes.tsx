@@ -24,15 +24,18 @@ import {
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
-  ARPEGGIO_PATTERNS,
-  type ArpeggioPattern,
   BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
   CHORD_ALTERATIONS,
   CHORD_EXTENSIONS,
+  CHORD_PLAYBACK_RECIPE_IDS,
+  CHORD_PLAYBACK_RECIPES,
+  CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
   type ChordAlteration,
   type ChordExtension,
+  type ChordPlaybackRecipeId,
+  type ChordPlaybackStyle,
   type ChordQuality,
   createBlock,
   createChordEvent,
@@ -48,6 +51,7 @@ import {
   createVelocity,
   formatChordSymbol,
   getChordPitchClasses,
+  getDefaultRecipeIdForStyle,
   getNashvilleNumber,
   getNoteNameForPitchClass,
   getOctaveForMidiNote,
@@ -62,12 +66,8 @@ import {
   type PatternEvent,
   PITCH_CLASSES,
   pitchClassFromMidiNote,
-  PLAYBACK_STYLES,
-  type PlaybackStyle,
   type Register,
   REGISTERS,
-  STRUM_PATTERNS,
-  type StrumPattern,
   type Tick,
   type VoiceIndex,
   VOICING_TYPES,
@@ -115,6 +115,11 @@ const PITCH_CLASS_OPTIONS = PITCH_CLASSES.map(pitchClass => ({
 const CHORD_EXTENSION_OPTIONS = ['none', ...CHORD_EXTENSIONS] as const satisfies ReadonlyArray<ChordExtension | 'none'>
 const CHORD_ALTERATION_OPTIONS = ['none', ...CHORD_ALTERATIONS] as const satisfies ReadonlyArray<ChordAlteration | 'none'>
 
+const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_IDS.map(recipeId => ({
+  label: CHORD_PLAYBACK_RECIPES[recipeId].name,
+  value: recipeId,
+}))
+
 type NotesModel = {
   chordLabel: string
   chordPitchLabels: string[]
@@ -144,7 +149,6 @@ type RenderedScheduledNote = {
 type NotesPreset = {
   id: string
   label: string
-  arpeggioPattern: ArpeggioPattern
   blockLengthTicks: string
   blockPlaybackMode: BlockPlaybackMode
   eventDurationTicks: string
@@ -160,9 +164,9 @@ type NotesPreset = {
   keyTonic: string
   patternLengthTicks: string
   playbackGate: string
-  playbackStyle: PlaybackStyle
+  playbackStyle: ChordPlaybackStyle
+  recipeId: ChordPlaybackRecipeId
   toneStepTicks: string
-  strumPattern: StrumPattern
   voicingBass: string
   voicingBassEnabled: boolean
   voicingInversion: string
@@ -175,7 +179,6 @@ type NotesPreset = {
 type NotesPresetInput = Pick<NotesPreset, 'id' | 'label'> & Partial<Omit<NotesPreset, 'id' | 'label'>>
 
 const DEFAULT_NOTES_PRESET: Omit<NotesPreset, 'id' | 'label'> = {
-  arpeggioPattern: 'up',
   blockLengthTicks: '960',
   blockPlaybackMode: 'oneShot',
   eventDurationTicks: '240',
@@ -192,8 +195,8 @@ const DEFAULT_NOTES_PRESET: Omit<NotesPreset, 'id' | 'label'> = {
   patternLengthTicks: '480',
   playbackGate: '0.85',
   playbackStyle: 'arpeggio',
+  recipeId: 'arp_up',
   toneStepTicks: '240',
-  strumPattern: 'down',
   voicingBass: '0',
   voicingBassEnabled: true,
   voicingInversion: '0',
@@ -217,7 +220,7 @@ const NOTES_PRESETS = [
   createNotesPreset({ id: 'spread_minor_11', label: 'Spread Min11', harmonyExtension: '11', harmonyQuality: 'minor', harmonyRoot: '10', keyMode: 'minor', keyTonic: '10', voicingSpread: '2', voicingType: 'spread' }),
   createNotesPreset({ id: 'augmented_bright', label: 'Aug Bright', harmonyExtension: 'maj7', harmonyQuality: 'augmented', harmonyRoot: '1', keyMode: 'lydian', keyTonic: '1', voicingOctave: '5' }),
   createNotesPreset({ id: 'diminished_tension', label: 'Dim Tension', harmonyExtension: '7', harmonyQuality: 'diminished', harmonyRoot: '11', keyMode: 'locrian', keyTonic: '11', voicingRegister: 'low' }),
-  createNotesPreset({ id: 'sus4_dominant', label: 'Sus4 Dominant', harmonyExtension: '7', harmonyQuality: 'sus4', harmonyRoot: '7', keyMode: 'mixolydian', keyTonic: '7', strumPattern: 'alternate' }),
+  createNotesPreset({ id: 'sus4_dominant', label: 'Sus4 Dominant', harmonyExtension: '7', harmonyQuality: 'sus4', harmonyRoot: '7', keyMode: 'mixolydian', keyTonic: '7' }),
   createNotesPreset({ id: 'low_slash_fifth', label: 'Low Slash Fifth', harmonyBass: '7', harmonyBassEnabled: true, harmonyQuality: 'minor', harmonyRoot: '0', voicingBass: '7', voicingRegister: 'low' }),
   createNotesPreset({ id: 'high_cluster', label: 'High Cluster', harmonyExtension: '9', harmonyQuality: 'sus2', harmonyRoot: '2', keyMode: 'major', keyTonic: '2', voicingOctave: '5', voicingRegister: 'high' }),
   createNotesPreset({ id: 'first_inversion_pad', label: 'First Inversion', harmonyExtension: 'maj7', harmonyQuality: 'major', harmonyRoot: '9', keyMode: 'major', keyTonic: '9', patternLengthTicks: '3840', voicingInversion: '1', voicingType: 'open' }),
@@ -230,7 +233,7 @@ const NOTES_PRESETS = [
   createNotesPreset({ id: 'major_6', label: 'Major 6', harmonyExtension: '6', harmonyQuality: 'major', harmonyRoot: '0', keyMode: 'major', keyTonic: '0', voicingBassEnabled: false }),
   createNotesPreset({ id: 'altered_sharp9', label: 'Altered #9', harmonyAlteration: '#9', harmonyExtension: '7', harmonyQuality: 'major', harmonyRoot: '1', keyMode: 'phrygian', keyTonic: '1', voicingType: 'drop2' }),
   createNotesPreset({ id: 'flat5_dominant', label: 'Flat5 Dominant', harmonyAlteration: 'b5', harmonyExtension: '7', harmonyQuality: 'major', harmonyRoot: '6', keyMode: 'mixolydian', keyTonic: '6' }),
-  createNotesPreset({ id: 'high_arpeggio', label: 'High Arpeggio', arpeggioPattern: 'upDown', harmonyExtension: 'maj7', harmonyQuality: 'major', harmonyRoot: '4', keyMode: 'lydian', keyTonic: '4', voicingOctave: '5', voicingRegister: 'high' }),
+  createNotesPreset({ id: 'high_arpeggio', label: 'High Arpeggio', harmonyExtension: 'maj7', harmonyQuality: 'major', harmonyRoot: '4', keyMode: 'lydian', keyTonic: '4', voicingOctave: '5', voicingRegister: 'high' }),
   createNotesPreset({ id: 'low_spread', label: 'Low Spread', harmonyExtension: '11', harmonyQuality: 'minor', harmonyRoot: '2', keyMode: 'minor', keyTonic: '2', voicingRegister: 'low', voicingSpread: '3', voicingType: 'spread' }),
 ] as const satisfies readonly NotesPreset[]
 
@@ -264,11 +267,10 @@ export default function Notes() {
   const [eventTimeTick, setEventTimeTick] = useState('0')
   const [eventDurationTicks, setEventDurationTicks] = useState('480')
   const [eventVelocity, setEventVelocity] = useState('96')
-  const [playbackStyle, setPlaybackStyle] = useState<PlaybackStyle>('arpeggio')
+  const [playbackStyle, setPlaybackStyle] = useState<ChordPlaybackStyle>('arpeggio')
   const [playbackGate, setPlaybackGate] = useState('0.95')
   const [toneStepTicks, setToneStepTicks] = useState('120')
-  const [arpeggioPattern, setArpeggioPattern] = useState<ArpeggioPattern>('up')
-  const [strumPattern, setStrumPattern] = useState<StrumPattern>('down')
+  const [recipeId, setRecipeId] = useState<ChordPlaybackRecipeId>('arp_up')
 
   function applyPreset(preset: NotesPreset) {
     setHarmonyRoot(preset.harmonyRoot)
@@ -295,12 +297,10 @@ export default function Notes() {
     setPlaybackStyle(preset.playbackStyle)
     setPlaybackGate(preset.playbackGate)
     setToneStepTicks(preset.toneStepTicks)
-    setArpeggioPattern(preset.arpeggioPattern)
-    setStrumPattern(preset.strumPattern)
+    setRecipeId(preset.recipeId)
   }
 
   const notesModel = useMemo(() => createNotesModel({
-    arpeggioPattern,
     blockLengthTicks,
     blockPlaybackMode,
     eventDurationTicks,
@@ -317,7 +317,7 @@ export default function Notes() {
     patternLengthTicks,
     playbackGate,
     playbackStyle,
-    strumPattern,
+    recipeId,
     toneStepTicks,
     voicingBass,
     voicingBassEnabled,
@@ -327,7 +327,6 @@ export default function Notes() {
     voicingSpread,
     voicingType,
   }), [
-    arpeggioPattern,
     blockLengthTicks,
     blockPlaybackMode,
     eventDurationTicks,
@@ -344,7 +343,7 @@ export default function Notes() {
     patternLengthTicks,
     playbackGate,
     playbackStyle,
-    strumPattern,
+    recipeId,
     toneStepTicks,
     voicingBass,
     voicingBassEnabled,
@@ -426,11 +425,10 @@ export default function Notes() {
                 <TextField label="Event time tick" value={eventTimeTick} onChange={setEventTimeTick} />
                 <TextField label="Event duration ticks" value={eventDurationTicks} onChange={setEventDurationTicks} />
                 <TextField label="Velocity" value={eventVelocity} onChange={setEventVelocity} />
-                <SelectField label="Playback style" value={playbackStyle} data={PLAYBACK_STYLES} onChange={setPlaybackStyle} />
+                <SelectField label="Playback style" value={playbackStyle} data={CHORD_PLAYBACK_STYLES} onChange={setPlaybackStyle} />
+                <SelectField label="Recipe" value={recipeId} data={CHORD_PLAYBACK_RECIPE_OPTIONS} onChange={setRecipeId} />
                 <TextField label="Gate" value={playbackGate} onChange={setPlaybackGate} />
-                <TextField label="Tone step ticks" value={toneStepTicks} onChange={setToneStepTicks} />
-                <SelectField label="Arpeggio" value={arpeggioPattern} data={ARPEGGIO_PATTERNS} onChange={setArpeggioPattern} />
-                <SelectField label="Strum" value={strumPattern} data={STRUM_PATTERNS} onChange={setStrumPattern} />
+                <TextField label="Step ticks" value={toneStepTicks} onChange={setToneStepTicks} />
               </Stack>
             </Paper>
           </SimpleGrid>
@@ -721,7 +719,6 @@ function NotesLooper({ model }: { model: NotesModel }) {
 }
 
 function createNotesModel(input: {
-  arpeggioPattern: ArpeggioPattern
   blockLengthTicks: string
   blockPlaybackMode: BlockPlaybackMode
   eventDurationTicks: string
@@ -737,8 +734,8 @@ function createNotesModel(input: {
   keyTonic: string
   patternLengthTicks: string
   playbackGate: string
-  playbackStyle: PlaybackStyle
-  strumPattern: StrumPattern
+  playbackStyle: ChordPlaybackStyle
+  recipeId: ChordPlaybackRecipeId
   toneStepTicks: string
   voicingBass: string
   voicingBassEnabled: boolean
@@ -793,10 +790,10 @@ function createNotesModel(input: {
     durationTicks: eventDuration,
     id: 'event_notes_chord',
     playback: {
-      arpeggioPattern: input.arpeggioPattern,
       gate: clampNumber(parseNumber(input.playbackGate), 0.05, 1),
-      repeatEveryTicks: clampInteger(parseInteger(input.toneStepTicks), MIN_EVENT_DURATION_TICKS, blockLengthTicks),
-      strumPattern: input.strumPattern,
+      microStaggerTicks: clampInteger(parseInteger(input.toneStepTicks), 0, blockLengthTicks),
+      recipeId: input.recipeId,
+      stepTicks: clampInteger(parseInteger(input.toneStepTicks), MIN_EVENT_DURATION_TICKS, blockLengthTicks),
       style: input.playbackStyle,
     },
     timeTick: eventTime,
@@ -1052,9 +1049,14 @@ function SelectField<TValue extends string>({
 }
 
 function createNotesPreset(input: NotesPresetInput): NotesPreset {
-  return {
+  const preset = {
     ...DEFAULT_NOTES_PRESET,
     ...input,
+  }
+
+  return {
+    ...preset,
+    recipeId: input.recipeId ?? getDefaultRecipeIdForStyle(preset.playbackStyle),
   }
 }
 

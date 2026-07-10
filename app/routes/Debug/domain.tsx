@@ -21,17 +21,19 @@ import AppProvider from '~/components/Providers/AppProvider'
 import {
   ACTIVE_TOOLS,
   type ActiveTool,
-  ARPEGGIO_PATTERNS,
-  type ArpeggioPattern,
   barBeatToTick,
   BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
   canTrackAcceptPatternKind,
   CHORD_ALTERATIONS,
   CHORD_EXTENSIONS,
+  CHORD_PLAYBACK_RECIPE_IDS,
+  CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
   type ChordAlteration,
   type ChordExtension,
+  type ChordPlaybackRecipeId,
+  type ChordPlaybackStyle,
   type ChordQuality,
   clearSelection,
   COMMAND_KINDS,
@@ -127,8 +129,6 @@ import {
   PITCH_CLASSES,
   type PitchClass,
   pitchClassFromMidiNote,
-  PLAYBACK_STYLES,
-  type PlaybackStyle,
   pushCommand,
   redoCommand,
   type Register,
@@ -137,8 +137,6 @@ import {
   snapTickToGrid,
   sortBlocksByStartTick,
   sortPatternEventsByTime,
-  STRUM_PATTERNS,
-  type StrumPattern,
   tickToBarBeat,
   TIME_SIGNATURE_DENOMINATORS,
   type TimeSignatureDenominator,
@@ -222,11 +220,11 @@ export default function Debug() {
   const [playheadTick, setPlayheadTick] = useState('480')
   const [loopStartTick, setLoopStartTick] = useState('0')
   const [loopEndTick, setLoopEndTick] = useState('1920')
-  const [playbackStyle, setPlaybackStyle] = useState<PlaybackStyle>('arpeggio')
+  const [playbackStyle, setPlaybackStyle] = useState<ChordPlaybackStyle>('arpeggio')
   const [playbackGate, setPlaybackGate] = useState('0.85')
-  const [repeatEveryTicks, setRepeatEveryTicks] = useState('240')
-  const [arpeggioPattern, setArpeggioPattern] = useState<ArpeggioPattern>('up')
-  const [strumPattern, setStrumPattern] = useState<StrumPattern>('down')
+  const [stepTicks, setStepTicks] = useState('240')
+  const [microStaggerTicks, setMicroStaggerTicks] = useState('3')
+  const [recipeId, setRecipeId] = useState<ChordPlaybackRecipeId>('arp_up')
 
   const [eventTimeTick, setEventTimeTick] = useState('0')
   const [eventDurationTicks, setEventDurationTicks] = useState('480')
@@ -345,10 +343,10 @@ export default function Debug() {
   })
 
   const chordPlayback = () => createDefaultChordPlayback({
-    arpeggioPattern,
     gate: parseNumber(playbackGate),
-    repeatEveryTicks: parseInteger(repeatEveryTicks),
-    strumPattern,
+    microStaggerTicks: parseInteger(microStaggerTicks),
+    recipeId,
+    stepTicks: parseInteger(stepTicks),
     style: playbackStyle,
   })
 
@@ -601,11 +599,11 @@ export default function Debug() {
               <Field label="Playhead tick" value={playheadTick} onChange={setPlayheadTick} />
               <Field label="Loop start" value={loopStartTick} onChange={setLoopStartTick} />
               <Field label="Loop end" value={loopEndTick} onChange={setLoopEndTick} />
-              <SelectField label="Playback style" value={playbackStyle} data={PLAYBACK_STYLES} onChange={setPlaybackStyle} />
+              <SelectField label="Playback style" value={playbackStyle} data={CHORD_PLAYBACK_STYLES} onChange={setPlaybackStyle} />
+              <SelectField label="Recipe" value={recipeId} data={CHORD_PLAYBACK_RECIPE_IDS} onChange={setRecipeId} />
               <Field label="Gate" value={playbackGate} onChange={setPlaybackGate} />
-              <Field label="Repeat every ticks" value={repeatEveryTicks} onChange={setRepeatEveryTicks} />
-              <SelectField label="Arpeggio" value={arpeggioPattern} data={ARPEGGIO_PATTERNS} onChange={setArpeggioPattern} />
-              <SelectField label="Strum" value={strumPattern} data={STRUM_PATTERNS} onChange={setStrumPattern} />
+              <Field label="Step ticks" value={stepTicks} onChange={setStepTicks} />
+              <Field label="Micro stagger ticks" value={microStaggerTicks} onChange={setMicroStaggerTicks} />
             </SimpleGrid>
             <ButtonGroup>
               <RunButton label="createDefaultChordPlayback" onClick={() => run('playback', 'createDefaultChordPlayback', chordPlayback)} />

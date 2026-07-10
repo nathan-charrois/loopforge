@@ -1,13 +1,16 @@
-import type { ChordPlayback } from './playback'
+import { type ChordPlayback, getDefaultRecipeIdForStyle, getDefaultStyleForRecipeId } from './playback'
 
 export function createDefaultChordPlayback(input: Partial<ChordPlayback> = {}): ChordPlayback {
+  const style = input.style ?? getDefaultStyleForRecipeId(input.recipeId)
+  const recipeId = input.recipeId ?? getDefaultRecipeIdForStyle(style)
+
   return {
-    arpeggioPattern: input.arpeggioPattern,
     effectPresetId: input.effectPresetId,
     gate: input.gate ?? 1,
     instrumentPresetId: input.instrumentPresetId,
-    repeatEveryTicks: input.repeatEveryTicks,
-    strumPattern: input.strumPattern,
-    style: input.style ?? 'block',
+    microStaggerTicks: input.microStaggerTicks,
+    stepTicks: input.stepTicks,
+    recipeId,
+    style,
   }
 }

@@ -61,6 +61,17 @@ export function getPatternEventEndTick(event: PatternEvent): Tick {
   return event.timeTick
 }
 
+export function getPatternEventDurationTicks(event: PatternEvent): DurationTicks {
+  switch (event.kind) {
+    case 'chord':
+    case 'note':
+      return event.durationTicks
+    case 'drumHit':
+    case 'automation':
+      return 1 as DurationTicks
+  }
+}
+
 export function getScheduledEventDurationTicks(event: PatternEvent, maxDurationTicks: number): number {
   if (!isTimedPatternEvent(event)) {
     return 0
