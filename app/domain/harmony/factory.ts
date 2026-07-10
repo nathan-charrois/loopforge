@@ -14,11 +14,9 @@ export function createChordSymbol(input: {
   quality?: ChordQuality
   extensions?: ChordExtension[]
   alterations?: ChordAlteration[]
-  bass?: PitchClass
 }): ChordSymbol {
   return {
     alterations: input.alterations ?? [],
-    bass: input.bass,
     extensions: input.extensions ?? [],
     quality: input.quality ?? 'major',
     root: input.root,

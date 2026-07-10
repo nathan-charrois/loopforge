@@ -205,17 +205,17 @@ export default function Debug() {
   const [harmonyQuality, setHarmonyQuality] = useState<ChordQuality>('minor')
   const [harmonyExtension, setHarmonyExtension] = useState<ChordExtension | 'none'>('7')
   const [harmonyAlteration, setHarmonyAlteration] = useState<ChordAlteration | 'none'>('none')
-  const [harmonyBass, setHarmonyBass] = useState('7')
   const [harmonyKeyTonic, setHarmonyKeyTonic] = useState('0')
   const [harmonyMode, setHarmonyMode] = useState<Mode>('major')
   const [harmonyInterval, setHarmonyInterval] = useState('2')
 
-  const [voicingType, setVoicingType] = useState<VoicingType>('close')
+  const [voicingType, setVoicingType] = useState<VoicingType>('closed')
   const [voicingInversion, setVoicingInversion] = useState('0')
   const [voicingRegister, setVoicingRegister] = useState<Register>('mid')
   const [voicingSpread, setVoicingSpread] = useState('1')
   const [voicingOctave, setVoicingOctave] = useState('4')
   const [voicingBassEnabled, setVoicingBassEnabled] = useState(false)
+  const [voicingBass, setVoicingBass] = useState('7')
 
   const [playheadTick, setPlayheadTick] = useState('480')
   const [loopStartTick, setLoopStartTick] = useState('0')
@@ -322,7 +322,6 @@ export default function Debug() {
 
   const harmonyChord = () => createChordSymbol({
     alterations: harmonyAlteration === 'none' ? [] : [harmonyAlteration],
-    bass: parsePitchClass(harmonyBass),
     extensions: harmonyExtension === 'none' ? [] : [harmonyExtension],
     quality: harmonyQuality,
     root: parsePitchClass(harmonyRoot),
@@ -334,7 +333,7 @@ export default function Debug() {
   })
 
   const chordVoicing = () => createDefaultChordVoicing({
-    bassNote: voicingBassEnabled ? parsePitchClass(harmonyBass) : undefined,
+    bassNote: voicingBassEnabled ? parsePitchClass(voicingBass) : undefined,
     inversion: parseInteger(voicingInversion),
     octave: parseInteger(voicingOctave),
     register: voicingRegister,
@@ -554,7 +553,6 @@ export default function Debug() {
               <SelectField label="Quality" value={harmonyQuality} data={CHORD_QUALITIES} onChange={setHarmonyQuality} />
               <SelectField label="Extension" value={harmonyExtension} data={CHORD_EXTENSION_OPTIONS} onChange={setHarmonyExtension} />
               <SelectField label="Alteration" value={harmonyAlteration} data={CHORD_ALTERATION_OPTIONS} onChange={setHarmonyAlteration} />
-              <SelectField label="Bass" value={harmonyBass} data={PITCH_CLASS_OPTIONS} onChange={setHarmonyBass} />
               <SelectField label="Key tonic" value={harmonyKeyTonic} data={PITCH_CLASS_OPTIONS} onChange={setHarmonyKeyTonic} />
               <SelectField label="Mode" value={harmonyMode} data={MODES} onChange={setHarmonyMode} />
               <Field label="Transpose interval" value={harmonyInterval} onChange={setHarmonyInterval} />
@@ -585,8 +583,9 @@ export default function Debug() {
               <SelectField label="Register" value={voicingRegister} data={REGISTERS} onChange={setVoicingRegister} />
               <Field label="Spread" value={voicingSpread} onChange={setVoicingSpread} />
               <Field label="Octave" value={voicingOctave} onChange={setVoicingOctave} />
+              <SelectField label="Bass note" value={voicingBass} data={PITCH_CLASS_OPTIONS} onChange={setVoicingBass} />
             </SimpleGrid>
-            <Checkbox label="Add bass note from Harmony bass" checked={voicingBassEnabled} onChange={event => setVoicingBassEnabled(event.currentTarget.checked)} />
+            <Checkbox label="Add bass note" checked={voicingBassEnabled} onChange={event => setVoicingBassEnabled(event.currentTarget.checked)} />
             <VoicedNotePreview notes={voicedNotes} />
             <ButtonGroup>
               <RunButton label="createDefaultChordVoicing" onClick={() => run('voicing', 'createDefaultChordVoicing', chordVoicing)} />

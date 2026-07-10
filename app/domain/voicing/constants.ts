@@ -1,6 +1,6 @@
 import type { Octave } from '../musicPrimitives'
 
-export const VOICING_TYPES = ['close', 'open', 'drop2', 'spread'] as const
+export const VOICING_TYPES = ['closed', 'open', 'drop2', 'spread'] as const
 export type VoicingType = typeof VOICING_TYPES[number]
 
 export const REGISTERS = ['low', 'mid', 'high'] as const

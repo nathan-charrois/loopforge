@@ -27,7 +27,6 @@ export type Key = {
   mode: Mode
 }
 
-export type ChordFunction = 'tonic' | 'predominant' | 'dominant' | 'subdominant' | 'passing'
 export type RomanNumeral = string
 export type NashvilleNumber = string
 
@@ -36,7 +35,6 @@ export type ChordSymbol = {
   quality: ChordQuality
   extensions: ChordExtension[]
   alterations: ChordAlteration[]
-  bass?: PitchClass
 }
 
 export function isMode(value: string): value is Mode {
@@ -51,7 +49,6 @@ export function transposeChordSymbol(chord: ChordSymbol, interval: Interval): Ch
   return {
     ...chord,
     alterations: [...chord.alterations],
-    bass: chord.bass === undefined ? undefined : transposePitchClass(chord.bass, interval),
     extensions: [...chord.extensions],
     root: transposePitchClass(chord.root, interval),
   }

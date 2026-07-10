@@ -7,6 +7,6 @@ export function createDefaultChordVoicing(input: Partial<ChordVoicing> = {}): Ch
     octave: input.octave,
     register: input.register ?? 'mid',
     spread: input.spread ?? 0,
-    type: input.type ?? 'close',
+    type: input.type ?? 'closed',
   }
 }

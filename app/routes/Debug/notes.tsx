@@ -155,8 +155,6 @@ type NotesPreset = {
   eventTimeTick: string
   eventVelocity: string
   harmonyAlteration: ChordAlteration | 'none'
-  harmonyBass: string
-  harmonyBassEnabled: boolean
   harmonyExtension: ChordExtension | 'none'
   harmonyQuality: ChordQuality
   harmonyRoot: string
@@ -185,8 +183,6 @@ const DEFAULT_NOTES_PRESET: Omit<NotesPreset, 'id' | 'label'> = {
   eventTimeTick: '0',
   eventVelocity: '96',
   harmonyAlteration: 'none',
-  harmonyBass: '7',
-  harmonyBassEnabled: false,
   harmonyExtension: '7',
   harmonyQuality: 'minor',
   harmonyRoot: '0',
@@ -203,7 +199,7 @@ const DEFAULT_NOTES_PRESET: Omit<NotesPreset, 'id' | 'label'> = {
   voicingOctave: '4',
   voicingRegister: 'mid',
   voicingSpread: '1',
-  voicingType: 'close',
+  voicingType: 'closed',
 }
 
 const NOTES_PRESETS = [
@@ -221,7 +217,7 @@ const NOTES_PRESETS = [
   createNotesPreset({ id: 'augmented_bright', label: 'Aug Bright', harmonyExtension: 'maj7', harmonyQuality: 'augmented', harmonyRoot: '1', keyMode: 'lydian', keyTonic: '1', voicingOctave: '5' }),
   createNotesPreset({ id: 'diminished_tension', label: 'Dim Tension', harmonyExtension: '7', harmonyQuality: 'diminished', harmonyRoot: '11', keyMode: 'locrian', keyTonic: '11', voicingRegister: 'low' }),
   createNotesPreset({ id: 'sus4_dominant', label: 'Sus4 Dominant', harmonyExtension: '7', harmonyQuality: 'sus4', harmonyRoot: '7', keyMode: 'mixolydian', keyTonic: '7' }),
-  createNotesPreset({ id: 'low_slash_fifth', label: 'Low Slash Fifth', harmonyBass: '7', harmonyBassEnabled: true, harmonyQuality: 'minor', harmonyRoot: '0', voicingBass: '7', voicingRegister: 'low' }),
+  createNotesPreset({ id: 'low_fifth_bass', label: 'Low Fifth Bass', harmonyQuality: 'minor', harmonyRoot: '0', voicingBass: '7', voicingRegister: 'low' }),
   createNotesPreset({ id: 'high_cluster', label: 'High Cluster', harmonyExtension: '9', harmonyQuality: 'sus2', harmonyRoot: '2', keyMode: 'major', keyTonic: '2', voicingOctave: '5', voicingRegister: 'high' }),
   createNotesPreset({ id: 'first_inversion_pad', label: 'First Inversion', harmonyExtension: 'maj7', harmonyQuality: 'major', harmonyRoot: '9', keyMode: 'major', keyTonic: '9', patternLengthTicks: '3840', voicingInversion: '1', voicingType: 'open' }),
   createNotesPreset({ id: 'second_inversion_pad', label: 'Second Inversion', harmonyExtension: '7', harmonyQuality: 'minor', harmonyRoot: '5', keyMode: 'minor', keyTonic: '5', patternLengthTicks: '3840', voicingInversion: '2', voicingType: 'spread' }),
@@ -248,12 +244,10 @@ export default function Notes() {
   const [harmonyQuality, setHarmonyQuality] = useState<ChordQuality>('major')
   const [harmonyExtension, setHarmonyExtension] = useState<ChordExtension | 'none'>('none')
   const [harmonyAlteration, setHarmonyAlteration] = useState<ChordAlteration | 'none'>('none')
-  const [harmonyBassEnabled, setHarmonyBassEnabled] = useState(false)
-  const [harmonyBass, setHarmonyBass] = useState('7')
   const [keyTonic, setKeyTonic] = useState('0')
   const [keyMode, setKeyMode] = useState<Mode>('minor')
 
-  const [voicingType, setVoicingType] = useState<VoicingType>('close')
+  const [voicingType, setVoicingType] = useState<VoicingType>('closed')
   const [voicingInversion, setVoicingInversion] = useState('0')
   const [voicingRegister, setVoicingRegister] = useState<Register>('mid')
   const [voicingSpread, setVoicingSpread] = useState('0')
@@ -277,8 +271,6 @@ export default function Notes() {
     setHarmonyQuality(preset.harmonyQuality)
     setHarmonyExtension(preset.harmonyExtension)
     setHarmonyAlteration(preset.harmonyAlteration)
-    setHarmonyBassEnabled(preset.harmonyBassEnabled)
-    setHarmonyBass(preset.harmonyBass)
     setKeyTonic(preset.keyTonic)
     setKeyMode(preset.keyMode)
     setVoicingType(preset.voicingType)
@@ -307,8 +299,6 @@ export default function Notes() {
     eventTimeTick,
     eventVelocity,
     harmonyAlteration,
-    harmonyBass,
-    harmonyBassEnabled,
     harmonyExtension,
     harmonyQuality,
     harmonyRoot,
@@ -333,8 +323,6 @@ export default function Notes() {
     eventTimeTick,
     eventVelocity,
     harmonyAlteration,
-    harmonyBass,
-    harmonyBassEnabled,
     harmonyExtension,
     harmonyQuality,
     harmonyRoot,
@@ -386,8 +374,6 @@ export default function Notes() {
                 <SelectField label="Quality" value={harmonyQuality} data={CHORD_QUALITIES} onChange={setHarmonyQuality} />
                 <SelectField label="Extension" value={harmonyExtension} data={CHORD_EXTENSION_OPTIONS} onChange={setHarmonyExtension} />
                 <SelectField label="Alteration" value={harmonyAlteration} data={CHORD_ALTERATION_OPTIONS} onChange={setHarmonyAlteration} />
-                <Checkbox label="Slash bass" checked={harmonyBassEnabled} onChange={event => setHarmonyBassEnabled(event.currentTarget.checked)} />
-                <SelectField label="Bass" value={harmonyBass} data={PITCH_CLASS_OPTIONS} onChange={setHarmonyBass} />
                 <Divider />
                 <SelectField label="Key tonic" value={keyTonic} data={PITCH_CLASS_OPTIONS} onChange={setKeyTonic} />
                 <SelectField label="Key mode" value={keyMode} data={MODES} onChange={setKeyMode} />
@@ -722,8 +708,6 @@ function createNotesModel(input: {
   eventTimeTick: string
   eventVelocity: string
   harmonyAlteration: ChordAlteration | 'none'
-  harmonyBass: string
-  harmonyBassEnabled: boolean
   harmonyExtension: ChordExtension | 'none'
   harmonyQuality: ChordQuality
   harmonyRoot: string
@@ -749,7 +733,6 @@ function createNotesModel(input: {
   }
   const chord = createChordSymbol({
     alterations: input.harmonyAlteration === 'none' ? [] : [input.harmonyAlteration],
-    bass: input.harmonyBassEnabled ? parsePitchClass(input.harmonyBass) : undefined,
     extensions: input.harmonyExtension === 'none' ? [] : [input.harmonyExtension],
     quality: input.harmonyQuality,
     root,

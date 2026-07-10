@@ -87,7 +87,7 @@ function applyInversion(midiNotes: MidiNote[], inversion: Inversion): MidiNote[]
 }
 
 function applySpread(midiNotes: MidiNote[], voicing: ChordVoicing): MidiNote[] {
-  if (voicing.type === 'close') {
+  if (voicing.type === 'closed') {
     return [...midiNotes]
   }
 

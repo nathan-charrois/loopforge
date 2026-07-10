@@ -18,8 +18,13 @@ export const CHORD_QUALITIES = [
   'augmented',
   'sus2',
   'sus4',
+  'add2',
+  'add4',
 ] as const
 export type ChordQuality = typeof CHORD_QUALITIES[number]
+
+export const CHORD_FUNCTIONS = ['tonic', 'predominant', 'dominant', 'subdominant', 'passing'] as const
+export type ChordFunction = typeof CHORD_FUNCTIONS[number]
 
 export const CHORD_EXTENSIONS = ['6', '7', 'maj7', '9', '11', '13'] as const
 export type ChordExtension = typeof CHORD_EXTENSIONS[number]
@@ -44,6 +49,8 @@ export const CHORD_QUALITY_INTERVALS = {
   augmented: [0, 4, 8],
   sus2: [0, 2, 7],
   sus4: [0, 5, 7],
+  add2: [0, 2, 4, 7],
+  add4: [0, 4, 5, 7],
 } as const satisfies Record<ChordQuality, readonly Interval[]>
 
 export const CHORD_EXTENSION_INTERVALS = {
@@ -71,6 +78,8 @@ export const CHORD_QUALITY_SUFFIX = {
   augmented: 'aug',
   sus2: 'sus2',
   sus4: 'sus4',
+  add2: 'add2',
+  add4: 'add4',
 } as const satisfies Record<ChordQuality, string>
 
 export const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'] as const

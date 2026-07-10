@@ -7,9 +7,8 @@ export function formatChordSymbol(chord: ChordSymbol): string {
   const quality = CHORD_QUALITY_SUFFIX[chord.quality]
   const extensions = chord.extensions.join('')
   const alterations = chord.alterations.join('')
-  const bass = chord.bass === undefined ? '' : `/${getNoteNameForPitchClass(chord.bass)}`
 
-  return `${root}${quality}${extensions}${alterations}${bass}`
+  return `${root}${quality}${extensions}${alterations}`
 }
 
 export function getRomanNumeral(chord: ChordSymbol, key: Key): RomanNumeral {
