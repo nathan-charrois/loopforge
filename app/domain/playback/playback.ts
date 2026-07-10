@@ -1,4 +1,5 @@
-import type { DurationTicks, MidiNote, Tick, Velocity } from '../musicPrimitives'
+import { createPositiveDurationTicks, type DurationTicks, type MidiNote, type Tick, type Velocity } from '../musicPrimitives'
+import type { ChordEvent } from '../patternEvents'
 import type { VoicedNote } from '../voicing'
 import { CHORD_PLAYBACK_RECIPES } from './constants'
 
@@ -106,7 +107,7 @@ export function getDefaultRecipeIdForStyle(style: ChordPlaybackStyle): ChordPlay
 export function getRecipeStepNote(
   notes: VoicedNote[],
   step: ChordPlaybackRecipeStep,
-  outOfRange: ChordPlaybackRecipe['outOfRange'],
+  outOfRange: ChordPlaybackRecipeOutOfRange,
 ): VoicedNote | null {
   if (notes.length === 0) {
     return null
@@ -147,4 +148,76 @@ export function getRecipeArpeggioSteps(
   return recipe.steps.filter(
     step => voiceIndexes.has(Math.trunc(step.voiceIndex)),
   )
+}
+
+export function getRecipeStepTicks(
+  event: ChordEvent,
+  recipe: ChordPlaybackRecipe,
+  durationTicks: DurationTicks,
+  stepCount: number,
+): DurationTicks {
+  const fallbackStepTicks = getFallbackStepTicks(
+    recipe.style,
+    durationTicks,
+    stepCount,
+  )
+
+  return createPositiveDurationTicks(
+    event.playback.stepTicks ?? recipe.defaultStepTicks ?? fallbackStepTicks,
+  )
+}
+
+export function getFallbackStepTicks(
+  style: ChordPlaybackRecipe['style'],
+  durationTicks: DurationTicks,
+  stepCount: number,
+): DurationTicks {
+  if (style !== 'arpeggio') {
+    return durationTicks
+  }
+
+  return createPositiveDurationTicks(
+    Math.floor(durationTicks / Math.max(1, stepCount)),
+  )
+}
+
+export function getRecipeStepDurationTicks(
+  durationTicks: DurationTicks,
+  event: ChordEvent,
+  recipe: ChordPlaybackRecipe,
+  step: ChordPlaybackRecipeStep,
+  stepTicks: DurationTicks,
+  startOffsetTicks: number,
+): DurationTicks | null {
+  const maxDurationTicks = durationTicks - startOffsetTicks
+
+  if (maxDurationTicks <= 0) {
+    return null
+  }
+
+  const recipeDurationTicks = getRecipeDurationTicks(
+    step,
+    stepTicks,
+    durationTicks,
+    recipe,
+  )
+
+  return getGatedDurationTick(
+    recipeDurationTicks,
+    maxDurationTicks,
+    step.gate ?? event.playback.gate ?? recipe.defaultGate ?? 1,
+  )
+}
+
+export function getRecipeDurationTicks(
+  step: ChordPlaybackRecipeStep,
+  stepTicks: DurationTicks,
+  durationTicks: DurationTicks,
+  recipe: ChordPlaybackRecipe,
+): DurationTicks {
+  if (step.durationSteps === undefined) {
+    return recipe.style === 'arpeggio' ? stepTicks : durationTicks
+  }
+
+  return createPositiveDurationTicks(step.durationSteps * stepTicks)
 }

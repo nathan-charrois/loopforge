@@ -12,8 +12,10 @@ import {
   getGatedDurationTick,
   getPatternEventDurationTicks,
   getRecipeArpeggioSteps,
+  getRecipeStepDurationTicks,
   getRecipeStepNote,
   getRecipeStepPitch,
+  getRecipeStepTicks,
   getRecipeStepVelocity,
   getScheduledEventDurationTicks,
   getScheduledEventStartTick,
@@ -498,14 +500,14 @@ function createSteppedChordPlaybackTriggers({
 
     const startOffsetTicks = (step.offsetSteps ?? stepIndex) * stepTicks
 
-    const durationTicks = getRecipeStepDurationTicks({
+    const durationTicks = getRecipeStepDurationTicks(
+      scheduledEvent.durationTicks,
       event,
       recipe,
-      scheduledEvent,
-      startOffsetTicks,
       step,
       stepTicks,
-    })
+      startOffsetTicks,
+    )
 
     const trigger = createRecipeNotePlaybackTrigger({
       durationTicks,
@@ -537,53 +539,55 @@ function createArpeggioChordPlaybackTriggers({
   notes: VoicedNote[]
   recipe: ChordPlaybackRecipe
 }): NotePlaybackTrigger[] {
-  const stepTicks = Math.max(
-    1,
-    event.playback.stepTicks ?? recipe.defaultStepTicks ?? scheduledEvent.durationTicks,
-  )
-  const source = createPlaybackTriggerSource(scheduledEvent)
-  const triggers: NotePlaybackTrigger[] = []
-  const arpeggioSteps = getRecipeArpeggioSteps(notes, recipe)
+  const steps = getRecipeArpeggioSteps(notes, recipe)
 
-  if (arpeggioSteps.length === 0) {
+  if (steps.length === 0) {
     return []
   }
+
+  const source = createPlaybackTriggerSource(scheduledEvent)
+
+  const stepTicks = getRecipeStepTicks(
+    event,
+    recipe,
+    scheduledEvent.durationTicks,
+    steps.length,
+  )
+
+  const triggers: NotePlaybackTrigger[] = []
 
   let stepIndex = 0
 
   for (let startOffsetTicks = 0; startOffsetTicks < scheduledEvent.durationTicks; startOffsetTicks += stepTicks) {
-    const step = arpeggioSteps[stepIndex % arpeggioSteps.length]
+    const step = steps[stepIndex % steps.length]
+    const note = getRecipeStepNote(notes, step, recipe.outOfRange)
 
-    if (step === undefined) {
+    if (note === null) {
       break
     }
 
-    const note = getRecipeStepNote(notes, step, recipe.outOfRange)
+    const durationTicks = getRecipeStepDurationTicks(
+      scheduledEvent.durationTicks,
+      event,
+      recipe,
+      step,
+      stepTicks,
+      startOffsetTicks,
+    )
 
-    if (note !== null) {
-      const durationTicks = getRecipeStepDurationTicks({
-        event,
-        recipe,
-        scheduledEvent,
-        startOffsetTicks,
-        step,
-        stepTicks,
-      })
+    const trigger = createRecipeNotePlaybackTrigger({
+      durationTicks,
+      event,
+      note,
+      scheduledEvent,
+      source,
+      startOffsetTicks,
+      step,
+      stepIndex,
+    })
 
-      const trigger = createRecipeNotePlaybackTrigger({
-        durationTicks,
-        event,
-        note,
-        scheduledEvent,
-        source,
-        startOffsetTicks,
-        step,
-        stepIndex,
-      })
-
-      if (trigger !== null) {
-        triggers.push(trigger)
-      }
+    if (trigger !== null) {
+      triggers.push(trigger)
     }
 
     stepIndex += 1
@@ -629,38 +633,6 @@ function createRecipeNotePlaybackTrigger({
     startTick: scheduledEvent.startTick + startOffsetTicks,
     durationTicks,
   }
-}
-
-function getRecipeStepDurationTicks({
-  event,
-  recipe,
-  scheduledEvent,
-  startOffsetTicks,
-  step,
-  stepTicks,
-}: {
-  scheduledEvent: ScheduledPlaybackEventBase
-  event: ChordEvent
-  recipe: ChordPlaybackRecipe
-  step: ChordPlaybackRecipeStep
-  stepTicks: DurationTicks
-  startOffsetTicks: number
-}): DurationTicks | null {
-  const maxDurationTicks = scheduledEvent.durationTicks - startOffsetTicks
-
-  if (maxDurationTicks <= 0) {
-    return null
-  }
-
-  const durationTicks = step.durationSteps === undefined
-    ? recipe.style === 'arpeggio' ? stepTicks : scheduledEvent.durationTicks
-    : Math.max(1, step.durationSteps * stepTicks)
-
-  return getGatedDurationTick(
-    durationTicks,
-    maxDurationTicks,
-    step.gate ?? event.playback.gate ?? recipe.defaultGate ?? 1,
-  )
 }
 
 function createNotePlaybackTrigger(
