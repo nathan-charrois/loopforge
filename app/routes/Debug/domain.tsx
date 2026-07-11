@@ -16,6 +16,7 @@ import {
   Title,
 } from '@mantine/core'
 
+import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
@@ -498,6 +499,7 @@ export default function Debug() {
             <Group justify="space-between" align="flex-start">
               <Box>
                 <Title order={1}>Domain Playground</Title>
+                <DebugNav />
                 <Text c="dimmed" size="sm">
                   Pure domain factories, validators, and helpers.
                 </Text>

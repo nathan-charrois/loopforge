@@ -13,6 +13,7 @@ import {
   Title,
 } from '@mantine/core'
 
+import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import { useCommandHistory } from '~/components/Providers/CommandHistoryProvider'
@@ -313,7 +314,10 @@ function EditorDebugContent() {
     <AppLayout>
       <Stack gap="md" py="lg">
         <Group justify="space-between" align="center">
-          <Title order={1} size="h2">Editor Debug</Title>
+          <Stack gap={2}>
+            <Title order={1}>Editor Debug</Title>
+            <DebugNav />
+          </Stack>
           <Badge color="gray" variant="light">
             {commandHistory.undoStack.length}
             {' '}

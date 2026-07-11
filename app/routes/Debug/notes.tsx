@@ -21,6 +21,7 @@ import {
   Title,
 } from '@mantine/core'
 
+import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
@@ -349,6 +350,7 @@ export default function Notes() {
           <Group justify="space-between" align="flex-end">
             <Stack gap={2}>
               <Title order={1}>Notes</Title>
+              <DebugNav />
               <Group gap="xs">
                 <Badge variant="light">Harmony</Badge>
                 <Badge variant="light">Voicing</Badge>

@@ -27,6 +27,7 @@ import {
   Title,
 } from '@mantine/core'
 
+import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
@@ -550,6 +551,7 @@ export default function Play() {
           <Group justify="space-between" align="flex-start">
             <Box>
               <Title order={1}>Playback Lab</Title>
+              <DebugNav />
               <Text c="dimmed" size="sm">
                 Workspace data with a transport clock.
               </Text>
