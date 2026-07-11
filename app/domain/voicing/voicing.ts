@@ -7,7 +7,12 @@ import {
   type PitchClass,
   pitchClassFromMidiNote,
 } from '../musicPrimitives'
-import { type Register, REGISTER_BASE_OCTAVES, type VoicingType } from './constants'
+import {
+  DEFAULT_VOICING_OCTAVE,
+  type Register,
+  REGISTER_SEMITONE_OFFSETS,
+  type VoicingType,
+} from './constants'
 
 export type VoiceIndex = number
 export type Inversion = number
@@ -31,13 +36,15 @@ export type VoicedNote = {
 
 export function materializeChordVoicing(chord: ChordSymbol, voicing: ChordVoicing): VoicedNote[] {
   const pitchClasses = orderPitchClassesFromRoot(getChordPitchClasses(chord), chord.root)
-  const baseOctave = voicing.octave ?? REGISTER_BASE_OCTAVES[voicing.register]
+  const baseOctave = voicing.octave ?? DEFAULT_VOICING_OCTAVE
   const closedNotes = pitchClassesToAscendingMidiNotes(pitchClasses, baseOctave)
   const invertedNotes = applyInversion(closedNotes, voicing.inversion)
-  const spreadNotes = applySpread(invertedNotes, voicing)
+  const typedNotes = applyVoicingType(invertedNotes, voicing.type)
+  const spreadNotes = applySpread(typedNotes, voicing.spread)
   const bassNotes = getBassNotes(voicing, baseOctave, spreadNotes)
+  const registeredNotes = applyRegister([...bassNotes, ...spreadNotes], voicing.register)
 
-  return [...bassNotes, ...spreadNotes]
+  return registeredNotes
     .sort((left, right) => left - right)
     .map(midiNoteToVoicedNote)
 }
@@ -86,27 +93,41 @@ function applyInversion(midiNotes: MidiNote[], inversion: Inversion): MidiNote[]
   return output
 }
 
-function applySpread(midiNotes: MidiNote[], voicing: ChordVoicing): MidiNote[] {
-  if (voicing.type === 'closed') {
+function applyVoicingType(midiNotes: MidiNote[], type: VoicingType): MidiNote[] {
+  if (type !== 'drop2' || midiNotes.length < 4) {
     return [...midiNotes]
   }
 
-  if (voicing.type === 'drop2' && midiNotes.length >= 4) {
-    const output = [...midiNotes]
-    output[output.length - 2] -= 12
+  const output = [...midiNotes]
+  output[output.length - 2] -= 12
 
-    return output
+  return output
+}
+
+function applySpread(midiNotes: MidiNote[], spread: Spread): MidiNote[] {
+  if (spread <= 0) {
+    return [...midiNotes]
   }
 
-  const octaveSpread = voicing.type === 'spread' ? Math.max(1, voicing.spread || 1) : 1
-
   return midiNotes.map((midiNote, index) => {
-    if (index % 2 === 0) {
+    if (index === 0) {
       return midiNote
     }
 
-    return midiNote + (12 * octaveSpread)
+    const octaveLift = Math.floor((index * spread) / 2)
+
+    return midiNote + (octaveLift * 12)
   })
+}
+
+function applyRegister(midiNotes: MidiNote[], register: Register): MidiNote[] {
+  const semitoneOffset = REGISTER_SEMITONE_OFFSETS[register]
+
+  if (semitoneOffset === 0) {
+    return [...midiNotes]
+  }
+
+  return midiNotes.map(midiNote => midiNote + semitoneOffset)
 }
 
 function getBassNotes(voicing: ChordVoicing, baseOctave: Octave, notes: MidiNote[]): MidiNote[] {

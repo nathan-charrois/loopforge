@@ -27,6 +27,7 @@ import {
   type ChordQuality,
   createChordSymbol,
   createDefaultChordVoicing,
+  DEFAULT_VOICING_OCTAVE,
   formatChordSymbol,
   getChordPitchClasses,
   getNoteNameForPitchClass,
@@ -40,7 +41,6 @@ import {
   type PitchClass,
   pitchClassFromMidiNote,
   type Register,
-  REGISTER_BASE_OCTAVES,
   REGISTERS,
   type VoicedNote,
   VOICING_TYPES,
@@ -49,6 +49,7 @@ import {
 import { parseInteger } from '~/utils/number'
 
 const KEY_COUNT = 60
+const PIANO_ROLL_START_OCTAVE: Octave = 1
 const NO_PITCH_CLASS = 'none'
 const BLACK_PITCH_CLASSES = new Set<PitchClass>([1, 3, 6, 8, 10])
 
@@ -99,8 +100,8 @@ export default function Chord() {
   const [voicingType, setVoicingType] = useState<VoicingType>('closed')
   const [inversion, setInversion] = useState('0')
   const [register, setRegister] = useState<Register>('mid')
-  const [spread, setSpread] = useState('1')
-  const [octave, setOctave] = useState('4')
+  const [spread, setSpread] = useState('0')
+  const [octave, setOctave] = useState('3')
   const [bassNote, setBassNote] = useState<OptionalPitchClass>('0')
 
   const chord = useMemo(() => createChordSymbol({
@@ -120,7 +121,7 @@ export default function Chord() {
   }), [bassNote, inversion, octave, register, spread, voicingType])
 
   const voicedNotes = useMemo(() => materializeChordVoicing(chord, voicing), [chord, voicing])
-  const activeOctave = voicing.octave ?? REGISTER_BASE_OCTAVES[register]
+  const baseOctave = voicing.octave ?? DEFAULT_VOICING_OCTAVE
   const chordName = formatChordSymbol(chord)
   const chordToneLabels = getChordPitchClasses(chord).map(getNoteNameForPitchClass)
   const voicedNoteLabels = voicedNotes.map(formatVoicedNote)
@@ -146,14 +147,13 @@ export default function Chord() {
           </Group>
 
           <PianoRoll
-            activeOctave={activeOctave}
-            bassPitchClass={voicing.bassNote}
+            hasBassNote={voicing.bassNote !== undefined}
             notes={voicedNotes}
           />
 
           <SimpleGrid cols={{ base: 1, md: 3 }}>
             <SettingsPanel
-              activeOctave={activeOctave}
+              baseOctave={baseOctave}
               bassNote={bassNoteLabel}
               chordFunction={chordFunction}
               chordName={chordName}
@@ -161,7 +161,7 @@ export default function Chord() {
               mode={mode}
               tonic={tonicLabel}
               voicedNotes={voicedNoteLabels}
-              voicingLabel={`${voicingType}, inversion ${voicing.inversion}, ${register}, spread ${voicing.spread}`}
+              voicingLabel={`${voicingType}, inversion ${voicing.inversion}, ${register}, spread ${voicing.spread}, octave ${baseOctave}`}
             />
 
             <Paper withBorder radius="sm" p="md">
@@ -196,20 +196,15 @@ export default function Chord() {
 }
 
 function PianoRoll({
-  activeOctave,
-  bassPitchClass,
+  hasBassNote,
   notes,
 }: {
-  activeOctave: Octave
-  bassPitchClass?: PitchClass
+  hasBassNote: boolean
   notes: VoicedNote[]
 }) {
-  const startOctave = getRollStartOctave(activeOctave, notes)
-  const keys = createPianoKeys(startOctave)
+  const keys = createPianoKeys(PIANO_ROLL_START_OCTAVE)
   const notesByMidiNote = new Map(notes.map(note => [note.midiNote, note]))
-  const bassMidiNote = bassPitchClass === undefined
-    ? undefined
-    : notes.find(note => note.pitchClass === bassPitchClass)?.midiNote
+  const bassMidiNote = hasBassNote ? notes[0]?.midiNote : undefined
 
   return (
     <Paper withBorder radius="sm" p="md">
@@ -217,7 +212,7 @@ function PianoRoll({
         <Group justify="space-between" align="center">
           <Title order={2} size="h3">Piano Roll</Title>
           <Badge variant="light">
-            {formatOctaveRange(startOctave)}
+            {formatOctaveRange(PIANO_ROLL_START_OCTAVE)}
           </Badge>
         </Group>
 
@@ -235,7 +230,6 @@ function PianoRoll({
             {keys.map(key => (
               <PianoRollKey
                 key={key.midiNote}
-                active={key.octave === activeOctave}
                 keyData={key}
                 note={notesByMidiNote.get(key.midiNote)}
                 tone={key.midiNote === bassMidiNote ? 'bass' : 'chord'}
@@ -249,12 +243,10 @@ function PianoRoll({
 }
 
 function PianoRollKey({
-  active,
   keyData,
   note,
   tone,
 }: {
-  active: boolean
   keyData: PianoKey
   note?: VoicedNote
   tone: 'bass' | 'chord'
@@ -263,7 +255,7 @@ function PianoRollKey({
   const background = getKeyBackground(keyData.isBlackKey, highlighted, tone)
   const borderColor = getKeyBorderColor(keyData.isBlackKey, highlighted, tone)
   const textColor = getKeyTextColor(keyData.isBlackKey, highlighted)
-  const label = highlighted || keyData.pitchClass === 0
+  const label = highlighted
     ? `${keyData.noteName}${keyData.octave}`
     : ''
 
@@ -307,7 +299,7 @@ function PianoRollKey({
       </Box>
       <Box
         style={{
-          background: active ? 'var(--mantine-color-blue-6)' : 'transparent',
+          background: 'transparent',
           borderRadius: 999,
           height: 4,
         }}
@@ -317,7 +309,7 @@ function PianoRollKey({
 }
 
 function SettingsPanel({
-  activeOctave,
+  baseOctave,
   bassNote,
   chordFunction,
   chordName,
@@ -327,7 +319,7 @@ function SettingsPanel({
   voicedNotes,
   voicingLabel,
 }: {
-  activeOctave: Octave
+  baseOctave: Octave
   bassNote: string
   chordFunction: ChordFunction
   chordName: string
@@ -348,7 +340,7 @@ function SettingsPanel({
         <SettingValue label="Function" value={chordFunction} />
         <SettingValue label="Key" value={`${tonic} ${mode}`} />
         <SettingValue label="Voicing" value={voicingLabel} />
-        <SettingValue label="Active Octave" value={`${activeOctave}`} />
+        <SettingValue label="Base Octave" value={`${baseOctave}`} />
         <SettingValue label="Bass Note" value={bassNote} />
       </Stack>
     </Paper>
@@ -423,23 +415,6 @@ function createPianoKeys(startOctave: Octave): PianoKey[] {
       pitchClass,
     }
   })
-}
-
-function getRollStartOctave(activeOctave: Octave, notes: VoicedNote[]): Octave {
-  const noteOctaves = notes.map(note => note.octave)
-  const minOctave = Math.min(activeOctave, ...noteOctaves)
-  const maxOctave = Math.max(activeOctave, ...noteOctaves)
-  let startOctave = activeOctave - 2
-
-  if (minOctave < startOctave) {
-    startOctave = minOctave
-  }
-
-  if (maxOctave > startOctave + 4) {
-    startOctave = maxOctave - 4
-  }
-
-  return startOctave as Octave
 }
 
 function getKeyBackground(isBlackKey: boolean, highlighted: boolean, tone: 'bass' | 'chord'): string {
