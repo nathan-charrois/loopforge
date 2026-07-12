@@ -31,12 +31,23 @@ export type KeyEvent = {
   key: Key
 }
 
+export type TimelineEventSelection
+  = | { kind: 'tempo', tick: Tick }
+    | { kind: 'meter', tick: Tick }
+    | { kind: 'key', tick: Tick }
+
 export type Timeline = {
   ppq: number
   tempoEvents: TempoEvent[]
   meterEvents: MeterEvent[]
   keyEvents: KeyEvent[]
   grid: GridDivision
+}
+
+export type RulerMark = {
+  tick: Tick
+  kind: 'bar' | 'beat' | 'subdivision'
+  label?: string
 }
 
 export type BarBeat = {
@@ -73,6 +84,81 @@ export function getBarLengthTicks(timeSignature: TimeSignature, ppq = PPQ): Dura
 
 export function getBarLengthTicksAtTick(timeline: Timeline, tick: Tick): DurationTicks {
   return getBarLengthTicks(getMeterAtTick(timeline, tick), timeline.ppq)
+}
+
+export function getGridDivisionTicks(
+  timeline: Timeline,
+  tick: Tick,
+  gridDivision = timeline.grid,
+): DurationTicks {
+  if (gridDivision === 'bar') {
+    return getBarLengthTicksAtTick(timeline, tick)
+  }
+
+  if (gridDivision === 'beat') {
+    return getTicksPerBeat(getMeterAtTick(timeline, tick), timeline.ppq)
+  }
+
+  return getFixedGridTicks(timeline.ppq, gridDivision)
+}
+
+export function getSmallestGridDivisionTicks(timeline: Timeline, tick: Tick): DurationTicks {
+  return GRID_DIVISIONS.reduce(
+    (smallestTicks, gridDivision) => Math.min(smallestTicks, getGridDivisionTicks(timeline, tick, gridDivision)),
+    Number.POSITIVE_INFINITY,
+  )
+}
+
+export function getRulerMarks(timeline: Timeline, startTick: Tick, endTick: Tick): RulerMark[] {
+  const rangeStartTick = createTick(Math.max(0, Math.floor(startTick)))
+  const rangeEndTick = createTick(Math.max(rangeStartTick, Math.floor(endTick)))
+  const marksByTick = new Map<Tick, RulerMark>()
+  let barStartTick = getBarStartTick(timeline, rangeStartTick)
+
+  while (barStartTick <= rangeEndTick) {
+    const barBeat = tickToBarBeat(timeline, barStartTick)
+    const meter = getMeterAtTick(timeline, barStartTick)
+    const ticksPerBeat = getTicksPerBeat(meter, timeline.ppq)
+    const barLengthTicks = getBarLengthTicks(meter, timeline.ppq)
+    const gridDivisionTicks = getGridDivisionTicks(timeline, barStartTick, timeline.grid)
+    const shouldRenderBeatMarks = timeline.grid === 'beat'
+      || (timeline.grid !== 'bar' && gridDivisionTicks <= ticksPerBeat)
+    const nextBarStartTick = createTick(barStartTick + barLengthTicks)
+
+    addRulerMark(marksByTick, {
+      kind: 'bar',
+      label: `${barBeat.bar}`,
+      tick: barStartTick,
+    })
+
+    if (shouldRenderBeatMarks) {
+      for (let beatIndex = 1; beatIndex < meter.numerator; beatIndex += 1) {
+        addRulerMark(marksByTick, {
+          kind: 'beat',
+          tick: createTick(barStartTick + (beatIndex * ticksPerBeat)),
+        })
+      }
+    }
+
+    if (timeline.grid !== 'bar' && timeline.grid !== 'beat') {
+      for (
+        let subdivisionTick = barStartTick + gridDivisionTicks;
+        subdivisionTick < nextBarStartTick;
+        subdivisionTick += gridDivisionTicks
+      ) {
+        addRulerMark(marksByTick, {
+          kind: 'subdivision',
+          tick: createTick(subdivisionTick),
+        })
+      }
+    }
+
+    barStartTick = nextBarStartTick
+  }
+
+  return [...marksByTick.values()]
+    .filter(mark => mark.tick >= rangeStartTick && mark.tick <= rangeEndTick)
+    .sort((left, right) => left.tick - right.tick)
 }
 
 export function tickToBarBeat(timeline: Timeline, tick: Tick): BarBeat {
@@ -194,6 +280,25 @@ export function snapTickToGrid(timeline: Timeline, tick: Tick, gridDivision = ti
   const gridTicks = getFixedGridTicks(timeline.ppq, gridDivision)
 
   return createTick(Math.round(targetTick / gridTicks) * gridTicks)
+}
+
+function addRulerMark(marksByTick: Map<Tick, RulerMark>, mark: RulerMark) {
+  const currentMark = marksByTick.get(mark.tick)
+
+  if (currentMark === undefined || getRulerMarkPriority(mark.kind) > getRulerMarkPriority(currentMark.kind)) {
+    marksByTick.set(mark.tick, mark)
+  }
+}
+
+function getRulerMarkPriority(kind: RulerMark['kind']): number {
+  switch (kind) {
+    case 'bar':
+      return 3
+    case 'beat':
+      return 2
+    case 'subdivision':
+      return 1
+  }
 }
 
 export function isValidTimeSignature(timeSignature: TimeSignature): boolean {

@@ -7,6 +7,7 @@ const DEBUG_NAV_ITEMS = [
   { label: 'Notes', path: '/notes' },
   { label: 'Playback', path: '/playback' },
   { label: 'Editor', path: '/editor' },
+  { label: 'Arrangement', path: '/arrangement' },
 ] as const
 
 export function DebugNav() {

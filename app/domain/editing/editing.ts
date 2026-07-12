@@ -2,7 +2,10 @@ import type { CommandKind } from './constants'
 
 export type CommandId = string
 
-export type CommandPayload = Record<string, boolean | null | number | string | string[]>
+export type JsonPrimitive = string | number | boolean | null
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
+
+export type CommandPayload = Record<string, JsonValue>
 
 export type Command = {
   id: CommandId

@@ -1,4 +1,5 @@
 export * from './command'
+export * from './editorCommand'
 export * from './factory'
 export * from './selector'
 export * from './validation'

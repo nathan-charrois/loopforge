@@ -43,7 +43,21 @@ import {
   type Section,
 } from '~/domain'
 
-const DISABLED_ACTIVE_TOOLS = new Set<ActiveTool>(['split', 'resize', 'audition'])
+const DISABLED_ACTIVE_TOOLS = new Set<ActiveTool>([
+  'audition',
+  'drawPatternEvent',
+  'hand',
+  'key',
+  'loopRange',
+  'marquee',
+  'meter',
+  'move',
+  'mute',
+  'resize',
+  'split',
+  'tempo',
+  'zoom',
+])
 const TICK_WIDTH = 0.09
 type SelectionField = keyof EditorState['selection']
 
@@ -249,7 +263,7 @@ function EditorDebugContent() {
       return
     }
 
-    if (editorState.activeTool === 'draw') {
+    if (editorState.activeTool === 'drawBlock' || editorState.activeTool === 'drawSection') {
       setEditorState(currentState => ({
         ...currentState,
         selection: toggleOnly(currentState.selection, field, id),

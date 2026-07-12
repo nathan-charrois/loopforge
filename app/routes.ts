@@ -7,4 +7,5 @@ export default [
   route('/playback', 'routes/Debug/playback.tsx', { id: 'playback' }),
   route('/editor', 'routes/Debug/editor.tsx', { id: 'editor' }),
   route('/notes', 'routes/Debug/notes.tsx', { id: 'notes' }),
+  route('/arrangement', 'routes/Debug/arrangement.tsx', { id: 'arrangement' }),
 ] satisfies RouteConfig
