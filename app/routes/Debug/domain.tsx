@@ -155,7 +155,7 @@ import {
 } from '~/domain'
 import {
   addPattern as addWorkspacePattern,
-  createBlankWorkspace,
+  createWorkspace,
   selectPattern,
   selectTrack,
   validateWorkspace,
@@ -473,7 +473,7 @@ export default function Debug() {
   })
 
   const workspaceWithSampleContent = () => addWorkspacePattern(
-    createBlankWorkspace({
+    createWorkspace({
       createdAt: projectCreatedAt,
       id: projectId,
       metadata: createProjectMetadata({
@@ -879,7 +879,7 @@ export default function Debug() {
 
           <DomainPanel id="workspace" title="Workspace" outputs={outputs}>
             <ButtonGroup>
-              <RunButton label="createBlankWorkspace" onClick={() => run('workspace', 'createBlankWorkspace', workspaceWithSampleContent)} />
+              <RunButton label="createWorkspace" onClick={() => run('workspace', 'createWorkspace', workspaceWithSampleContent)} />
               <RunButton label="validateWorkspace" onClick={() => run('workspace', 'validateWorkspace', () => validateWorkspace(workspaceWithSampleContent()))} />
               <RunButton label="selectTrack" onClick={() => run('workspace', 'selectTrack', () => selectTrack(workspaceWithSampleContent(), 'track_chords'))} />
               <RunButton label="selectPattern" onClick={() => run('workspace', 'selectPattern', () => selectPattern(workspaceWithSampleContent(), patternId))} />

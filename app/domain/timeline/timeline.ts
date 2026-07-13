@@ -36,6 +36,10 @@ export type TimelineEventSelection
     | { kind: 'meter', tick: Tick }
     | { kind: 'key', tick: Tick }
 
+export type TimelineEvent = Pick<TempoEvent | MeterEvent | KeyEvent, 'tick'>
+
+export type TimelineEventField = 'tempoEvents' | 'meterEvents' | 'keyEvents'
+
 export type Timeline = {
   ppq: number
   tempoEvents: TempoEvent[]
@@ -57,10 +61,6 @@ export type BarBeat = {
 }
 
 export type GridDivision = typeof GRID_DIVISIONS[number]
-
-export type TimelineEvent = {
-  tick: Tick
-}
 
 export function getTempoAtTick(timeline: Timeline, tick: Tick): BeatsPerMinute {
   return getActiveEvent(timeline.tempoEvents, tick, 'tempo').bpm

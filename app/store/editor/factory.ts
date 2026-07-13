@@ -22,13 +22,13 @@ import {
   type Track,
   type TrackId,
 } from '~/domain'
-import { createBlankWorkspace, type Workspace } from '~/store/workspace'
+import { createWorkspace, type Workspace } from '~/store/workspace'
 
 export function createArrangementDebugWorkspace(): Workspace {
   const tracks = createArrangementDebugTracks()
   const patterns = createArrangementDebugPatterns()
 
-  return createBlankWorkspace({
+  return createWorkspace({
     arrangement: {
       blocks: [
         createBlock({

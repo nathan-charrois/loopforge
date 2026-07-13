@@ -74,7 +74,7 @@ import {
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
-import { createBlankWorkspace, type Workspace } from '~/store/workspace'
+import { createWorkspace, type Workspace } from '~/store/workspace'
 import {
   clampInteger,
   clampNumber,
@@ -797,7 +797,7 @@ function createNotesModel(input: {
     name: 'Notes',
     role: 'chords',
   })
-  const workspace = createBlankWorkspace({
+  const workspace = createWorkspace({
     arrangement: {
       blocks: [
         createBlock({

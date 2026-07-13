@@ -77,7 +77,7 @@ import {
   addTrack as addWorkspaceTrack,
   createDemoLoopWorkspace,
   createLargeSketchWorkspace,
-  createWorkspaceDraft,
+  createWorkspaceForPlayback,
   removeBlock as removeWorkspaceBlock,
   removeSection as removeWorkspaceSection,
   selectBlocksForTrack,
@@ -147,7 +147,7 @@ export default function Play() {
   const [projectBpm, setProjectBpm] = useState('120')
   const [projectNumerator, setProjectNumerator] = useState('4')
   const [projectDenominator, setProjectDenominator] = useState<TimeSignatureDenominator>(4)
-  const [workspace, setWorkspace] = useState(() => createWorkspaceDraft({
+  const [workspace, setWorkspace] = useState(() => createWorkspaceForPlayback({
     bpm: 120,
     denominator: 4,
     name: 'Playback Sketch',
@@ -231,8 +231,8 @@ export default function Play() {
   }
 
   function handleCreateProject() {
-    runAction('createWorkspaceDraft', () => {
-      const nextWorkspace = createWorkspaceDraft({
+    runAction('createWorkspaceForPlayback', () => {
+      const nextWorkspace = createWorkspaceForPlayback({
         bpm: parseNumber(projectBpm),
         denominator: projectDenominator,
         name: getNameOrFallback(projectName, 'Playback Sketch'),

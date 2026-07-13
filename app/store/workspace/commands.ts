@@ -12,7 +12,7 @@ import {
   updatePattern as updateWorkspacePattern,
   updateSection as updateWorkspaceSection,
   updateTrack as updateWorkspaceTrack,
-} from './command'
+} from './operations'
 import type { Workspace } from './type'
 import {
   type Block,
@@ -39,6 +39,8 @@ import {
   type TempoEvent,
   type Tick,
   type Timeline,
+  type TimelineEvent,
+  type TimelineEventField,
   type Track,
   type TrackId,
   undoCommand as undoHistoryCommand,
@@ -851,7 +853,8 @@ function applyTimelineEventPayload(
   const previousTick = getPayloadNumber(payload, 'previousTick')
   const event = getPayloadObject<TimelineEvent>(payload, 'event')
   const previousEvent = getPayloadObject<TimelineEvent | null>(payload, 'previousEvent')
-  let events = [...workspace.timeline[field]]
+
+  let events: TimelineEvent[] = [...workspace.timeline[field]]
 
   if (tick !== undefined) {
     events = events.filter(currentEvent => currentEvent.tick !== tick)
@@ -1025,6 +1028,3 @@ function getPayloadStringArray(payload: CommandPayload, key: string): string[] {
 function toJsonValue<TValue>(value: TValue): JsonValue {
   return value as JsonValue
 }
-
-type TimelineEvent = TempoEvent | MeterEvent | KeyEvent
-type TimelineEventField = 'tempoEvents' | 'meterEvents' | 'keyEvents'

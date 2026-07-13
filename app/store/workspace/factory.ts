@@ -1,5 +1,5 @@
 import { createEmptyEntityStore, createEntityStore, type EntityStore } from '../type'
-import { addBlock, addPattern } from './command'
+import { addBlock, addPattern } from './operations'
 import { selectTracks } from './selector'
 import type { Workspace } from './type'
 import { type Block, createBlock, createDefaultArrangement, createSection } from '~/domain/arrangement'
@@ -20,7 +20,7 @@ import {
 } from '~/domain/timeline'
 import { createDefaultTracks, createTrack, getPatternKindForTrack, type Track, type TrackRole } from '~/domain/tracks'
 
-export type CreateBlankWorkspaceInput = {
+export function createWorkspace(input: {
   name: string
   id?: string
   createdAt?: string
@@ -31,9 +31,7 @@ export type CreateBlankWorkspaceInput = {
   arrangement?: Workspace['arrangement']
   tracks?: EntityStore<Track> | readonly Track[]
   patterns?: EntityStore<Pattern> | readonly Pattern[]
-}
-
-export function createBlankWorkspace(input: CreateBlankWorkspaceInput): Workspace {
+}): Workspace {
   const project = createProject({
     createdAt: input.createdAt,
     id: input.id,
@@ -48,11 +46,11 @@ export function createBlankWorkspace(input: CreateBlankWorkspaceInput): Workspac
     patterns: normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>()),
     project,
     timeline: input.timeline ?? createDefaultTimeline(),
-    tracks: normalizeEntityStore(input.tracks, createDefaultTrackStore()),
+    tracks: normalizeEntityStore(input.tracks, createEntityStore(createDefaultTracks())),
   }
 }
 
-export function createWorkspaceDraft(input: {
+export function createWorkspaceForPlayback(input: {
   bpm: number
   denominator: TimeSignatureDenominator
   name: string
@@ -60,8 +58,9 @@ export function createWorkspaceDraft(input: {
 }): Workspace {
   const now = new Date().toISOString()
 
-  return createBlankWorkspace({
+  return createWorkspace({
     createdAt: now,
+    updatedAt: now,
     id: `project_${Date.now()}`,
     metadata: createProjectMetadata({
       tags: ['playback'],
@@ -78,13 +77,9 @@ export function createWorkspaceDraft(input: {
       })],
       tempoEvents: [createTempoEvent({ bpm: input.bpm, tick: 0 })],
     }),
-    updatedAt: now,
+
     version: createProjectVersion(),
   })
-}
-
-export function createDefaultTrackStore(): EntityStore<Track> {
-  return createEntityStore(createDefaultTracks())
 }
 
 export function createDemoLoopWorkspace(sourceWorkspace: Workspace): {
