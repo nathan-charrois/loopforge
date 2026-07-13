@@ -1,4 +1,4 @@
-import { createPositiveDurationTicks, createTick, type DurationTicks, isTickInRange, type Tick } from '../musicPrimitives'
+import { createPositiveDurationTicks, createTick, type DurationTicks, isTickRangeOverlap, type Tick, type TickRange } from '../musicPrimitives'
 import type { PatternId } from '../patterns'
 import type { TrackId } from '../tracks'
 import { BLOCK_PLAYBACK_MODES } from './constants'
@@ -63,14 +63,16 @@ export function resizeBlock(block: Block, lengthTicks: DurationTicks): Block {
   }
 }
 
-export function isBlockInRange(block: Block, startTick: Tick, endTick: Tick): boolean {
-  const blockEndTick = getBlockEndTick(block)
-
-  return isTickInRange(block.startTick, blockEndTick, startTick, endTick)
+export function isBlockInRange(block: Block, range: TickRange): boolean {
+  return isTickRangeOverlap({
+    startTick: block.startTick,
+    endTick: getBlockEndTick(block),
+  }, range)
 }
 
-export function isSectionInRange(section: Section, startTick: Tick, endTick: Tick): boolean {
-  const sectionEndTick = getSectionEndTick(section)
-
-  return isTickInRange(section.startTick, sectionEndTick, startTick, endTick)
+export function isSectionInRange(section: Section, range: TickRange): boolean {
+  return isTickRangeOverlap({
+    startTick: section.startTick,
+    endTick: getSectionEndTick(section),
+  }, range)
 }

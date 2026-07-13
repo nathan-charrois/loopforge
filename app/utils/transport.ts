@@ -6,9 +6,9 @@ import {
 } from './schedule'
 import {
   getTempoAtTick,
-  isTickInPlaybackRange,
-  type PlaybackRange,
+  isTickInRange,
   type Tick,
+  type TickRange,
 } from '~/domain'
 import type { Workspace } from '~/store/workspace'
 
@@ -18,7 +18,7 @@ export type TransportSnapshot = {
   activeBlockIds: string[]
   compileWarnings: PlaybackScheduleWarning[]
   loopEnabled: boolean
-  loopRange?: PlaybackRange
+  loopRange?: TickRange
   playheadTick: Tick
   projectEndTick: Tick
   scheduledEventCount: number
@@ -35,7 +35,7 @@ export class Transport {
   private compiled: PlaybackSchedule
   private listeners = new Set<TransportListener>()
   private loopEnabled = true
-  private loopRange: PlaybackRange | undefined
+  private loopRange: TickRange | undefined
   private playheadTick: Tick = 0
   private snapshotTimerId: number | undefined
   private status: TransportStatus = 'stopped'
@@ -99,7 +99,7 @@ export class Transport {
     }
   }
 
-  setLoop(range: PlaybackRange | undefined, enabled = this.loopEnabled) {
+  setLoop(range: TickRange | undefined, enabled = this.loopEnabled) {
     this.loopEnabled = enabled
     const nextRange = range ?? (enabled ? this.loopRange ?? this.getDefaultLoopRange() : undefined)
 
@@ -203,7 +203,7 @@ export class Transport {
 
   private getActiveBlockIds(playheadTick: Tick): string[] {
     return this.workspace.arrangement.blocks
-      .filter(block => isTickInPlaybackRange(playheadTick, {
+      .filter(block => isTickInRange(playheadTick, {
         endTick: block.startTick + block.lengthTicks,
         startTick: block.startTick,
       }))
@@ -214,13 +214,13 @@ export class Transport {
     return Math.max(0, Math.min(Math.floor(tick), this.compiled.projectEndTick))
   }
 
-  private getTickInsideLoop(rawTick: Tick, loopRange: PlaybackRange): Tick {
+  private getTickInsideLoop(rawTick: Tick, loopRange: TickRange): Tick {
     const loopLengthTicks = loopRange.endTick - loopRange.startTick
 
     return loopRange.startTick + positiveModulo(rawTick - loopRange.startTick, loopLengthTicks)
   }
 
-  private normalizeLoopRange(range: PlaybackRange): PlaybackRange {
+  private normalizeLoopRange(range: TickRange): TickRange {
     const lastStartTick = Math.max(0, this.compiled.projectEndTick - 1)
     const startTick = Math.min(this.clampTick(range.startTick), lastStartTick)
     const endTick = Math.min(
@@ -234,7 +234,7 @@ export class Transport {
     }
   }
 
-  private getDefaultLoopRange(): PlaybackRange {
+  private getDefaultLoopRange(): TickRange {
     return {
       endTick: this.compiled.projectEndTick,
       startTick: 0,

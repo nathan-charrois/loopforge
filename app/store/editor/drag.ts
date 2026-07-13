@@ -165,8 +165,16 @@ export function completeArrangementDrag(input: {
     }
 
     const range = snapTimelineRange(workspace.timeline, dragState.startTick, endTick)
-    const blocks = selectBlocksInRange(workspace, range.startTick, range.startTick + range.lengthTicks)
-    const sections = selectSectionsInRange(workspace, range.startTick, range.startTick + range.lengthTicks)
+
+    const blocks = selectBlocksInRange(workspace, {
+      startTick: range.startTick,
+      endTick: range.startTick + range.lengthTicks,
+    })
+
+    const sections = selectSectionsInRange(workspace, {
+      startTick: range.startTick,
+      endTick: range.startTick + range.lengthTicks,
+    })
 
     return {
       commands: [],

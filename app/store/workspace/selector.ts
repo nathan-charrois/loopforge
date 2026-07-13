@@ -1,6 +1,6 @@
 import type { Workspace } from './type'
 import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
-import type { Tick } from '~/domain/musicPrimitives'
+import type { Tick, TickRange } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
 import type { Pattern, PatternId } from '~/domain/patterns'
 import type { Track, TrackId } from '~/domain/tracks'
@@ -62,12 +62,12 @@ export function selectBlocksByTrackId(workspace: Workspace, trackId: TrackId): B
   return workspace.arrangement.blocks.filter(block => block.trackId === trackId)
 }
 
-export function selectBlocksInRange(workspace: Workspace, startTick: Tick, endTick: Tick): Block[] {
-  return workspace.arrangement.blocks.filter(block => isBlockInRange(block, startTick, endTick))
+export function selectBlocksInRange(workspace: Workspace, range: TickRange): Block[] {
+  return workspace.arrangement.blocks.filter(block => isBlockInRange(block, range))
 }
 
-export function selectSectionsInRange(workspace: Workspace, startTick: Tick, endTick: Tick): Section[] {
-  return workspace.arrangement.sections.filter(section => isSectionInRange(section, startTick, endTick))
+export function selectSectionsInRange(workspace: Workspace, range: TickRange): Section[] {
+  return workspace.arrangement.sections.filter(section => isSectionInRange(section, range))
 }
 
 export function selectWorkspaceEndTick(workspace: Workspace): Tick {

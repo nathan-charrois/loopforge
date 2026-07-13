@@ -12,6 +12,11 @@ export type Tick = number
 
 export type DurationTicks = number
 
+export type TickRange = {
+  startTick: Tick
+  endTick: Tick
+}
+
 export type MidiNote = number
 export type Octave = number
 export type Interval = number
@@ -25,8 +30,12 @@ export function isTick(value: number): value is Tick {
   return isInteger(value) && value >= 0
 }
 
-export function isTickInRange(leftStart: Tick, leftEnd: Tick, rightStart: Tick, rightEnd: Tick): boolean {
-  return leftStart < rightEnd && rightStart < leftEnd
+export function isTickRangeOverlap(a: TickRange, b: TickRange): boolean {
+  return a.startTick < b.endTick && b.startTick < a.endTick
+}
+
+export function isTickInRange(tick: Tick, range: TickRange): boolean {
+  return tick >= range.startTick && tick < range.endTick
 }
 
 export function isDurationTicks(value: number): value is DurationTicks {

@@ -109,7 +109,6 @@ import {
   isPitchClass,
   isPositiveDurationTicks,
   isTick,
-  isTickInPlaybackRange,
   isTimedPatternEvent,
   isTrackVolume,
   isValidTimeSignature,
@@ -606,13 +605,6 @@ export default function Debug() {
             </SimpleGrid>
             <ButtonGroup>
               <RunButton label="createDefaultChordPlayback" onClick={() => run('playback', 'createDefaultChordPlayback', chordPlayback)} />
-              <RunButton
-                label="isTickInPlaybackRange"
-                onClick={() => run('playback', 'isTickInPlaybackRange', () => isTickInPlaybackRange(parseInteger(playheadTick), {
-                  endTick: parseInteger(loopEndTick),
-                  startTick: parseInteger(loopStartTick),
-                }))}
-              />
             </ButtonGroup>
           </DomainPanel>
 

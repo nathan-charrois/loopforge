@@ -1,12 +1,7 @@
-import { clampVelocity, createPositiveDurationTicks, type DurationTicks, type MidiNote, type Tick, type Velocity } from '../musicPrimitives'
+import { clampVelocity, createPositiveDurationTicks, type DurationTicks, type MidiNote, type Velocity } from '../musicPrimitives'
 import type { ChordEvent } from '../patternEvents'
 import type { VoicedNote } from '../voicing'
 import { CHORD_PLAYBACK_RECIPES } from './constants'
-
-export type PlaybackRange = {
-  startTick: Tick
-  endTick: Tick
-}
 
 export type EffectPresetRef = string
 export type InstrumentPresetRef = string
@@ -66,10 +61,6 @@ export type ChordPlayback = {
   microStaggerTicks?: DurationTicks
   effectPresetId?: EffectPresetRef
   instrumentPresetId?: InstrumentPresetRef
-}
-
-export function isTickInPlaybackRange(tick: Tick, range: PlaybackRange): boolean {
-  return tick >= range.startTick && tick < range.endTick
 }
 
 export function getGatedDurationTick(durationTicks: DurationTicks, maxDurationTicks: DurationTicks, gate: number): DurationTicks {
