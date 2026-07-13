@@ -150,7 +150,7 @@ import {
 import type { PlaybackTrigger, ScheduledPlaybackEvent } from '~/utils/schedule'
 
 const TRACK_LABEL_WIDTH = 168
-const TIMELINE_PADDING_TICKS = 1920
+const TIMELINE_PADDING_TICKS = 7680
 const MIN_BLOCK_WIDTH = 18
 const MIN_SECTION_WIDTH = 18
 const MIN_PREVIEW_WIDTH = 6
