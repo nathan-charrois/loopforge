@@ -1,5 +1,6 @@
 import {
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -793,33 +794,39 @@ function ArrangementDebugContent() {
         <SimpleGrid cols={{ base: 1, lg: 4 }} spacing="md">
           <Paper withBorder radius="sm" p={0} style={{ gridColumn: 'span 3', overflow: 'hidden' }}>
             <Box
-              ref={scrollRef}
-              onScroll={(event) => {
-                const { scrollLeft, scrollTop } = event.currentTarget
-
-                setViewport(currentViewport => scrollTimelineViewport(currentViewport, {
-                  scrollX: scrollLeft,
-                  scrollY: scrollTop,
-                }))
-              }}
               style={{
-                overflow: 'auto',
-                paddingBottom: 8,
+                display: 'grid',
+                gridTemplateColumns: `${TRACK_LABEL_WIDTH}px minmax(0, 1fr)`,
               }}
             >
+              <TimelineLabelColumn
+                focusedBlockId={focusedBlockId}
+                tracks={tracks}
+                viewport={viewport}
+              />
               <Box
+                ref={scrollRef}
+                onScroll={(event) => {
+                  const { scrollLeft, scrollTop } = event.currentTarget
+
+                  setViewport(currentViewport => scrollTimelineViewport(currentViewport, {
+                    scrollX: scrollLeft,
+                    scrollY: scrollTop,
+                  }))
+                }}
                 onPointerCancel={handleTimelinePointerEnd}
                 onPointerMove={handleTimelinePointerMove}
                 onPointerUp={handleTimelinePointerEnd}
                 style={{
-                  minWidth: TRACK_LABEL_WIDTH + timelineWidth,
+                  minWidth: 0,
+                  overflow: 'auto',
+                  paddingBottom: 8,
                   position: 'relative',
                 }}
               >
                 <Box
                   ref={timelineGridRef}
                   style={{
-                    left: TRACK_LABEL_WIDTH,
                     position: 'absolute',
                     top: 0,
                     width: timelineWidth,
@@ -999,6 +1006,74 @@ function Toolbar({
   )
 }
 
+function TimelineLabelColumn({
+  focusedBlockId,
+  tracks,
+  viewport,
+}: {
+  focusedBlockId?: string
+  tracks: Track[]
+  viewport: TimelineViewportState
+}) {
+  return (
+    <Box
+      style={{
+        background: 'white',
+        borderRight: '1px solid var(--mantine-color-gray-3)',
+        position: 'relative',
+        zIndex: 2,
+      }}
+    >
+      <StaticTimelineLabel height={viewport.rulerHeight}>
+        <Group gap={6}>
+          <HugeiconsIcon icon={RulerIcon} size={18} />
+          <Text fw={700} size="sm">Timeline</Text>
+        </Group>
+      </StaticTimelineLabel>
+      <StaticTimelineLabel height={viewport.sectionLaneHeight} opacity={focusedBlockId === undefined ? 1 : 0.4}>
+        <Text fw={700} size="sm">Sections</Text>
+      </StaticTimelineLabel>
+      {tracks.map(track => (
+        <StaticTimelineLabel key={track.id} height={viewport.laneHeight}>
+          <Stack gap={1}>
+            <Text fw={700} size="sm" truncate>{track.name}</Text>
+            <Group gap={4}>
+              <Badge size="xs" variant="light">{track.role}</Badge>
+              {track.muted && <Badge color="gray" size="xs">muted</Badge>}
+              {track.soloed && <Badge color="yellow" size="xs">solo</Badge>}
+            </Group>
+          </Stack>
+        </StaticTimelineLabel>
+      ))}
+    </Box>
+  )
+}
+
+function StaticTimelineLabel({
+  children,
+  height,
+  opacity = 1,
+}: {
+  children: ReactNode
+  height: number
+  opacity?: number
+}) {
+  return (
+    <Box
+      style={{
+        alignItems: 'center',
+        borderBottom: '1px solid var(--mantine-color-gray-3)',
+        display: 'flex',
+        height,
+        opacity,
+        paddingInline: 12,
+      }}
+    >
+      {children}
+    </Box>
+  )
+}
+
 function TimelineRuler({
   dragState,
   marks,
@@ -1025,79 +1100,58 @@ function TimelineRuler({
 
   return (
     <Box
+      onPointerDown={onRulerPointerDown}
       style={{
+        background: 'var(--mantine-color-gray-0)',
         borderBottom: '1px solid var(--mantine-color-gray-3)',
-        display: 'flex',
         height: viewport.rulerHeight,
+        position: 'relative',
+        width: timelineWidth,
       }}
     >
-      <Box
-        style={{
-          alignItems: 'center',
-          borderRight: '1px solid var(--mantine-color-gray-3)',
-          display: 'flex',
-          flex: `0 0 ${TRACK_LABEL_WIDTH}px`,
-          paddingInline: 12,
-        }}
-      >
-        <Group gap={6}>
-          <HugeiconsIcon icon={RulerIcon} size={18} />
-          <Text fw={700} size="sm">Timeline</Text>
-        </Group>
-      </Box>
-      <Box
-        onPointerDown={onRulerPointerDown}
-        style={{
-          background: 'var(--mantine-color-gray-0)',
-          height: '100%',
-          position: 'relative',
-          width: timelineWidth,
-        }}
-      >
-        {marks.map(mark => (
-          <Box
-            key={`${mark.kind}:${mark.tick}`}
-            style={{
-              borderLeft: getRulerBorder(mark),
-              height: mark.kind === 'bar' ? '100%' : mark.kind === 'beat' ? '70%' : '42%',
-              left: tickToPixel(viewport, mark.tick),
-              position: 'absolute',
-              top: 0,
-            }}
-          >
-            {mark.label !== undefined && (
-              <Text c="dimmed" size="xs" style={{ paddingLeft: 5 }}>
-                {mark.label}
-              </Text>
-            )}
-          </Box>
-        ))}
+      {marks.map(mark => (
+        <Box
+          key={`${mark.kind}:${mark.tick}`}
+          style={{
+            borderLeft: getRulerBorder(mark),
+            height: mark.kind === 'bar' ? '100%' : mark.kind === 'beat' ? '70%' : '42%',
+            left: tickToPixel(viewport, mark.tick),
+            position: 'absolute',
+            top: 0,
+          }}
+        >
+          {mark.label !== undefined && (
+            <Text c="dimmed" size="xs" style={{ paddingLeft: 5 }}>
+              {mark.label}
+            </Text>
+          )}
+        </Box>
+      ))}
 
-        {markerViews.map(marker => (
-          <TimelineEventMarker
-            key={marker.id}
-            color={getTimelineEventMarkerColor(marker.kind)}
-            icon={getTimelineEventMarkerIcon(marker.kind)}
-            isSelected={selectedTimelineEvent !== undefined && isSameTimelineEvent(selectedTimelineEvent, marker)}
-            label={marker.label}
-            left={tickToPixel(viewport, marker.tick)}
-            stackIndex={marker.stackIndex}
-            onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, marker)}
-          />
-        ))}
-        {dragState?.kind === 'moveTimelineEvent' && movingMarker !== undefined && (
-          <TimelineEventMarker
-            color={getTimelineEventMarkerColor(movingMarker.kind)}
-            icon={getTimelineEventMarkerIcon(movingMarker.kind)}
-            isPreview
-            isSelected={false}
-            label={movingMarker.label}
-            left={tickToPixel(viewport, dragState.currentTick)}
-            stackIndex={movingMarker.stackIndex}
-            onPointerDown={() => undefined}
-          />
-        )}
-      </Box>
+      {markerViews.map(marker => (
+        <TimelineEventMarker
+          key={marker.id}
+          color={getTimelineEventMarkerColor(marker.kind)}
+          icon={getTimelineEventMarkerIcon(marker.kind)}
+          isSelected={selectedTimelineEvent !== undefined && isSameTimelineEvent(selectedTimelineEvent, marker)}
+          label={marker.label}
+          left={tickToPixel(viewport, marker.tick)}
+          stackIndex={marker.stackIndex}
+          onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, marker)}
+        />
+      ))}
+      {dragState?.kind === 'moveTimelineEvent' && movingMarker !== undefined && (
+        <TimelineEventMarker
+          color={getTimelineEventMarkerColor(movingMarker.kind)}
+          icon={getTimelineEventMarkerIcon(movingMarker.kind)}
+          isPreview
+          isSelected={false}
+          label={movingMarker.label}
+          left={tickToPixel(viewport, dragState.currentTick)}
+          stackIndex={movingMarker.stackIndex}
+          onPointerDown={() => undefined}
+        />
+      )}
     </Box>
   )
 }
@@ -1208,83 +1262,65 @@ function SectionLane({
 
   return (
     <Box
+      onDoubleClick={onEmptyDoubleClick}
+      onPointerDown={onPointerDown}
       style={{
+        background: 'var(--mantine-color-gray-0)',
         borderBottom: '1px solid var(--mantine-color-gray-3)',
-        display: 'flex',
         height: viewport.sectionLaneHeight,
         opacity: focusedBlockId === undefined ? 1 : 0.4,
+        position: 'relative',
+        width: timelineWidth,
       }}
     >
-      <Box
-        style={{
-          alignItems: 'center',
-          borderRight: '1px solid var(--mantine-color-gray-3)',
-          display: 'flex',
-          flex: `0 0 ${TRACK_LABEL_WIDTH}px`,
-          paddingInline: 12,
-        }}
-      >
-        <Text fw={700} size="sm">Sections</Text>
-      </Box>
-      <Box
-        onDoubleClick={onEmptyDoubleClick}
-        onPointerDown={onPointerDown}
-        style={{
-          background: 'var(--mantine-color-gray-0)',
-          height: '100%',
-          position: 'relative',
-          width: timelineWidth,
-        }}
-      >
-        <TimelineGridLines marks={marks} viewport={viewport} />
-        {workspace.arrangement.sections.map(section => (
-          <Box
-            key={section.id}
-            onPointerDown={event => onSectionPointerDown(event, section)}
-            title={`${section.name}: ${formatTickRangeAsBars(workspace.timeline, section.startTick, section.startTick + section.lengthTicks)}`}
-            style={{
-              alignItems: 'center',
-              background: 'var(--mantine-color-gray-1)',
-              border: '1px solid var(--mantine-color-gray-4)',
-              borderRadius: 4,
-              cursor: 'grab',
-              display: 'flex',
-              height: 28,
-              left: tickToPixel(viewport, section.startTick),
-              outline: selectedSectionIds.includes(section.id) ? '2px solid var(--mantine-color-blue-6)' : undefined,
-              overflow: 'hidden',
-              paddingInline: 7,
-              position: 'absolute',
-              top: 8,
-              width: Math.max(MIN_SECTION_WIDTH, tickToPixel(viewport, section.lengthTicks)),
-            }}
-          >
-            <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
-            <Text fw={700} size="xs" truncate>{section.name}</Text>
-            <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, section, 'right')} />
-          </Box>
-        ))}
-        {dragState?.kind === 'drawSection' && (
-          <DragPreview
-            color="gray"
-            startTick={dragState.startTick}
-            endTick={dragState.currentTick}
-            viewport={viewport}
-          />
-        )}
-        {sectionDragPreviews.map(section => (
-          <RangePlaceholder
-            key={`section-preview:${section.id}`}
-            color="yellow"
-            height={28}
-            label={section.name}
-            lengthTicks={section.lengthTicks}
-            startTick={section.startTick}
-            top={8}
-            viewport={viewport}
-          />
-        ))}
-      </Box>
+      <TimelineGridLines marks={marks} viewport={viewport} />
+      {workspace.arrangement.sections.map(section => (
+        <Box
+          key={section.id}
+          onPointerDown={event => onSectionPointerDown(event, section)}
+          title={`${section.name}: ${formatTickRangeAsBars(workspace.timeline, section.startTick, section.startTick + section.lengthTicks)}`}
+          style={{
+            alignItems: 'center',
+            background: 'var(--mantine-color-gray-1)',
+            border: '1px solid var(--mantine-color-gray-4)',
+            borderRadius: 4,
+            cursor: 'grab',
+            display: 'flex',
+            height: 28,
+            left: tickToPixel(viewport, section.startTick),
+            outline: selectedSectionIds.includes(section.id) ? '2px solid var(--mantine-color-blue-6)' : undefined,
+            overflow: 'hidden',
+            paddingInline: 7,
+            position: 'absolute',
+            top: 8,
+            width: Math.max(MIN_SECTION_WIDTH, tickToPixel(viewport, section.lengthTicks)),
+          }}
+        >
+          <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
+          <Text fw={700} size="xs" truncate>{section.name}</Text>
+          <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, section, 'right')} />
+        </Box>
+      ))}
+      {dragState?.kind === 'drawSection' && (
+        <DragPreview
+          color="gray"
+          startTick={dragState.startTick}
+          endTick={dragState.currentTick}
+          viewport={viewport}
+        />
+      )}
+      {sectionDragPreviews.map(section => (
+        <RangePlaceholder
+          key={`section-preview:${section.id}`}
+          color="yellow"
+          height={28}
+          label={section.name}
+          lengthTicks={section.lengthTicks}
+          startTick={section.startTick}
+          top={8}
+          viewport={viewport}
+        />
+      ))}
     </Box>
   )
 }
@@ -1335,90 +1371,65 @@ function TrackLane({
 
   return (
     <Box
+      onDoubleClick={onEmptyDoubleClick}
+      onPointerDown={event => onPointerDown(event, track.id)}
       style={{
+        background: 'var(--mantine-color-gray-0)',
         borderBottom: '1px solid var(--mantine-color-gray-3)',
-        display: 'flex',
         height: viewport.laneHeight,
+        position: 'relative',
+        width: timelineWidth,
       }}
     >
-      <Box
-        style={{
-          alignItems: 'center',
-          borderRight: '1px solid var(--mantine-color-gray-3)',
-          display: 'flex',
-          flex: `0 0 ${TRACK_LABEL_WIDTH}px`,
-          paddingInline: 12,
-        }}
-      >
-        <Stack gap={1}>
-          <Text fw={700} size="sm" truncate>{track.name}</Text>
-          <Group gap={4}>
-            <Badge size="xs" variant="light">{track.role}</Badge>
-            {track.muted && <Badge color="gray" size="xs">muted</Badge>}
-            {track.soloed && <Badge color="yellow" size="xs">solo</Badge>}
-          </Group>
-        </Stack>
-      </Box>
-      <Box
-        onDoubleClick={onEmptyDoubleClick}
-        onPointerDown={event => onPointerDown(event, track.id)}
-        style={{
-          background: 'var(--mantine-color-gray-0)',
-          height: '100%',
-          position: 'relative',
-          width: timelineWidth,
-        }}
-      >
-        <TimelineGridLines marks={marks} viewport={viewport} />
-        {blocks.map(block => (
-          <BlockView
-            key={block.id}
-            block={block}
-            focusedBlockId={focusedBlockId}
-            focusedPlaybackView={focusedBlockId === block.id ? focusedPlaybackView : undefined}
-            hovered={hoveredBlockId === block.id}
-            pattern={selectPattern(workspace, block.patternId)}
-            selected={selectedBlockIds.includes(block.id)}
-            selectedPatternEventIds={selectedPatternEventIds}
-            stackIndex={stackIndexes.get(block.id) ?? 0}
-            viewport={viewport}
-            workspace={workspace}
-            onDoubleClick={onBlockDoubleClick}
-            onPatternEventClick={onPatternEventClick}
-            onPointerDown={onBlockPointerDown}
-            onResizePointerDown={onBlockResizePointerDown}
-            onSetHoveredBlock={onSetHoveredBlock}
-          />
-        ))}
-        {dragState?.kind === 'drawBlock' && dragState.trackId === track.id && (
-          <DragPreview
-            color="blue"
-            startTick={dragState.startTick}
-            endTick={dragState.currentTick}
-            viewport={viewport}
-          />
-        )}
-        {dragState?.kind === 'marquee' && (
-          <DragPreview
-            color="yellow"
-            startTick={dragState.startTick}
-            endTick={dragState.currentTick}
-            viewport={viewport}
-          />
-        )}
-        {blockDragPreviews.map(block => (
-          <RangePlaceholder
-            key={`block-preview:${block.id}:${block.trackId}`}
-            color="yellow"
-            height={42}
-            label={block.name}
-            lengthTicks={block.lengthTicks}
-            startTick={block.startTick}
-            top={11}
-            viewport={viewport}
-          />
-        ))}
-      </Box>
+      <TimelineGridLines marks={marks} viewport={viewport} />
+      {blocks.map(block => (
+        <BlockView
+          key={block.id}
+          block={block}
+          focusedBlockId={focusedBlockId}
+          focusedPlaybackView={focusedBlockId === block.id ? focusedPlaybackView : undefined}
+          hovered={hoveredBlockId === block.id}
+          pattern={selectPattern(workspace, block.patternId)}
+          selected={selectedBlockIds.includes(block.id)}
+          selectedPatternEventIds={selectedPatternEventIds}
+          stackIndex={stackIndexes.get(block.id) ?? 0}
+          viewport={viewport}
+          workspace={workspace}
+          onDoubleClick={onBlockDoubleClick}
+          onPatternEventClick={onPatternEventClick}
+          onPointerDown={onBlockPointerDown}
+          onResizePointerDown={onBlockResizePointerDown}
+          onSetHoveredBlock={onSetHoveredBlock}
+        />
+      ))}
+      {dragState?.kind === 'drawBlock' && dragState.trackId === track.id && (
+        <DragPreview
+          color="blue"
+          startTick={dragState.startTick}
+          endTick={dragState.currentTick}
+          viewport={viewport}
+        />
+      )}
+      {dragState?.kind === 'marquee' && (
+        <DragPreview
+          color="yellow"
+          startTick={dragState.startTick}
+          endTick={dragState.currentTick}
+          viewport={viewport}
+        />
+      )}
+      {blockDragPreviews.map(block => (
+        <RangePlaceholder
+          key={`block-preview:${block.id}:${block.trackId}`}
+          color="yellow"
+          height={42}
+          label={block.name}
+          lengthTicks={block.lengthTicks}
+          startTick={block.startTick}
+          top={11}
+          viewport={viewport}
+        />
+      ))}
     </Box>
   )
 }
