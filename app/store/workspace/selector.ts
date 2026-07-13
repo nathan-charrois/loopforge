@@ -1,5 +1,5 @@
-import type { Workspace } from './workspace'
-import { type Block, type BlockId, getBlockEndTick, getBlocksForTrack, type Section, type SectionId } from '~/domain/arrangement'
+import type { Workspace } from './type'
+import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
 import type { Tick } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
 import type { Pattern, PatternId } from '~/domain/patterns'
@@ -41,15 +41,13 @@ export function selectPatternEvent(
   return selectPattern(workspace, patternId)?.events.find(event => event.id === patternEventId)
 }
 
-export function selectPatternEventContext(
+export function selectPatternIdForEvent(
   workspace: Workspace,
   patternEventId: PatternEventId,
-): { patternId: PatternId } | undefined {
+): PatternId | undefined {
   for (const patternId of workspace.patterns.allIds) {
-    const pattern = workspace.patterns.byId[patternId]
-
-    if (pattern?.events.some(event => event.id === patternEventId)) {
-      return { patternId }
+    if (selectPatternEvent(workspace, patternId, patternEventId)) {
+      return patternId
     }
   }
 
@@ -57,38 +55,24 @@ export function selectPatternEventContext(
 }
 
 export function selectBlocksForTrack(workspace: Workspace, trackId: TrackId): Block[] {
-  return getBlocksForTrack(workspace.arrangement, trackId)
+  return sortBlocksByStartTick(selectBlocksByTrackId(workspace, trackId))
+}
+
+export function selectBlocksByTrackId(workspace: Workspace, trackId: TrackId): Block[] {
+  return workspace.arrangement.blocks.filter(block => block.trackId === trackId)
 }
 
 export function selectBlocksInRange(workspace: Workspace, startTick: Tick, endTick: Tick): Block[] {
-  return workspace.arrangement.blocks.filter(block => rangesOverlap(
-    block.startTick,
-    getBlockEndTick(block),
-    startTick,
-    endTick,
-  ))
+  return workspace.arrangement.blocks.filter(block => isBlockInRange(block, startTick, endTick))
 }
 
 export function selectSectionsInRange(workspace: Workspace, startTick: Tick, endTick: Tick): Section[] {
-  return workspace.arrangement.sections.filter(section => rangesOverlap(
-    section.startTick,
-    section.startTick + section.lengthTicks,
-    startTick,
-    endTick,
-  ))
+  return workspace.arrangement.sections.filter(section => isSectionInRange(section, startTick, endTick))
 }
 
 export function selectWorkspaceEndTick(workspace: Workspace): Tick {
-  const sectionEndTicks = workspace.arrangement.sections.map(section => section.startTick + section.lengthTicks)
+  const sectionEndTicks = workspace.arrangement.sections.map(getSectionEndTick)
   const blockEndTicks = workspace.arrangement.blocks.map(getBlockEndTick)
 
   return Math.max(0, ...sectionEndTicks, ...blockEndTicks)
-}
-
-export function selectHighestBlockEndTick(workspace: Workspace): Tick {
-  return workspace.arrangement.blocks.reduce((latestEndTick, block) => Math.max(latestEndTick, getBlockEndTick(block)), 0)
-}
-
-function rangesOverlap(leftStart: Tick, leftEnd: Tick, rightStart: Tick, rightEnd: Tick): boolean {
-  return leftStart < rightEnd && rightStart < leftEnd
 }

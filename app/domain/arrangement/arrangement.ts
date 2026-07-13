@@ -1,4 +1,4 @@
-import { createPositiveDurationTicks, createTick, type DurationTicks, type Tick } from '../musicPrimitives'
+import { createPositiveDurationTicks, createTick, type DurationTicks, isTickInRange, type Tick } from '../musicPrimitives'
 import type { PatternId } from '../patterns'
 import type { TrackId } from '../tracks'
 import { BLOCK_PLAYBACK_MODES } from './constants'
@@ -35,6 +35,10 @@ export function getBlockEndTick(block: Block): Tick {
   return block.startTick + block.lengthTicks
 }
 
+export function getSectionEndTick(section: Section): Tick {
+  return section.startTick + section.lengthTicks
+}
+
 export function sortBlocksByStartTick(blocks: readonly Block[]): Block[] {
   return [...blocks].sort((left, right) => {
     if (left.startTick !== right.startTick) {
@@ -43,10 +47,6 @@ export function sortBlocksByStartTick(blocks: readonly Block[]): Block[] {
 
     return left.id.localeCompare(right.id)
   })
-}
-
-export function getBlocksForTrack(arrangement: Arrangement, trackId: TrackId): Block[] {
-  return sortBlocksByStartTick(arrangement.blocks.filter(block => block.trackId === trackId))
 }
 
 export function moveBlock(block: Block, startTick: Tick): Block {
@@ -63,9 +63,14 @@ export function resizeBlock(block: Block, lengthTicks: DurationTicks): Block {
   }
 }
 
-export function isBlockWithinSection(block: Block, section: Section): boolean {
+export function isBlockInRange(block: Block, startTick: Tick, endTick: Tick): boolean {
   const blockEndTick = getBlockEndTick(block)
-  const sectionEndTick = section.startTick + section.lengthTicks
 
-  return block.startTick >= section.startTick && blockEndTick <= sectionEndTick
+  return isTickInRange(block.startTick, blockEndTick, startTick, endTick)
+}
+
+export function isSectionInRange(section: Section, startTick: Tick, endTick: Tick): boolean {
+  const sectionEndTick = getSectionEndTick(section)
+
+  return isTickInRange(section.startTick, sectionEndTick, startTick, endTick)
 }

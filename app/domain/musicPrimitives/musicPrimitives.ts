@@ -1,9 +1,3 @@
-export type Tick = number
-export type DurationTicks = number
-export type MidiNote = number
-export type Octave = number
-export type Interval = number
-export type Velocity = number
 import {
   MAX_MIDI_NOTE,
   MAX_VELOCITY,
@@ -14,12 +8,25 @@ import {
   type PitchClass,
 } from './constants'
 
+export type Tick = number
+
+export type DurationTicks = number
+
+export type MidiNote = number
+export type Octave = number
+export type Interval = number
+export type Velocity = number
+
 export function isInteger(value: number): boolean {
   return Number.isInteger(value)
 }
 
 export function isTick(value: number): value is Tick {
   return isInteger(value) && value >= 0
+}
+
+export function isTickInRange(leftStart: Tick, leftEnd: Tick, rightStart: Tick, rightEnd: Tick): boolean {
+  return leftStart < rightEnd && rightStart < leftEnd
 }
 
 export function isDurationTicks(value: number): value is DurationTicks {

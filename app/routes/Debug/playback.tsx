@@ -53,6 +53,7 @@ import {
   formatTickToStartBar,
   getBlockEndTick,
   getMeterAtTick,
+  getSectionEndTick,
   getTempoAtTick,
   getTicksPerBeat,
   type Pattern,
@@ -1157,7 +1158,7 @@ function TimelineArrangement({
                 event.stopPropagation()
                 onSelectSection(section)
               }}
-              title={`${section.name}: ${formatTickRangeAsBars(workspace.timeline, section.startTick, section.startTick + section.lengthTicks)}`}
+              title={`${section.name}: ${formatTickRangeAsBars(workspace.timeline, section.startTick, getSectionEndTick(section))}`}
               style={{
                 background: 'var(--mantine-color-gray-1)',
                 border: '1px solid var(--mantine-color-gray-3)',
@@ -1406,7 +1407,7 @@ function SectionRow({ section, workspace }: { section: Section, workspace: Works
         <Box>
           <Text fw={600} size="sm">{section.name}</Text>
           <Text c="dimmed" size="xs">
-            {formatTickRangeAsBars(workspace.timeline, section.startTick, section.startTick + section.lengthTicks)}
+            {formatTickRangeAsBars(workspace.timeline, section.startTick, getSectionEndTick(section))}
           </Text>
         </Box>
       </Group>

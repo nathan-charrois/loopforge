@@ -9,6 +9,7 @@ import {
   type Block,
   clearSelection,
   type Command,
+  getSectionEndTick,
   getSmallestGridDivisionTicks,
   type Section,
   type SelectionState,
@@ -232,7 +233,7 @@ export function completeArrangementDrag(input: {
 
   if (dragState.kind === 'resizeSection') {
     const { section } = dragState
-    const sectionEndTick = section.startTick + section.lengthTicks
+    const sectionEndTick = getSectionEndTick(section)
 
     if (dragState.edge === 'left') {
       const nextStartTick = Math.min(endTick, sectionEndTick - 1)

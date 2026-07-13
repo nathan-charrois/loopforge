@@ -1,5 +1,5 @@
 import { addEntity, removeEntity, updateEntity } from '../type'
-import type { Workspace } from './workspace'
+import type { Workspace } from './type'
 import type { Block, Section } from '~/domain/arrangement'
 import type { Pattern } from '~/domain/patterns'
 import { touchProject } from '~/domain/project'

@@ -1,7 +1,7 @@
 import { createEmptyEntityStore, createEntityStore, type EntityStore } from '../type'
 import { addBlock, addPattern } from './command'
 import { selectTracks } from './selector'
-import type { Workspace } from './workspace'
+import type { Workspace } from './type'
 import { type Block, createBlock, createDefaultArrangement, createSection } from '~/domain/arrangement'
 import { createChordSymbol, createDefaultKey } from '~/domain/harmony'
 import type { PitchClass } from '~/domain/musicPrimitives'

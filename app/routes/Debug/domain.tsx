@@ -80,7 +80,6 @@ import {
   getBarLengthTicksAtTick,
   getBarStartTick,
   getBlockEndTick,
-  getBlocksForTrack,
   getChordPitchClasses,
   getKeyAtTick,
   getMeterAtTick,
@@ -100,7 +99,6 @@ import {
   INSPECTOR_PANELS,
   type InspectorPanel,
   isBarBoundaryTick,
-  isBlockWithinSection,
   isChordQuality,
   isDurationTicks,
   isInteger,
@@ -727,16 +725,8 @@ export default function Debug() {
                   }),
                 ]))}
               />
-              <RunButton
-                label="getBlocksForTrack"
-                onClick={() => run('arrangement', 'getBlocksForTrack', () => getBlocksForTrack({
-                  blocks: [block()],
-                  sections: [section()],
-                }, blockTrackId))}
-              />
               <RunButton label="moveBlock" onClick={() => run('arrangement', 'moveBlock', () => moveBlock(block(), parseInteger(blockMoveTick)))} />
               <RunButton label="resizeBlock" onClick={() => run('arrangement', 'resizeBlock', () => resizeBlock(block(), parseInteger(blockResizeTicks)))} />
-              <RunButton label="isBlockWithinSection" onClick={() => run('arrangement', 'isBlockWithinSection', () => isBlockWithinSection(block(), section()))} />
             </ButtonGroup>
           </DomainPanel>
 

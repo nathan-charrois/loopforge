@@ -9,7 +9,7 @@ import {
   splitBlockCommand,
   type Workspace,
 } from '~/store/workspace'
-import { selectPatternEventContext } from '~/store/workspace'
+import { selectPatternIdForEvent } from '~/store/workspace'
 
 export function createDeleteSelectedEntitiesCommands(input: {
   selection: SelectionState
@@ -27,10 +27,10 @@ export function createDeleteSelectedEntitiesCommands(input: {
   }
 
   for (const patternEventId of selection.selectedPatternEventIds) {
-    const eventContext = selectPatternEventContext(workspace, patternEventId)
+    const eventContext = selectPatternIdForEvent(workspace, patternEventId)
 
     if (eventContext !== undefined) {
-      commands.push(deletePatternEventCommand(workspace, eventContext.patternId, patternEventId))
+      commands.push(deletePatternEventCommand(workspace, eventContext, patternEventId))
     }
   }
 

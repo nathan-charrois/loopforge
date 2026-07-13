@@ -76,6 +76,7 @@ import {
   formatTickRangeAsBars,
   getBlockEndTick,
   getRulerMarks,
+  getSectionEndTick,
   GRID_DIVISIONS,
   type GridDivision,
   type Key,
@@ -1310,7 +1311,7 @@ function SectionLane({
         <Box
           key={section.id}
           onPointerDown={event => onSectionPointerDown(event, section)}
-          title={`${section.name}: ${formatTickRangeAsBars(workspace.timeline, section.startTick, section.startTick + section.lengthTicks)}`}
+          title={`${section.name}: ${formatTickRangeAsBars(workspace.timeline, section.startTick, getSectionEndTick(section))}`}
           style={{
             alignItems: 'center',
             background: 'var(--mantine-color-gray-1)',

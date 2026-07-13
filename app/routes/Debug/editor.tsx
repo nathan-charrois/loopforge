@@ -37,6 +37,7 @@ import {
   type EditorState,
   getBlockEndTick,
   getPatternEventEndTick,
+  getSectionEndTick,
   INSPECTOR_PANELS,
   type Pattern,
   type PatternEvent,
@@ -512,7 +513,7 @@ function MockArrangement({
 }) {
   const trackIds = Array.from(new Set(blocks.map(block => block.trackId)))
   const endTick = Math.max(
-    ...sections.map(section => section.startTick + section.lengthTicks),
+    ...sections.map(getSectionEndTick),
     ...blocks.map(getBlockEndTick),
   )
   const timelineWidth = Math.max(720, endTick * TICK_WIDTH)

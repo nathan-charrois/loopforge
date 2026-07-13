@@ -13,7 +13,7 @@ import {
   updateSection as updateWorkspaceSection,
   updateTrack as updateWorkspaceTrack,
 } from './command'
-import type { Workspace } from './workspace'
+import type { Workspace } from './type'
 import {
   type Block,
   type BlockId,

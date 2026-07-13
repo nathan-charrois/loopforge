@@ -1,6 +1,6 @@
 import type { EntityStore } from '../type'
 import { selectPattern, selectTrack } from './selector'
-import type { Workspace } from './workspace'
+import type { Workspace } from './type'
 import { validatePattern } from '~/domain/patterns'
 import { validateProject } from '~/domain/project'
 import { validateTimeline } from '~/domain/timeline'
@@ -15,7 +15,7 @@ export function validateWorkspace(workspace: Workspace): string[] {
   errors.push(...validateEntityStore('pattern', workspace.patterns))
 
   for (const trackId of workspace.tracks.allIds) {
-    const track = workspace.tracks.byId[trackId]
+    const track = selectTrack(workspace, trackId)
 
     if (track !== undefined) {
       errors.push(...validateTrack(track))
@@ -23,7 +23,7 @@ export function validateWorkspace(workspace: Workspace): string[] {
   }
 
   for (const patternId of workspace.patterns.allIds) {
-    const pattern = workspace.patterns.byId[patternId]
+    const pattern = selectPattern(workspace, patternId)
 
     if (pattern !== undefined) {
       errors.push(...validatePattern(pattern))

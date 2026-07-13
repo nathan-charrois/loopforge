@@ -3,6 +3,7 @@ import {
   type ActiveTool,
   type Block,
   getBlockEndTick,
+  getSectionEndTick,
   type KeyEvent,
   type MeterEvent,
   type Section,
@@ -131,7 +132,7 @@ export function getSectionDragPreviews(_workspace: Workspace, dragState?: DragSt
 
   if (dragState?.kind === 'resizeSection') {
     const { section } = dragState
-    const sectionEndTick = section.startTick + section.lengthTicks
+    const sectionEndTick = getSectionEndTick(section)
 
     if (dragState.edge === 'left') {
       const startTick = Math.min(dragState.currentTick, sectionEndTick - 1)
