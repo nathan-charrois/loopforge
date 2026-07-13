@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type WheelEvent as ReactWheelEvent,
 } from 'react'
 import { type MetaArgs } from 'react-router'
 import {
@@ -155,6 +156,7 @@ const MIN_SECTION_WIDTH = 18
 const MIN_PREVIEW_WIDTH = 6
 const POINTER_DRAG_THRESHOLD = 4
 const HANDLE_WIDTH = 8
+const WHEEL_ZOOM_SENSITIVITY = 0.0015
 const ROOT_OPTIONS = Array.from({ length: 12 }, (_, value) => ({
   label: `${value}`,
   value: `${value}`,
@@ -749,6 +751,21 @@ function ArrangementDebugContent() {
     setViewport(currentViewport => zoomTimelineViewport(currentViewport, multiplier, anchorPixel))
   }
 
+  function handleTimelineWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (event.deltaY === 0) {
+      return
+    }
+
+    event.preventDefault()
+
+    const rect = event.currentTarget.getBoundingClientRect()
+    const anchorPixel = event.clientX - rect.left
+    const deltaY = getWheelDeltaPixels(event)
+    const zoomMultiplier = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY)
+
+    setViewport(currentViewport => zoomTimelineViewport(currentViewport, zoomMultiplier, anchorPixel))
+  }
+
   return (
     <AppLayout>
       <Stack gap="md" py="lg">
@@ -817,6 +834,7 @@ function ArrangementDebugContent() {
                 onPointerCancel={handleTimelinePointerEnd}
                 onPointerMove={handleTimelinePointerMove}
                 onPointerUp={handleTimelinePointerEnd}
+                onWheel={handleTimelineWheel}
                 style={{
                   minWidth: 0,
                   overflow: 'auto',
@@ -2118,6 +2136,18 @@ function getTimelineEventMarkerIcon(kind: TimelineEventSelection['kind']): typeo
 
 function isSameTimelineEvent(left: TimelineEventSelection, right: TimelineEventSelection): boolean {
   return left.kind === right.kind && left.tick === right.tick
+}
+
+function getWheelDeltaPixels(event: ReactWheelEvent<HTMLDivElement>): number {
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+    return event.deltaY * 16
+  }
+
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return event.deltaY * event.currentTarget.clientHeight
+  }
+
+  return event.deltaY
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
