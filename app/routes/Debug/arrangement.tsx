@@ -7,6 +7,7 @@ import {
   useState,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
+import { flushSync } from 'react-dom'
 import { type MetaArgs } from 'react-router'
 import {
   Cancel01Icon,
@@ -121,7 +122,6 @@ import {
   type InspectorDraft,
   numberInputValue,
   pixelToTick,
-  scrollTimelineViewport,
   selectBlockInSelection,
   selectPatternEventInSelection,
   selectSectionInSelection,
@@ -130,7 +130,6 @@ import {
   type TimelineViewportState,
   updateInspectorDraftFromSelection,
   updateInspectorDraftFromTimelineEvent,
-  zoomTimelineViewport,
 } from '~/store/editor'
 import {
   executeCommand,
@@ -156,7 +155,7 @@ const MIN_SECTION_WIDTH = 18
 const MIN_PREVIEW_WIDTH = 6
 const POINTER_DRAG_THRESHOLD = 4
 const HANDLE_WIDTH = 8
-const WHEEL_ZOOM_SENSITIVITY = 0.0015
+const WHEEL_ZOOM_SENSITIVITY = 0.0008
 const ROOT_OPTIONS = Array.from({ length: 12 }, (_, value) => ({
   label: `${value}`,
   value: `${value}`,
@@ -216,12 +215,6 @@ function ArrangementDebugContent() {
     [timelineEndTick, workspace.timeline],
   )
   const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
-
-  useEffect(() => {
-    if (scrollRef.current !== null && Math.abs(scrollRef.current.scrollLeft - viewport.scrollX) > 1) {
-      scrollRef.current.scrollLeft = viewport.scrollX
-    }
-  }, [viewport.scrollX])
 
   useEffect(() => {
     setInspectorDraft(currentDraft => updateInspectorDraftFromSelection({
@@ -744,11 +737,13 @@ function ArrangementDebugContent() {
   }
 
   function zoomBy(multiplier: number) {
-    const anchorPixel = scrollRef.current === null
-      ? 0
-      : scrollRef.current.clientWidth / 2
+    const scrollElement = scrollRef.current
 
-    setViewport(currentViewport => zoomTimelineViewport(currentViewport, multiplier, anchorPixel))
+    if (scrollElement === null) {
+      return
+    }
+
+    zoomTimelineAt(scrollElement, scrollElement.clientWidth / 2, multiplier)
   }
 
   function handleTimelineWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -758,12 +753,39 @@ function ArrangementDebugContent() {
 
     event.preventDefault()
 
-    const rect = event.currentTarget.getBoundingClientRect()
+    const scrollElement = event.currentTarget
+    const rect = scrollElement.getBoundingClientRect()
     const anchorPixel = event.clientX - rect.left
     const deltaY = getWheelDeltaPixels(event)
     const zoomMultiplier = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY)
 
-    setViewport(currentViewport => zoomTimelineViewport(currentViewport, zoomMultiplier, anchorPixel))
+    zoomTimelineAt(scrollElement, anchorPixel, zoomMultiplier)
+  }
+
+  function zoomTimelineAt(scrollElement: HTMLDivElement, anchorPixel: number, multiplier: number) {
+    const scrollX = scrollElement.scrollLeft
+    let nextScrollX = scrollX
+
+    flushSync(() => {
+      setViewport((currentViewport) => {
+        const nextPixelsPerTick = clampNumber(
+          currentViewport.pixelsPerTick * multiplier,
+          currentViewport.minPixelsPerTick,
+          currentViewport.maxPixelsPerTick,
+        )
+        const anchorTick = (scrollX + anchorPixel) / currentViewport.pixelsPerTick
+
+        nextScrollX = Math.max(0, (anchorTick * nextPixelsPerTick) - anchorPixel)
+
+        return {
+          ...currentViewport,
+          pixelsPerTick: nextPixelsPerTick,
+          scrollX: nextScrollX,
+        }
+      })
+    })
+
+    scrollElement.scrollLeft = nextScrollX
   }
 
   return (
@@ -823,14 +845,6 @@ function ArrangementDebugContent() {
               />
               <Box
                 ref={scrollRef}
-                onScroll={(event) => {
-                  const { scrollLeft, scrollTop } = event.currentTarget
-
-                  setViewport(currentViewport => scrollTimelineViewport(currentViewport, {
-                    scrollX: scrollLeft,
-                    scrollY: scrollTop,
-                  }))
-                }}
                 onPointerCancel={handleTimelinePointerEnd}
                 onPointerMove={handleTimelinePointerMove}
                 onPointerUp={handleTimelinePointerEnd}
@@ -2148,6 +2162,10 @@ function getWheelDeltaPixels(event: ReactWheelEvent<HTMLDivElement>): number {
   }
 
   return event.deltaY
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
