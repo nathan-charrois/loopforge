@@ -11,26 +11,14 @@ export function xToTick(viewport: ViewportState, x: number): Tick {
 
 export function zoomViewport(
   viewport: ViewportState,
-  input: {
-    anchorX?: number
-    delta?: number
-    multiplier?: number
-  },
+  anchorX: number,
+  multiplier: number,
 ): ViewportState {
-  const nextPixelsPerTick = clampPixelsPerTick(
-    viewport,
-    input.multiplier === undefined
-      ? viewport.pixelsPerTick + (input.delta ?? 0)
-      : viewport.pixelsPerTick * input.multiplier,
-  )
-  const anchorX = input.anchorX ?? 0
-  const tickAtAnchor = (viewport.scrollX + anchorX) / viewport.pixelsPerTick
+  const nextPixelsPerTick = getNextPixelsPerTick(viewport, multiplier)
+  const pixelsPerTick = clampPixelsPerTick(viewport, nextPixelsPerTick)
+  const scrollX = getScrollPosition(viewport, pixelsPerTick, anchorX)
 
-  return clampViewport({
-    ...viewport,
-    pixelsPerTick: nextPixelsPerTick,
-    scrollX: Math.max(0, (tickAtAnchor * nextPixelsPerTick) - anchorX),
-  })
+  return clampViewport({ ...viewport, pixelsPerTick, scrollX })
 }
 
 function clampViewport(viewport: ViewportState): ViewportState {
@@ -44,4 +32,18 @@ function clampViewport(viewport: ViewportState): ViewportState {
 
 function clampPixelsPerTick(viewport: ViewportState, pixelsPerTick: number): number {
   return Math.min(viewport.maxPixelsPerTick, Math.max(viewport.minPixelsPerTick, pixelsPerTick))
+}
+
+function getNextPixelsPerTick(viewport: ViewportState, multiplier: number): number {
+  if (multiplier) {
+    return viewport.pixelsPerTick * multiplier
+  }
+
+  return viewport.pixelsPerTick
+}
+
+function getScrollPosition(viewport: ViewportState, nextPixelsPerTick: number, anchorX: number): number {
+  const tickAtAnchor = (viewport.scrollX + anchorX) / viewport.pixelsPerTick
+
+  return Math.max(0, (tickAtAnchor * nextPixelsPerTick) - anchorX)
 }

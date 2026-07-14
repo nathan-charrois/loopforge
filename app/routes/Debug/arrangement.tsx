@@ -5,9 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type WheelEvent as ReactWheelEvent,
 } from 'react'
-import { flushSync } from 'react-dom'
 import { type MetaArgs } from 'react-router'
 import {
   Cancel01Icon,
@@ -89,6 +87,7 @@ import {
   type TimeSignatureDenominator,
   type Track,
 } from '~/domain'
+import { useViewport } from '~/hooks/useViewport'
 import {
   ACTIVE_TOOLS,
   type ActiveTool,
@@ -100,7 +99,6 @@ import {
   createArrangementDebugWorkspace,
   createBlockInspectorCommands,
   createBlockToolCommands,
-  createDefaultViewportState,
   createDeleteSelectedEntitiesCommands,
   createDuplicateSelectionCommands,
   createEmptyInspectorDraft,
@@ -128,7 +126,6 @@ import {
   updateInspectorDraftFromTimelineEvent,
   type ViewportState,
   xToTick,
-  zoomViewport,
 } from '~/store/editor'
 import {
   executeCommand,
@@ -156,7 +153,6 @@ const BLOCK_TOP = 14
 const TIMELINE_MARKER_TOP = 10
 const POINTER_DRAG_THRESHOLD = 4
 const HANDLE_WIDTH = 8
-const WHEEL_ZOOM_SENSITIVITY = 0.0008
 const ROOT_OPTIONS = Array.from({ length: 12 }, (_, value) => ({
   label: `${value}`,
   value: `${value}`,
@@ -183,15 +179,14 @@ export default function Arrangement() {
 }
 
 function ArrangementDebugContent() {
-  const scrollRef = useRef<HTMLDivElement>(null)
   const timelineGridRef = useRef<HTMLDivElement>(null)
   const trackRowsRef = useRef<HTMLDivElement>(null)
 
   const { editorState, setActiveTool, setEditorState } = useEditorState()
   const { canRedo, canUndo, commandHistory, setCommandHistory } = useCommandHistory()
+  const { viewport, scrollRef, handleViewportWheel, handleZoomBy } = useViewport()
 
   const [workspace, setWorkspace] = useState<Workspace>(() => createArrangementDebugWorkspace())
-  const [viewport, setViewport] = useState<ViewportState>(() => createDefaultViewportState())
 
   const [focusedBlockId, setFocusedBlockId] = useState<string | undefined>(undefined)
   const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | undefined>(undefined)
@@ -730,55 +725,6 @@ function ArrangementDebugContent() {
     setSelectedTimelineEvent(undefined)
   }
 
-  function zoomBy(multiplier: number) {
-    const scrollElement = scrollRef.current
-
-    if (scrollElement === null) {
-      return
-    }
-
-    zoomViewportAt(scrollElement, scrollElement.clientWidth / 2, multiplier)
-  }
-
-  function handleViewportWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if (event.deltaY === 0) {
-      return
-    }
-
-    event.preventDefault()
-
-    const scrollElement = event.currentTarget
-    const rect = scrollElement.getBoundingClientRect()
-    const anchorPixel = event.clientX - rect.left
-    const deltaY = getWheelDeltaPixels(event)
-    const zoomMultiplier = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY)
-
-    zoomViewportAt(scrollElement, anchorPixel, zoomMultiplier)
-  }
-
-  function zoomViewportAt(scrollElement: HTMLDivElement, anchorPixel: number, multiplier: number) {
-    const scrollX = scrollElement.scrollLeft
-    let nextScrollX = scrollX
-
-    flushSync(() => {
-      setViewport((currentViewport) => {
-        const nextViewport = zoomViewport({
-          ...currentViewport,
-          scrollX,
-        }, {
-          anchorX: anchorPixel,
-          multiplier,
-        })
-
-        nextScrollX = nextViewport.scrollX
-
-        return nextViewport
-      })
-    })
-
-    scrollElement.scrollLeft = nextScrollX
-  }
-
   return (
     <AppLayout>
       <Stack gap="md" py="lg">
@@ -817,8 +763,8 @@ function ArrangementDebugContent() {
           onSetGrid={grid => runEditorCommands([setGridDivisionCommand(workspace, grid)])}
           onSetTool={setActiveTool}
           onUndo={handleUndo}
-          onZoomIn={() => zoomBy(1.25)}
-          onZoomOut={() => zoomBy(0.8)}
+          onZoomIn={() => handleZoomBy(1.25)}
+          onZoomOut={() => handleZoomBy(0.8)}
         />
 
         <SimpleGrid cols={{ base: 1, lg: 4 }} spacing="md">
@@ -2136,18 +2082,6 @@ function isSameTimelineEvent(left: TimelineEvent, right: TimelineEvent): boolean
   }
 
   return isKeyEvent(right)
-}
-
-function getWheelDeltaPixels(event: ReactWheelEvent<HTMLDivElement>): number {
-  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
-    return event.deltaY * 16
-  }
-
-  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
-    return event.deltaY * event.currentTarget.clientHeight
-  }
-
-  return event.deltaY
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

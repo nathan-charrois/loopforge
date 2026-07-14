@@ -60,7 +60,7 @@ export function createDefaultEditorState(input: Partial<EditorState> = {}): Edit
   }
 }
 
-export function createDefaultViewportState(input: Partial<ViewportState> = {}): ViewportState {
+export function createViewportState(input: Partial<ViewportState> = {}): ViewportState {
   return {
     scrollX: input.scrollX ?? 0,
     scrollY: input.scrollY ?? 0,
