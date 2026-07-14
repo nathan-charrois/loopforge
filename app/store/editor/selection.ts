@@ -1,60 +1,4 @@
-import { clearSelection, type SelectionState } from '~/domain'
-
-export function selectBlockInSelection(
-  selection: SelectionState,
-  blockId: string,
-  additive: boolean,
-): SelectionState {
-  if (additive) {
-    return {
-      ...selection,
-      selectedBlockIds: toggleId(selection.selectedBlockIds, blockId),
-    }
-  }
-
-  return {
-    ...clearSelection(selection),
-    selectedBlockIds: [blockId],
-  }
-}
-
-export function selectSectionInSelection(
-  selection: SelectionState,
-  sectionId: string,
-  additive: boolean,
-): SelectionState {
-  if (additive) {
-    return {
-      ...selection,
-      selectedSectionIds: toggleId(selection.selectedSectionIds, sectionId),
-    }
-  }
-
-  return {
-    ...clearSelection(selection),
-    selectedSectionIds: [sectionId],
-  }
-}
-
-export function selectPatternEventInSelection(
-  selection: SelectionState,
-  patternEventId: string,
-  additive: boolean,
-  focusedBlockId?: string,
-): SelectionState {
-  if (additive) {
-    return {
-      ...selection,
-      selectedPatternEventIds: toggleId(selection.selectedPatternEventIds, patternEventId),
-    }
-  }
-
-  return {
-    ...clearSelection(selection),
-    selectedBlockIds: focusedBlockId === undefined ? [] : [focusedBlockId],
-    selectedPatternEventIds: [patternEventId],
-  }
-}
+import type { SelectionState } from './types'
 
 export function hasAnySelection(selection: SelectionState): boolean {
   return selection.selectedBlockIds.length > 0
@@ -63,17 +7,8 @@ export function hasAnySelection(selection: SelectionState): boolean {
     || selection.selectedTrackIds.length > 0
 }
 
-export function toggleId(ids: string[], id: string): string[] {
+export function toggleSelectionIds(ids: string[], id: string): string[] {
   return ids.includes(id)
     ? ids.filter(currentId => currentId !== id)
     : [...ids, id]
-}
-
-export function createEmptySelectionState(): SelectionState {
-  return {
-    selectedBlockIds: [],
-    selectedPatternEventIds: [],
-    selectedSectionIds: [],
-    selectedTrackIds: [],
-  }
 }

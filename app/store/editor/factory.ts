@@ -1,4 +1,5 @@
 import { createEntityStore } from '../type'
+import type { ClipboardState, EditorState, InspectorState, SelectionState, ViewportState } from './types'
 import {
   type Block,
   createAutomationEvent,
@@ -23,6 +24,54 @@ import {
   type TrackId,
 } from '~/domain'
 import { createWorkspace, type Workspace } from '~/store/workspace'
+
+export function createSelectionState(): SelectionState {
+  return {
+    selectedBlockIds: [],
+    selectedPatternEventIds: [],
+    selectedSectionIds: [],
+    selectedTrackIds: [],
+  }
+}
+
+export function createClipboardState(): ClipboardState {
+  return {
+    blockIds: [],
+    patternEventIds: [],
+  }
+}
+
+export function createInspectorState(): InspectorState {
+  return {
+    open: false,
+  }
+}
+
+export function createDefaultEditorState(input: Partial<EditorState> = {}): EditorState {
+  return {
+    activeTool: input.activeTool ?? 'select',
+    clipboard: input.clipboard ?? createClipboardState(),
+    dragState: input.dragState,
+    focusedBlockId: input.focusedBlockId,
+    hoveredChord: input.hoveredChord,
+    inspector: input.inspector ?? createInspectorState(),
+    selectedTimelineEvent: input.selectedTimelineEvent,
+    selection: input.selection ?? createSelectionState(),
+  }
+}
+
+export function createDefaultViewportState(input: Partial<ViewportState> = {}): ViewportState {
+  return {
+    scrollX: input.scrollX ?? 0,
+    scrollY: input.scrollY ?? 0,
+    pixelsPerTick: input.pixelsPerTick ?? 0.1,
+    minPixelsPerTick: input.minPixelsPerTick ?? 0.035,
+    maxPixelsPerTick: input.maxPixelsPerTick ?? 0.42,
+    laneHeight: input.laneHeight ?? 72,
+    sectionLaneHeight: input.sectionLaneHeight ?? 44,
+    rulerHeight: input.rulerHeight ?? 82,
+  }
+}
 
 export function createArrangementDebugWorkspace(): Workspace {
   const tracks = createArrangementDebugTracks()

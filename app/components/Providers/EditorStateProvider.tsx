@@ -14,7 +14,9 @@ import {
   createDefaultEditorState,
   type EditorState,
   type InspectorPanel,
-} from '~/domain'
+  setActiveTool as setEditorActiveTool,
+  setInspectorPanel as setEditorInspectorPanel,
+} from '~/store/editor'
 
 type EditorStateContextValue = {
   editorState: EditorState
@@ -33,20 +35,11 @@ export function EditorStateProvider({ children }: Props) {
   const [editorState, setEditorState] = useState<EditorState>(() => createDefaultEditorState())
 
   const setActiveTool = useCallback((tool: ActiveTool) => {
-    setEditorState(currentState => ({
-      ...currentState,
-      activeTool: tool,
-    }))
+    setEditorState(currentState => setEditorActiveTool(currentState, tool))
   }, [])
 
   const setInspectorPanel = useCallback((panel: InspectorPanel) => {
-    setEditorState(currentState => ({
-      ...currentState,
-      inspector: {
-        open: true,
-        panel,
-      },
-    }))
+    setEditorState(currentState => setEditorInspectorPanel(currentState, panel))
   }, [])
 
   const contextValue = useMemo<EditorStateContextValue>(() => ({

@@ -20,8 +20,6 @@ import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
-  ACTIVE_TOOLS,
-  type ActiveTool,
   barBeatToTick,
   BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
@@ -36,7 +34,6 @@ import {
   type ChordPlaybackRecipeId,
   type ChordPlaybackStyle,
   type ChordQuality,
-  clearSelection,
   COMMAND_KINDS,
   type CommandKind,
   createAutomationEvent,
@@ -47,11 +44,7 @@ import {
   createDefaultArrangement,
   createDefaultChordPlayback,
   createDefaultChordVoicing,
-  createDefaultClipboardState,
-  createDefaultEditorState,
-  createDefaultInspectorState,
   createDefaultKey,
-  createDefaultSelectionState,
   createDefaultTimeline,
   createDefaultTracks,
   createDrumHitEvent,
@@ -95,8 +88,6 @@ import {
   getTicksPerBeat,
   GRID_DIVISIONS,
   type GridDivision,
-  INSPECTOR_PANELS,
-  type InspectorPanel,
   isBarBoundaryTick,
   isChordQuality,
   isDurationTicks,
@@ -152,6 +143,16 @@ import {
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
+import {
+  ACTIVE_TOOLS,
+  type ActiveTool,
+  createClipboardState,
+  createDefaultEditorState,
+  createInspectorState,
+  createSelectionState,
+  INSPECTOR_PANELS,
+  type InspectorPanel,
+} from '~/store/editor'
 import {
   addPattern as addWorkspacePattern,
   createWorkspace,
@@ -812,7 +813,7 @@ export default function Debug() {
             </ButtonGroup>
           </DomainPanel>
 
-          <DomainPanel id="editorState" title="Editor State" outputs={outputs}>
+          <DomainPanel id="editor" title="Editor Store" outputs={outputs}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
               <SelectField label="Active tool" value={activeTool} data={ACTIVE_TOOLS} onChange={setActiveTool} />
               <SelectField label="Inspector panel" value={inspectorPanel} data={INSPECTOR_PANELS} onChange={setInspectorPanel} />
@@ -822,12 +823,12 @@ export default function Debug() {
               <Field label="Selected sections" value={selectedSectionIds} onChange={setSelectedSectionIds} />
             </SimpleGrid>
             <ButtonGroup>
-              <RunButton label="createDefaultSelectionState" onClick={() => run('editorState', 'createDefaultSelectionState', createDefaultSelectionState)} />
-              <RunButton label="createDefaultClipboardState" onClick={() => run('editorState', 'createDefaultClipboardState', createDefaultClipboardState)} />
-              <RunButton label="createDefaultInspectorState" onClick={() => run('editorState', 'createDefaultInspectorState', createDefaultInspectorState)} />
+              <RunButton label="createSelectionState" onClick={() => run('editor', 'createSelectionState', createSelectionState)} />
+              <RunButton label="createClipboardState" onClick={() => run('editor', 'createClipboardState', createClipboardState)} />
+              <RunButton label="createInspectorState" onClick={() => run('editor', 'createInspectorState', createInspectorState)} />
               <RunButton
                 label="createDefaultEditorState"
-                onClick={() => run('editorState', 'createDefaultEditorState', () => createDefaultEditorState({
+                onClick={() => run('editor', 'createDefaultEditorState', () => createDefaultEditorState({
                   activeTool,
                   clipboard: {
                     blockIds: parseCsv(selectedBlockIds),
@@ -840,7 +841,6 @@ export default function Debug() {
                   selection: selection(),
                 }))}
               />
-              <RunButton label="clearSelection" onClick={() => run('editorState', 'clearSelection', () => clearSelection(selection()))} />
             </ButtonGroup>
           </DomainPanel>
 

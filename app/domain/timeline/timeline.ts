@@ -31,12 +31,7 @@ export type KeyEvent = {
   key: Key
 }
 
-export type TimelineEventSelection
-  = | { kind: 'tempo', tick: Tick }
-    | { kind: 'meter', tick: Tick }
-    | { kind: 'key', tick: Tick }
-
-export type TimelineEvent = Pick<TempoEvent | MeterEvent | KeyEvent, 'tick'>
+export type TimelineEvent = TempoEvent | MeterEvent | KeyEvent
 
 export type TimelineEventField = 'tempoEvents' | 'meterEvents' | 'keyEvents'
 
@@ -251,6 +246,22 @@ export function getBarStartTick(timeline: Timeline, tick: Tick): Tick {
   })
 }
 
+export function isTempoEvent(event: TimelineEvent): event is TempoEvent {
+  return 'bpm' in event
+}
+
+export function isMeterEvent(event: TimelineEvent): event is MeterEvent {
+  return 'timeSignature' in event
+}
+
+export function isKeyEvent(event: TimelineEvent): event is KeyEvent {
+  return 'key' in event
+}
+
+export function sortTimelineEventsByTick<TEvent extends TimelineEvent>(events: readonly TEvent[]): TEvent[] {
+  return [...events].sort((left, right) => left.tick - right.tick)
+}
+
 export function isBarBoundaryTick(timeline: Timeline, tick: Tick): boolean {
   return getBarStartTick(timeline, tick) === tick
 }
@@ -360,7 +371,7 @@ function getActiveEvent<TEvent extends TimelineEvent>(
   }
 
   const targetTick = createTick(tick)
-  const sortedEvents = sortEventsByTick(events)
+  const sortedEvents = sortTimelineEventsByTick(events)
   let activeEvent = sortedEvents[0]
 
   for (const event of sortedEvents) {
@@ -379,11 +390,7 @@ function getSortedMeterEvents(timeline: Timeline): MeterEvent[] {
     throw new Error('Timeline has no meter events.')
   }
 
-  return sortEventsByTick(timeline.meterEvents)
-}
-
-function sortEventsByTick<TEvent extends TimelineEvent>(events: readonly TEvent[]): TEvent[] {
-  return [...events].sort((left, right) => left.tick - right.tick)
+  return sortTimelineEventsByTick(timeline.meterEvents)
 }
 
 function validateEvents(name: string, events: readonly TimelineEvent[]): string[] {
@@ -395,7 +402,7 @@ function validateEvents(name: string, events: readonly TimelineEvent[]): string[
     return errors
   }
 
-  const sortedEvents = sortEventsByTick(events)
+  const sortedEvents = sortTimelineEventsByTick(events)
 
   if (sortedEvents[0].tick !== 0) {
     errors.push(`Timeline first ${name} event must start at tick 0.`)

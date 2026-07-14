@@ -8,7 +8,6 @@ import {
   type MeterEvent,
   type TempoEvent,
   type Timeline,
-  type TimelineEvent,
   type TimeSignature,
 } from './timeline'
 
@@ -19,10 +18,10 @@ export function createDefaultTimeline(): Timeline {
 export function createTimeline(input: Partial<Timeline> = {}): Timeline {
   return {
     grid: input.grid ?? 'sixteenthNote',
-    keyEvents: sortEventsByTick(input.keyEvents ?? [createKeyEvent({ key: createDefaultKey(), tick: 0 })]),
-    meterEvents: sortEventsByTick(input.meterEvents ?? [createMeterEvent({ tick: 0 })]),
+    keyEvents: input.keyEvents ?? [createKeyEvent({ key: createDefaultKey(), tick: 0 })],
+    meterEvents: input.meterEvents ?? [createMeterEvent({ tick: 0 })],
     ppq: input.ppq ?? PPQ,
-    tempoEvents: sortEventsByTick(input.tempoEvents ?? [createTempoEvent({ bpm: 120, tick: 0 })]),
+    tempoEvents: input.tempoEvents ?? [createTempoEvent({ bpm: 120, tick: 0 })],
   }
 }
 
@@ -58,8 +57,4 @@ export function createKeyEvent(input: { tick?: Tick, key: Key }): KeyEvent {
     key: input.key,
     tick: createTick(input.tick ?? 0),
   }
-}
-
-function sortEventsByTick<TEvent extends TimelineEvent>(events: readonly TEvent[]): TEvent[] {
-  return [...events].sort((left, right) => left.tick - right.tick)
 }

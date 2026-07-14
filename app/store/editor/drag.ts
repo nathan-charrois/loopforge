@@ -1,271 +1,12 @@
-import {
-  createArrangementBlockDraft,
-  createArrangementSectionDraft,
-} from './factory'
-import { createEmptySelectionState } from './selection'
-import { snapTimelineRange, snapToMinimumTimeLineRange } from './snap'
-import { createTimelineMoveCommand } from './timelineInteraction'
+import type { DragState } from './types'
 import {
   type Block,
-  clearSelection,
-  type Command,
+  getBlockEndTick,
   getSectionEndTick,
   type Section,
-  type SelectionState,
   type Tick,
-  type TimelineEventSelection,
 } from '~/domain'
-import {
-  addBlockCommand,
-  addSectionCommand,
-  moveBlockCommand,
-  moveSectionCommand,
-  resizeBlockCommand,
-  resizeSectionCommand,
-  selectBlock,
-  selectBlocksInRange,
-  selectSectionsInRange,
-  type Workspace,
-} from '~/store/workspace'
-
-export type DragState
-  = | {
-    kind: 'drawBlock'
-    pointerId: number
-    startTick: Tick
-    currentTick: Tick
-    trackId: string
-    startClientX: number
-    startClientY: number
-  }
-  | {
-    kind: 'drawSection'
-    pointerId: number
-    startTick: Tick
-    currentTick: Tick
-    startClientX: number
-    startClientY: number
-  }
-  | {
-    kind: 'marquee'
-    pointerId: number
-    startTick: Tick
-    currentTick: Tick
-    startClientX: number
-    startClientY: number
-  }
-  | {
-    blockIds: string[]
-    kind: 'moveBlock'
-    pointerId: number
-    startClientX: number
-    startClientY: number
-    startTick: Tick
-    currentTick: Tick
-    currentTrackId?: string
-  }
-  | {
-    block: Block
-    currentTick: Tick
-    edge: 'left' | 'right'
-    kind: 'resizeBlock'
-    pointerId: number
-    startClientX: number
-  }
-  | {
-    kind: 'moveSection'
-    pointerId: number
-    section: Section
-    startClientX: number
-    startTick: Tick
-    currentTick: Tick
-  }
-  | {
-    currentTick: Tick
-    edge: 'left' | 'right'
-    kind: 'resizeSection'
-    pointerId: number
-    section: Section
-    startClientX: number
-  }
-  | {
-    currentTick: Tick
-    event: TimelineEventSelection
-    kind: 'moveTimelineEvent'
-    pointerId: number
-    startClientX: number
-  }
-
-export function completeArrangementDrag(input: {
-  dragState: DragState
-  endTick: Tick
-  movementX: number
-  movementY: number
-  targetTrackId?: string
-  threshold: number
-  workspace: Workspace
-}): {
-  commands: Command[]
-  selection?: SelectionState
-  selectedTimelineEvent?: TimelineEventSelection
-} {
-  const {
-    dragState,
-    endTick,
-    movementX,
-    movementY,
-    targetTrackId,
-    threshold,
-    workspace,
-  } = input
-
-  if (dragState.kind === 'drawBlock') {
-    const range = snapToMinimumTimeLineRange(workspace.timeline, dragState.startTick, endTick)
-    const block = createArrangementBlockDraft(workspace, {
-      lengthTicks: range.lengthTicks,
-      startTick: range.startTick,
-      trackId: dragState.trackId,
-    })
-
-    return {
-      commands: [addBlockCommand(block)],
-      selection: {
-        ...createEmptySelectionState(),
-        selectedBlockIds: [block.id],
-      },
-    }
-  }
-
-  if (dragState.kind === 'drawSection') {
-    const range = snapToMinimumTimeLineRange(workspace.timeline, dragState.startTick, endTick)
-    const section = createArrangementSectionDraft(workspace, {
-      lengthTicks: range.lengthTicks,
-      startTick: range.startTick,
-    })
-
-    return {
-      commands: [addSectionCommand(section)],
-      selection: {
-        ...createEmptySelectionState(),
-        selectedSectionIds: [section.id],
-      },
-    }
-  }
-
-  if (dragState.kind === 'marquee') {
-    if (!isPointerDrag(movementX, movementY, threshold)) {
-      return {
-        commands: [],
-        selection: clearSelection(createEmptySelectionState()),
-      }
-    }
-
-    const range = snapTimelineRange(workspace.timeline, dragState.startTick, endTick)
-
-    const blocks = selectBlocksInRange(workspace, {
-      startTick: range.startTick,
-      endTick: range.startTick + range.lengthTicks,
-    })
-
-    const sections = selectSectionsInRange(workspace, {
-      startTick: range.startTick,
-      endTick: range.startTick + range.lengthTicks,
-    })
-
-    return {
-      commands: [],
-      selection: {
-        ...createEmptySelectionState(),
-        selectedBlockIds: blocks.map(block => block.id),
-        selectedSectionIds: sections.map(section => section.id),
-      },
-    }
-  }
-
-  if (!isPointerDrag(movementX, movementY, threshold)) {
-    return { commands: [] }
-  }
-
-  if (dragState.kind === 'moveBlock') {
-    const deltaTicks = endTick - dragState.startTick
-
-    return {
-      commands: dragState.blockIds
-        .map((blockId) => {
-          const block = selectBlock(workspace, blockId)
-
-          if (block === undefined) {
-            return undefined
-          }
-
-          return moveBlockCommand(
-            workspace,
-            block.id,
-            Math.max(0, block.startTick + deltaTicks),
-            targetTrackId ?? block.trackId,
-          )
-        })
-        .filter(isCommand),
-    }
-  }
-
-  if (dragState.kind === 'resizeBlock') {
-    const { block } = dragState
-
-    if (dragState.edge === 'left') {
-      const nextStartTick = Math.min(endTick, block.startTick + block.lengthTicks - 1)
-
-      return {
-        commands: [resizeBlockCommand(workspace, block.id, nextStartTick, block.startTick + block.lengthTicks - nextStartTick)],
-      }
-    }
-
-    const nextEndTick = Math.max(endTick, block.startTick + 1)
-
-    return {
-      commands: [resizeBlockCommand(workspace, block.id, block.startTick, nextEndTick - block.startTick)],
-    }
-  }
-
-  if (dragState.kind === 'moveSection') {
-    const deltaTicks = endTick - dragState.startTick
-
-    return {
-      commands: [moveSectionCommand(workspace, dragState.section.id, Math.max(0, dragState.section.startTick + deltaTicks))],
-    }
-  }
-
-  if (dragState.kind === 'resizeSection') {
-    const { section } = dragState
-    const sectionEndTick = getSectionEndTick(section)
-
-    if (dragState.edge === 'left') {
-      const nextStartTick = Math.min(endTick, sectionEndTick - 1)
-
-      return {
-        commands: [resizeSectionCommand(workspace, section.id, nextStartTick, sectionEndTick - nextStartTick)],
-      }
-    }
-
-    const nextEndTick = Math.max(endTick, section.startTick + 1)
-
-    return {
-      commands: [resizeSectionCommand(workspace, section.id, section.startTick, nextEndTick - section.startTick)],
-    }
-  }
-
-  if (dragState.kind === 'moveTimelineEvent') {
-    return {
-      commands: [createTimelineMoveCommand(workspace, dragState.event, endTick)],
-      selectedTimelineEvent: {
-        ...dragState.event,
-        tick: endTick,
-      },
-    }
-  }
-
-  return { commands: [] }
-}
+import { selectBlock, type Workspace } from '~/store/workspace'
 
 export function getDragStartClientX(dragState: DragState): number {
   if ('startClientX' in dragState) {
@@ -283,10 +24,103 @@ export function getDragStartClientY(dragState: DragState): number {
   return 0
 }
 
-function isPointerDrag(movementX: number, movementY: number, threshold: number): boolean {
-  return movementX >= threshold || movementY >= threshold
+export function getDragDeltaTicks(dragState: DragState): Tick {
+  if ('startTick' in dragState) {
+    return dragState.currentTick - dragState.startTick
+  }
+
+  return 0
 }
 
-function isCommand(command: Command | undefined): command is Command {
-  return command !== undefined
+export function getDragTargetTrackId(dragState: DragState): string | undefined {
+  if (dragState.kind === 'drawBlock') {
+    return dragState.trackId
+  }
+
+  if (dragState.kind === 'moveBlock') {
+    return dragState.currentTrackId
+  }
+
+  if (dragState.kind === 'resizeBlock') {
+    return dragState.block.trackId
+  }
+
+  return undefined
+}
+
+export function getBlockDragPreviews(workspace: Workspace, dragState?: DragState): Block[] {
+  if (dragState?.kind === 'moveBlock') {
+    const deltaTicks = getDragDeltaTicks(dragState)
+
+    return dragState.blockIds.flatMap((blockId) => {
+      const block = selectBlock(workspace, blockId)
+
+      if (!block) {
+        return []
+      }
+
+      return [{
+        ...block,
+        startTick: Math.max(0, block.startTick + deltaTicks),
+        trackId: dragState.currentTrackId ?? block.id,
+      }]
+    })
+  }
+
+  if (dragState?.kind === 'resizeBlock') {
+    const blockEndTick = getBlockEndTick(dragState.block)
+
+    if (dragState.edge === 'left') {
+      const startTick = Math.min(dragState.currentTick, blockEndTick - 1)
+
+      return [{
+        ...dragState.block,
+        lengthTicks: blockEndTick - startTick,
+        startTick,
+      }]
+    }
+
+    const endTick = Math.max(dragState.currentTick, dragState.block.startTick + 1)
+
+    return [{
+      ...dragState.block,
+      lengthTicks: endTick - dragState.block.startTick,
+    }]
+  }
+
+  return []
+}
+
+export function getSectionDragPreviews(dragState?: DragState): Section[] {
+  if (dragState?.kind === 'moveSection') {
+    const deltaTicks = getDragDeltaTicks(dragState)
+
+    return [{
+      ...dragState.section,
+      startTick: Math.max(0, dragState.section.startTick + deltaTicks),
+    }]
+  }
+
+  if (dragState?.kind === 'resizeSection') {
+    const sectionEndTick = getSectionEndTick(dragState.section)
+
+    if (dragState.edge === 'left') {
+      const startTick = Math.min(dragState.currentTick, sectionEndTick - 1)
+
+      return [{
+        ...dragState.section,
+        lengthTicks: sectionEndTick - startTick,
+        startTick,
+      }]
+    }
+
+    const endTick = Math.max(dragState.currentTick, dragState.section.startTick + 1)
+
+    return [{
+      ...dragState.section,
+      lengthTicks: endTick - dragState.section.startTick,
+    }]
+  }
+
+  return []
 }

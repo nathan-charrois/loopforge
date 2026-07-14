@@ -19,8 +19,6 @@ import AppProvider from '~/components/Providers/AppProvider'
 import { useCommandHistory } from '~/components/Providers/CommandHistoryProvider'
 import { useEditorState } from '~/components/Providers/EditorStateProvider'
 import {
-  ACTIVE_TOOLS,
-  type ActiveTool,
   type Block,
   type Command,
   COMMAND_KINDS,
@@ -34,15 +32,19 @@ import {
   createNoteEvent,
   createPattern,
   createSection,
-  type EditorState,
   getBlockEndTick,
   getPatternEventEndTick,
   getSectionEndTick,
-  INSPECTOR_PANELS,
   type Pattern,
   type PatternEvent,
   type Section,
 } from '~/domain'
+import {
+  ACTIVE_TOOLS,
+  type ActiveTool,
+  type EditorState,
+  INSPECTOR_PANELS,
+} from '~/store/editor'
 
 const DISABLED_ACTIVE_TOOLS = new Set<ActiveTool>([
   'audition',

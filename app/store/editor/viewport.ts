@@ -1,50 +1,47 @@
+import type { ViewportState } from './types'
 import type { Tick } from '~/domain'
 
-export type TimelineViewportState = {
-  scrollX: number
-  scrollY: number
-  pixelsPerTick: number
-  minPixelsPerTick: number
-  maxPixelsPerTick: number
-  laneHeight: number
-  sectionLaneHeight: number
-  rulerHeight: number
-}
-
-export type VisibleTimelineRange = {
-  startTick: Tick
-  endTick: Tick
-}
-
-export function createDefaultTimelineViewportState(
-  input: Partial<TimelineViewportState> = {},
-): TimelineViewportState {
-  return {
-    laneHeight: input.laneHeight ?? 72,
-    maxPixelsPerTick: input.maxPixelsPerTick ?? 0.42,
-    minPixelsPerTick: input.minPixelsPerTick ?? 0.035,
-    pixelsPerTick: input.pixelsPerTick ?? 0.1,
-    rulerHeight: input.rulerHeight ?? 82,
-    scrollX: input.scrollX ?? 0,
-    scrollY: input.scrollY ?? 0,
-    sectionLaneHeight: input.sectionLaneHeight ?? 44,
-  }
-}
-
-export function tickToPixel(viewport: TimelineViewportState, tick: Tick): number {
+export function tickToX(viewport: ViewportState, tick: Tick): number {
   return tick * viewport.pixelsPerTick
 }
 
-export function pixelToTick(viewport: TimelineViewportState, pixel: number): Tick {
-  return Math.max(0, Math.round(pixel / viewport.pixelsPerTick))
+export function xToTick(viewport: ViewportState, x: number): Tick {
+  return Math.max(0, Math.round(x / viewport.pixelsPerTick))
 }
 
-export function getVisibleTimelineRange(
-  viewport: TimelineViewportState,
-  widthPixels = 0,
-): VisibleTimelineRange {
+export function zoomViewport(
+  viewport: ViewportState,
+  input: {
+    anchorX?: number
+    delta?: number
+    multiplier?: number
+  },
+): ViewportState {
+  const nextPixelsPerTick = clampPixelsPerTick(
+    viewport,
+    input.multiplier === undefined
+      ? viewport.pixelsPerTick + (input.delta ?? 0)
+      : viewport.pixelsPerTick * input.multiplier,
+  )
+  const anchorX = input.anchorX ?? 0
+  const tickAtAnchor = (viewport.scrollX + anchorX) / viewport.pixelsPerTick
+
+  return clampViewport({
+    ...viewport,
+    pixelsPerTick: nextPixelsPerTick,
+    scrollX: Math.max(0, (tickAtAnchor * nextPixelsPerTick) - anchorX),
+  })
+}
+
+function clampViewport(viewport: ViewportState): ViewportState {
   return {
-    endTick: pixelToTick(viewport, viewport.scrollX + Math.max(0, widthPixels)),
-    startTick: pixelToTick(viewport, viewport.scrollX),
+    ...viewport,
+    pixelsPerTick: clampPixelsPerTick(viewport, viewport.pixelsPerTick),
+    scrollX: Math.max(0, viewport.scrollX),
+    scrollY: Math.max(0, viewport.scrollY),
   }
+}
+
+function clampPixelsPerTick(viewport: ViewportState, pixelsPerTick: number): number {
+  return Math.min(viewport.maxPixelsPerTick, Math.max(viewport.minPixelsPerTick, pixelsPerTick))
 }

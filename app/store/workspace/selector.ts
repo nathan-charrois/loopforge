@@ -1,4 +1,5 @@
 import type { Workspace } from './type'
+import type { KeyEvent, MeterEvent, TempoEvent } from '~/domain'
 import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
 import type { Tick, TickRange } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
@@ -52,6 +53,18 @@ export function selectPatternIdForEvent(
   }
 
   return undefined
+}
+
+export function selectTempoEvents(workspace: Workspace, tick: Tick): TempoEvent | undefined {
+  return workspace.timeline.tempoEvents.find(event => event.tick === tick)
+}
+
+export function selectMeterEvents(workspace: Workspace, tick: Tick): MeterEvent | undefined {
+  return workspace.timeline.meterEvents.find(event => event.tick === tick)
+}
+
+export function selectKeyEvents(workspace: Workspace, tick: Tick): KeyEvent | undefined {
+  return workspace.timeline.keyEvents.find(event => event.tick === tick)
 }
 
 export function selectBlocksForTrack(workspace: Workspace, trackId: TrackId): Block[] {

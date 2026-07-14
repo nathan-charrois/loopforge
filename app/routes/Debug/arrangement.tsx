@@ -64,12 +64,9 @@ import AppProvider from '~/components/Providers/AppProvider'
 import { useCommandHistory } from '~/components/Providers/CommandHistoryProvider'
 import { useEditorState } from '~/components/Providers/EditorStateProvider'
 import {
-  ACTIVE_TOOLS,
-  type ActiveTool,
   type Block,
   BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
-  clearSelection,
   type Command,
   formatPatternEvent,
   formatTickAsBars,
@@ -79,56 +76,62 @@ import {
   getSectionEndTick,
   GRID_DIVISIONS,
   type GridDivision,
+  isKeyEvent,
+  isMeterEvent,
+  isTempoEvent,
   type Key,
   MODES,
   type RulerMark,
   type Section,
-  type SelectionState,
   type Tick,
   TIME_SIGNATURE_DENOMINATORS,
-  type TimelineEventSelection,
+  type TimelineEvent,
   type TimeSignatureDenominator,
   type Track,
 } from '~/domain'
 import {
+  ACTIVE_TOOLS,
+  type ActiveTool,
+  addBlockToSelection,
+  addPatternEventToSelection,
+  addSectionToSelection,
   completeArrangementDrag,
+  copySelectionToClipboard,
   createArrangementDebugWorkspace,
   createBlockInspectorCommands,
   createBlockToolCommands,
-  createDefaultTimelineViewportState,
+  createDefaultViewportState,
   createDeleteSelectedEntitiesCommands,
   createDuplicateSelectionCommands,
   createEmptyInspectorDraft,
   createPasteClipboardCommands,
   createSectionInspectorCommands,
   createSectionToolCommands,
+  createSelectionState,
   createTimelineDeleteCommand,
   createTimelineEventUpdateCommands,
   createTimelineMarkerAddCommand,
   type DragState,
   formatPlaybackTrigger,
   getBlockDragPreviews,
-  getBlockStackIndexes,
   getDragStartClientX,
   getDragStartClientY,
-  getFocusedBlockPlaybackView,
   getInitialDrawEndTick,
   getPlaybackTriggerTop,
   getSectionDragPreviews,
-  getTimelineEventMarkerViews,
   getToolLabel,
   hasAnySelection,
   type InspectorDraft,
-  numberInputValue,
-  pixelToTick,
-  selectBlockInSelection,
-  selectPatternEventInSelection,
-  selectSectionInSelection,
+  selectFocusedBlockEvents,
+  type SelectionState,
+  selectTimelineEvents,
   snapTimelineTick,
-  tickToPixel,
-  type TimelineViewportState,
+  tickToX,
   updateInspectorDraftFromSelection,
   updateInspectorDraftFromTimelineEvent,
+  type ViewportState,
+  xToTick,
+  zoomViewport,
 } from '~/store/editor'
 import {
   executeCommand,
@@ -145,6 +148,7 @@ import {
   validateWorkspace,
   type Workspace,
 } from '~/store/workspace'
+import { parseNumber } from '~/utils/number'
 import type { PlaybackTrigger, ScheduledPlaybackEvent } from '~/utils/schedule'
 
 const TRACK_LABEL_WIDTH = 168
@@ -152,6 +156,8 @@ const TIMELINE_PADDING_TICKS = 7680
 const MIN_BLOCK_WIDTH = 18
 const MIN_SECTION_WIDTH = 18
 const MIN_PREVIEW_WIDTH = 6
+const BLOCK_TOP = 14
+const TIMELINE_MARKER_TOP = 10
 const POINTER_DRAG_THRESHOLD = 4
 const HANDLE_WIDTH = 8
 const WHEEL_ZOOM_SENSITIVITY = 0.0008
@@ -187,9 +193,9 @@ function ArrangementDebugContent() {
   const { editorState, setActiveTool, setEditorState } = useEditorState()
   const { canRedo, canUndo, commandHistory, setCommandHistory } = useCommandHistory()
   const [workspace, setWorkspace] = useState<Workspace>(() => createArrangementDebugWorkspace())
-  const [viewport, setViewport] = useState<TimelineViewportState>(() => createDefaultTimelineViewportState())
+  const [viewport, setViewport] = useState<ViewportState>(() => createDefaultViewportState())
   const [focusedBlockId, setFocusedBlockId] = useState<string | undefined>(undefined)
-  const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEventSelection | undefined>(undefined)
+  const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | undefined>(undefined)
   const [dragState, setDragState] = useState<DragState | undefined>(undefined)
   const [hoveredBlockId, setHoveredBlockId] = useState<string | undefined>(undefined)
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined)
@@ -203,12 +209,12 @@ function ArrangementDebugContent() {
     ? selectSection(workspace, editorState.selection.selectedSectionIds[0])
     : undefined
   const focusedPlaybackView = useMemo(
-    () => getFocusedBlockPlaybackView(workspace, focusedBlockId),
+    () => selectFocusedBlockEvents(workspace, focusedBlockId),
     [focusedBlockId, workspace],
   )
   const projectEndTick = Math.max(selectWorkspaceEndTick(workspace), 1)
   const timelineEndTick = projectEndTick + TIMELINE_PADDING_TICKS
-  const timelineWidth = Math.max(980, Math.ceil(tickToPixel(viewport, timelineEndTick)))
+  const timelineWidth = Math.max(980, Math.ceil(tickToX(viewport, timelineEndTick)))
   const rulerMarks = useMemo(
     () => getRulerMarks(workspace.timeline, 0, timelineEndTick),
     [timelineEndTick, workspace.timeline],
@@ -216,11 +222,11 @@ function ArrangementDebugContent() {
   const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
 
   useEffect(() => {
-    setInspectorDraft(currentDraft => updateInspectorDraftFromSelection({
+    setInspectorDraft(currentDraft => updateInspectorDraftFromSelection(
       currentDraft,
       selectedBlock,
       selectedSection,
-    }))
+    ))
   }, [selectedBlock, selectedSection])
 
   useEffect(() => {
@@ -228,12 +234,11 @@ function ArrangementDebugContent() {
       return
     }
 
-    setInspectorDraft(currentDraft => updateInspectorDraftFromTimelineEvent({
+    setInspectorDraft(currentDraft => updateInspectorDraftFromTimelineEvent(
       currentDraft,
-      event: selectedTimelineEvent,
-      workspace,
-    }))
-  }, [selectedTimelineEvent, workspace.timeline])
+      selectedTimelineEvent,
+    ))
+  }, [selectedTimelineEvent])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -254,7 +259,7 @@ function ArrangementDebugContent() {
         }
 
         setSelectedTimelineEvent(undefined)
-        updateSelection(selection => clearSelection(selection))
+        updateSelection(() => createSelectionState())
         return
       }
 
@@ -352,25 +357,22 @@ function ArrangementDebugContent() {
 
   function selectEditorBlock(blockId: string, additive: boolean) {
     setSelectedTimelineEvent(undefined)
-    updateSelection(selection => selectBlockInSelection(selection, blockId, additive))
+    setEditorState(currentState => addBlockToSelection(currentState, blockId, additive))
   }
 
   function selectEditorSection(sectionId: string, additive: boolean) {
     setSelectedTimelineEvent(undefined)
-    updateSelection(selection => selectSectionInSelection(selection, sectionId, additive))
+    setEditorState(currentState => addSectionToSelection(currentState, sectionId, additive))
   }
 
   function selectPatternEvent(patternEventId: string, additive: boolean) {
-    updateSelection(selection => selectPatternEventInSelection(selection, patternEventId, additive, focusedBlockId))
+    setEditorState(currentState => addPatternEventToSelection(currentState, patternEventId, additive, focusedBlockId))
   }
 
   function copySelection() {
     setEditorState(currentState => ({
       ...currentState,
-      clipboard: {
-        blockIds: [...currentState.selection.selectedBlockIds],
-        patternEventIds: [...currentState.selection.selectedPatternEventIds],
-      },
+      clipboard: copySelectionToClipboard(currentState),
     }))
   }
 
@@ -393,7 +395,7 @@ function ArrangementDebugContent() {
       selection: editorState.selection,
       workspace,
     }))
-    updateSelection(selection => clearSelection(selection))
+    updateSelection(() => createSelectionState())
   }
 
   function getTickFromClientX(clientX: number, shouldSnap = true): Tick {
@@ -402,7 +404,7 @@ function ArrangementDebugContent() {
     }
 
     const rect = timelineGridRef.current.getBoundingClientRect()
-    const rawTick = pixelToTick(viewport, Math.max(0, clientX - rect.left))
+    const rawTick = xToTick(viewport, Math.max(0, clientX - rect.left))
 
     return shouldSnap
       ? snapTimelineTick(workspace.timeline, rawTick)
@@ -662,7 +664,7 @@ function ArrangementDebugContent() {
 
   function handleTimelineEventPointerDown(
     event: ReactPointerEvent<HTMLDivElement>,
-    timelineEvent: TimelineEventSelection,
+    timelineEvent: TimelineEvent,
   ) {
     event.stopPropagation()
 
@@ -673,7 +675,7 @@ function ArrangementDebugContent() {
     }
 
     setSelectedTimelineEvent(timelineEvent)
-    updateSelection(selection => clearSelection(selection))
+    updateSelection(() => createSelectionState())
 
     if (editorState.activeTool === 'select' || editorState.activeTool === 'move') {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -717,7 +719,7 @@ function ArrangementDebugContent() {
 
     const result = createTimelineEventUpdateCommands({
       draft: inspectorDraft,
-      event: selectedTimelineEvent,
+      timelineEvent: selectedTimelineEvent,
       workspace,
     })
 
@@ -741,10 +743,10 @@ function ArrangementDebugContent() {
       return
     }
 
-    zoomTimelineAt(scrollElement, scrollElement.clientWidth / 2, multiplier)
+    zoomViewportAt(scrollElement, scrollElement.clientWidth / 2, multiplier)
   }
 
-  function handleTimelineWheel(event: ReactWheelEvent<HTMLDivElement>) {
+  function handleViewportWheel(event: ReactWheelEvent<HTMLDivElement>) {
     if (event.deltaY === 0) {
       return
     }
@@ -757,29 +759,26 @@ function ArrangementDebugContent() {
     const deltaY = getWheelDeltaPixels(event)
     const zoomMultiplier = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY)
 
-    zoomTimelineAt(scrollElement, anchorPixel, zoomMultiplier)
+    zoomViewportAt(scrollElement, anchorPixel, zoomMultiplier)
   }
 
-  function zoomTimelineAt(scrollElement: HTMLDivElement, anchorPixel: number, multiplier: number) {
+  function zoomViewportAt(scrollElement: HTMLDivElement, anchorPixel: number, multiplier: number) {
     const scrollX = scrollElement.scrollLeft
     let nextScrollX = scrollX
 
     flushSync(() => {
       setViewport((currentViewport) => {
-        const nextPixelsPerTick = clampNumber(
-          currentViewport.pixelsPerTick * multiplier,
-          currentViewport.minPixelsPerTick,
-          currentViewport.maxPixelsPerTick,
-        )
-        const anchorTick = (scrollX + anchorPixel) / currentViewport.pixelsPerTick
-
-        nextScrollX = Math.max(0, (anchorTick * nextPixelsPerTick) - anchorPixel)
-
-        return {
+        const nextViewport = zoomViewport({
           ...currentViewport,
-          pixelsPerTick: nextPixelsPerTick,
-          scrollX: nextScrollX,
-        }
+          scrollX,
+        }, {
+          anchorX: anchorPixel,
+          multiplier,
+        })
+
+        nextScrollX = nextViewport.scrollX
+
+        return nextViewport
       })
     })
 
@@ -846,7 +845,7 @@ function ArrangementDebugContent() {
                 onPointerCancel={handleTimelinePointerEnd}
                 onPointerMove={handleTimelinePointerMove}
                 onPointerUp={handleTimelinePointerEnd}
-                onWheel={handleTimelineWheel}
+                onWheel={handleViewportWheel}
                 style={{
                   minWidth: 0,
                   overflow: 'auto',
@@ -1043,7 +1042,7 @@ function TimelineLabelColumn({
 }: {
   focusedBlockId?: string
   tracks: Track[]
-  viewport: TimelineViewportState
+  viewport: ViewportState
 }) {
   return (
     <Box
@@ -1116,17 +1115,14 @@ function TimelineRuler({
 }: {
   dragState?: DragState
   marks: RulerMark[]
-  onMarkerPointerDown: (event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEventSelection) => void
+  onMarkerPointerDown: (event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEvent) => void
   onRulerPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
-  selectedTimelineEvent?: TimelineEventSelection
+  selectedTimelineEvent?: TimelineEvent
   timelineWidth: number
-  viewport: TimelineViewportState
+  viewport: ViewportState
   workspace: Workspace
 }) {
-  const markerViews = getTimelineEventMarkerViews(workspace.timeline)
-  const movingMarker = dragState?.kind === 'moveTimelineEvent'
-    ? markerViews.find(marker => isSameTimelineEvent(marker, dragState.event))
-    : undefined
+  const timelineEvents = selectTimelineEvents(workspace)
 
   return (
     <Box
@@ -1145,7 +1141,7 @@ function TimelineRuler({
           style={{
             borderLeft: getRulerBorder(mark),
             height: mark.kind === 'bar' ? '100%' : mark.kind === 'beat' ? '70%' : '42%',
-            left: tickToPixel(viewport, mark.tick),
+            left: tickToX(viewport, mark.tick),
             position: 'absolute',
             top: 0,
           }}
@@ -1158,28 +1154,27 @@ function TimelineRuler({
         </Box>
       ))}
 
-      {markerViews.map(marker => (
+      {timelineEvents.map(timelineEvent => (
         <TimelineEventMarker
-          key={marker.id}
-          color={getTimelineEventMarkerColor(marker.kind)}
-          icon={getTimelineEventMarkerIcon(marker.kind)}
-          isSelected={selectedTimelineEvent !== undefined && isSameTimelineEvent(selectedTimelineEvent, marker)}
-          label={marker.label}
-          left={tickToPixel(viewport, marker.tick)}
-          stackIndex={marker.stackIndex}
-          onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, marker)}
+          key={getTimelineEventKey(timelineEvent)}
+          color={getTimelineEventMarkerColor(timelineEvent)}
+          icon={getTimelineEventMarkerIcon(timelineEvent)}
+          isSelected={selectedTimelineEvent !== undefined && isSameTimelineEvent(selectedTimelineEvent, timelineEvent)}
+          label={getTimelineEventMarkerLabel(timelineEvent)}
+          left={tickToX(viewport, timelineEvent.tick)}
+          top={getTimelineEventMarkerTop(timelineEvent)}
+          onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, timelineEvent)}
         />
       ))}
-      {dragState?.kind === 'moveTimelineEvent' && movingMarker !== undefined && (
+      {dragState?.kind === 'moveTimelineEvent' && (
         <TimelineEventMarker
-          color={getTimelineEventMarkerColor(movingMarker.kind)}
-          icon={getTimelineEventMarkerIcon(movingMarker.kind)}
+          color={getTimelineEventMarkerColor(dragState.event)}
+          icon={getTimelineEventMarkerIcon(dragState.event)}
           isPreview
           isSelected={false}
-          label={movingMarker.label}
-          left={tickToPixel(viewport, dragState.currentTick)}
-          stackIndex={movingMarker.stackIndex}
-          onPointerDown={() => undefined}
+          label={getTimelineEventMarkerLabel(dragState.event)}
+          left={tickToX(viewport, dragState.currentTick)}
+          top={getTimelineEventMarkerTop(dragState.event)}
         />
       )}
     </Box>
@@ -1193,8 +1188,8 @@ function TimelineEventMarker({
   isPreview = false,
   label,
   left,
+  top,
   onPointerDown,
-  stackIndex,
 }: {
   color: string
   icon: typeof TimeSetting01Icon
@@ -1202,8 +1197,8 @@ function TimelineEventMarker({
   isSelected: boolean
   label: string
   left: number
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
-  stackIndex: number
+  top: number
+  onPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void
 }) {
   return (
     <Box
@@ -1225,8 +1220,8 @@ function TimelineEventMarker({
         paddingInline: 4,
         pointerEvents: isPreview ? 'none' : undefined,
         position: 'absolute',
-        top: 22 + (stackIndex * 18),
-        zIndex: isSelected ? 8 : isPreview ? 7 : 5 + stackIndex,
+        top,
+        zIndex: isSelected ? 8 : isPreview ? 7 : 5,
       }}
     >
       <HugeiconsIcon icon={icon} size={12} />
@@ -1240,7 +1235,7 @@ function TimelineGridLines({
   viewport,
 }: {
   marks: RulerMark[]
-  viewport: TimelineViewportState
+  viewport: ViewportState
 }) {
   return (
     <>
@@ -1250,7 +1245,7 @@ function TimelineGridLines({
           style={{
             borderLeft: getGridLineBorder(mark),
             bottom: 0,
-            left: tickToPixel(viewport, mark.tick),
+            left: tickToX(viewport, mark.tick),
             opacity: mark.kind === 'bar' ? 0.7 : mark.kind === 'beat' ? 0.55 : 0.4,
             pointerEvents: 'none',
             position: 'absolute',
@@ -1285,10 +1280,10 @@ function SectionLane({
   onSectionPointerDown: (event: ReactPointerEvent<HTMLDivElement>, section: Section) => void
   selectedSectionIds: string[]
   timelineWidth: number
-  viewport: TimelineViewportState
+  viewport: ViewportState
   workspace: Workspace
 }) {
-  const sectionDragPreviews = getSectionDragPreviews(workspace, dragState)
+  const sectionDragPreviews = getSectionDragPreviews(dragState)
 
   return (
     <Box
@@ -1317,13 +1312,13 @@ function SectionLane({
             cursor: 'grab',
             display: 'flex',
             height: 28,
-            left: tickToPixel(viewport, section.startTick),
+            left: tickToX(viewport, section.startTick),
             outline: selectedSectionIds.includes(section.id) ? '2px solid var(--mantine-color-blue-6)' : undefined,
             overflow: 'hidden',
             paddingInline: 7,
             position: 'absolute',
             top: 8,
-            width: Math.max(MIN_SECTION_WIDTH, tickToPixel(viewport, section.lengthTicks)),
+            width: Math.max(MIN_SECTION_WIDTH, tickToX(viewport, section.lengthTicks)),
           }}
         >
           <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
@@ -1391,11 +1386,10 @@ function TrackLane({
   selectedPatternEventIds: string[]
   timelineWidth: number
   track: Track
-  viewport: TimelineViewportState
+  viewport: ViewportState
   workspace: Workspace
 }) {
   const blocks = selectBlocksForTrack(workspace, track.id)
-  const stackIndexes = getBlockStackIndexes(blocks)
   const blockDragPreviews = getBlockDragPreviews(workspace, dragState)
     .filter(block => block.trackId === track.id)
 
@@ -1422,7 +1416,6 @@ function TrackLane({
           pattern={selectPattern(workspace, block.patternId)}
           selected={selectedBlockIds.includes(block.id)}
           selectedPatternEventIds={selectedPatternEventIds}
-          stackIndex={stackIndexes.get(block.id) ?? 0}
           viewport={viewport}
           workspace={workspace}
           onDoubleClick={onBlockDoubleClick}
@@ -1456,7 +1449,7 @@ function TrackLane({
           label={block.name}
           lengthTicks={block.lengthTicks}
           startTick={block.startTick}
-          top={11}
+          top={BLOCK_TOP}
           viewport={viewport}
         />
       ))}
@@ -1477,7 +1470,6 @@ function BlockView({
   pattern,
   selected,
   selectedPatternEventIds,
-  stackIndex,
   viewport,
   workspace,
 }: {
@@ -1493,8 +1485,7 @@ function BlockView({
   pattern?: ReturnType<typeof selectPattern>
   selected: boolean
   selectedPatternEventIds: string[]
-  stackIndex: number
-  viewport: TimelineViewportState
+  viewport: ViewportState
   workspace: Workspace
 }) {
   const isFocused = focusedBlockId === block.id
@@ -1518,14 +1509,14 @@ function BlockView({
         color: 'white',
         cursor: 'grab',
         height: isFocused ? 56 : 42,
-        left: tickToPixel(viewport, block.startTick),
+        left: tickToX(viewport, block.startTick),
         opacity: dimmedByFocus ? 0.22 : block.muted ? 0.58 : 0.96,
         outline: selected ? '2px solid var(--mantine-color-blue-2)' : undefined,
         overflow: 'hidden',
         padding: '5px 8px',
         position: 'absolute',
-        top: 11 + (stackIndex * 9),
-        width: Math.max(MIN_BLOCK_WIDTH, tickToPixel(viewport, block.lengthTicks)),
+        top: BLOCK_TOP,
+        width: Math.max(MIN_BLOCK_WIDTH, tickToX(viewport, block.lengthTicks)),
         zIndex: isFocused ? 7 : selected ? 4 : 2,
       }}
     >
@@ -1567,7 +1558,7 @@ function FocusedBlockOverlay({
   onPatternEventClick: (patternEventId: string, additive: boolean) => void
   selectedPatternEventIds: string[]
   triggers: PlaybackTrigger[]
-  viewport: TimelineViewportState
+  viewport: ViewportState
 }) {
   return (
     <Box
@@ -1596,11 +1587,11 @@ function FocusedBlockOverlay({
             borderRadius: 2,
             bottom: 3,
             cursor: 'pointer',
-            left: Math.max(0, tickToPixel(viewport, event.startTick - block.startTick)),
+            left: Math.max(0, tickToX(viewport, event.startTick - block.startTick)),
             minWidth: 3,
             position: 'absolute',
             top: 3,
-            width: Math.max(3, tickToPixel(viewport, event.durationTicks)),
+            width: Math.max(3, tickToX(viewport, event.durationTicks)),
           }}
           title={formatPatternEvent(event.event)}
         />
@@ -1612,11 +1603,11 @@ function FocusedBlockOverlay({
             background: trigger.kind === 'note' ? '#ffffff' : trigger.kind === 'drum' ? '#111111' : '#7950f2',
             borderRadius: 999,
             height: 4,
-            left: Math.max(0, tickToPixel(viewport, trigger.startTick - block.startTick)),
+            left: Math.max(0, tickToX(viewport, trigger.startTick - block.startTick)),
             opacity: 0.9,
             position: 'absolute',
             top: getPlaybackTriggerTop(trigger),
-            width: Math.max(4, trigger.kind === 'note' ? tickToPixel(viewport, trigger.durationTicks) : 4),
+            width: Math.max(4, trigger.kind === 'note' ? tickToX(viewport, trigger.durationTicks) : 4),
           }}
           title={formatPlaybackTrigger(trigger)}
         />
@@ -1656,7 +1647,7 @@ function InspectorPanel({
   patterns: ReturnType<typeof selectPatterns>
   selectedBlock?: Block
   selectedSection?: Section
-  selectedTimelineEvent?: TimelineEventSelection
+  selectedTimelineEvent?: TimelineEvent
   selection: SelectionState
   setDraft: (updater: (draft: InspectorDraft) => InspectorDraft) => void
   workspace: Workspace
@@ -1811,7 +1802,7 @@ function TimelineEventInspector({
   workspace,
 }: {
   draft: InspectorDraft
-  event: TimelineEventSelection
+  event: TimelineEvent
   onDelete: () => void
   onUpdate: () => void
   setDraft: (updater: (draft: InspectorDraft) => InspectorDraft) => void
@@ -1821,39 +1812,39 @@ function TimelineEventInspector({
     <Stack gap="sm">
       <Divider />
       <Text fw={700} size="sm">Timeline Event</Text>
-      {event.kind === 'tempo' && (
+      {isTempoEvent(event) && (
         <>
           <NumberInput
             label="Tick"
             min={0}
             size="xs"
             value={draft.tempoTick}
-            onChange={value => setDraft(currentDraft => ({ ...currentDraft, tempoTick: numberInputValue(value, currentDraft.tempoTick) }))}
+            onChange={value => setDraft(currentDraft => ({ ...currentDraft, tempoTick: parseNumber(value.toString(), currentDraft.tempoTick) }))}
           />
           <NumberInput
             label="BPM"
             min={1}
             size="xs"
             value={draft.tempoBpm}
-            onChange={value => setDraft(currentDraft => ({ ...currentDraft, tempoBpm: numberInputValue(value, currentDraft.tempoBpm) }))}
+            onChange={value => setDraft(currentDraft => ({ ...currentDraft, tempoBpm: parseNumber(value.toString(), currentDraft.tempoBpm) }))}
           />
         </>
       )}
-      {event.kind === 'meter' && (
+      {isMeterEvent(event) && (
         <>
           <NumberInput
             label="Tick"
             min={0}
             size="xs"
             value={draft.meterTick}
-            onChange={value => setDraft(currentDraft => ({ ...currentDraft, meterTick: numberInputValue(value, currentDraft.meterTick) }))}
+            onChange={value => setDraft(currentDraft => ({ ...currentDraft, meterTick: parseNumber(value.toString(), currentDraft.meterTick) }))}
           />
           <NumberInput
             label="Numerator"
             min={1}
             size="xs"
             value={draft.meterNumerator}
-            onChange={value => setDraft(currentDraft => ({ ...currentDraft, meterNumerator: numberInputValue(value, currentDraft.meterNumerator) }))}
+            onChange={value => setDraft(currentDraft => ({ ...currentDraft, meterNumerator: parseNumber(value.toString(), currentDraft.meterNumerator) }))}
           />
           <Select
             allowDeselect={false}
@@ -1868,14 +1859,14 @@ function TimelineEventInspector({
           />
         </>
       )}
-      {event.kind === 'key' && (
+      {isKeyEvent(event) && (
         <>
           <NumberInput
             label="Tick"
             min={0}
             size="xs"
             value={draft.keyTick}
-            onChange={value => setDraft(currentDraft => ({ ...currentDraft, keyTick: numberInputValue(value, currentDraft.keyTick) }))}
+            onChange={value => setDraft(currentDraft => ({ ...currentDraft, keyTick: parseNumber(value.toString(), currentDraft.keyTick) }))}
           />
           <Select
             allowDeselect={false}
@@ -1983,7 +1974,7 @@ function DragPreview({
   color: string
   endTick: Tick
   startTick: Tick
-  viewport: TimelineViewportState
+  viewport: ViewportState
 }) {
   const leftTick = Math.min(startTick, endTick)
   const lengthTicks = Math.max(1, Math.abs(endTick - startTick))
@@ -1995,12 +1986,12 @@ function DragPreview({
         border: `1px solid var(--mantine-color-${color}-6)`,
         borderRadius: 4,
         bottom: 8,
-        left: tickToPixel(viewport, leftTick),
+        left: tickToX(viewport, leftTick),
         opacity: 0.55,
         pointerEvents: 'none',
         position: 'absolute',
         top: 8,
-        width: Math.max(MIN_PREVIEW_WIDTH, tickToPixel(viewport, lengthTicks)),
+        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport, lengthTicks)),
         zIndex: 8,
       }}
     />
@@ -2022,7 +2013,7 @@ function RangePlaceholder({
   lengthTicks: number
   startTick: Tick
   top: number
-  viewport: TimelineViewportState
+  viewport: ViewportState
 }) {
   return (
     <Box
@@ -2034,14 +2025,14 @@ function RangePlaceholder({
         color: `var(--mantine-color-${color}-9)`,
         display: 'flex',
         height,
-        left: tickToPixel(viewport, startTick),
+        left: tickToX(viewport, startTick),
         opacity: 0.72,
         overflow: 'hidden',
         paddingInline: 6,
         pointerEvents: 'none',
         position: 'absolute',
         top,
-        width: Math.max(MIN_PREVIEW_WIDTH, tickToPixel(viewport, lengthTicks)),
+        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport, lengthTicks)),
         zIndex: 9,
       }}
     >
@@ -2124,30 +2115,80 @@ function getGridLineBorder(mark: RulerMark): string {
   }
 }
 
-function getTimelineEventMarkerColor(kind: TimelineEventSelection['kind']): string {
-  switch (kind) {
-    case 'tempo':
-      return 'red'
-    case 'meter':
-      return 'blue'
-    case 'key':
-      return 'green'
+function getTimelineEventKey(event: TimelineEvent): string {
+  if (isTempoEvent(event)) {
+    return `tempo:${event.tick}`
   }
+
+  if (isMeterEvent(event)) {
+    return `meter:${event.tick}`
+  }
+
+  return `key:${event.tick}`
 }
 
-function getTimelineEventMarkerIcon(kind: TimelineEventSelection['kind']): typeof TimeSetting01Icon {
-  switch (kind) {
-    case 'tempo':
-      return TimeSetting01Icon
-    case 'meter':
-      return MagnetIcon
-    case 'key':
-      return Key01Icon
+function getTimelineEventMarkerLabel(event: TimelineEvent): string {
+  if (isTempoEvent(event)) {
+    return `${event.bpm}`
   }
+
+  if (isMeterEvent(event)) {
+    return `${event.timeSignature.numerator}/${event.timeSignature.denominator}`
+  }
+
+  return `${event.key.tonic}`
 }
 
-function isSameTimelineEvent(left: TimelineEventSelection, right: TimelineEventSelection): boolean {
-  return left.kind === right.kind && left.tick === right.tick
+function getTimelineEventMarkerColor(event: TimelineEvent): string {
+  if (isTempoEvent(event)) {
+    return 'red'
+  }
+
+  if (isMeterEvent(event)) {
+    return 'blue'
+  }
+
+  return 'green'
+}
+
+function getTimelineEventMarkerIcon(event: TimelineEvent): typeof TimeSetting01Icon {
+  if (isTempoEvent(event)) {
+    return TimeSetting01Icon
+  }
+
+  if (isMeterEvent(event)) {
+    return MagnetIcon
+  }
+
+  return Key01Icon
+}
+
+function getTimelineEventMarkerTop(event: TimelineEvent): number {
+  if (isTempoEvent(event)) {
+    return (TIMELINE_MARKER_TOP * 5) + 10
+  }
+
+  if (isMeterEvent(event)) {
+    return (TIMELINE_MARKER_TOP * 3) + 8
+  }
+
+  return TIMELINE_MARKER_TOP + 6
+}
+
+function isSameTimelineEvent(left: TimelineEvent, right: TimelineEvent): boolean {
+  if (left.tick !== right.tick) {
+    return false
+  }
+
+  if (isTempoEvent(left)) {
+    return isTempoEvent(right)
+  }
+
+  if (isMeterEvent(left)) {
+    return isMeterEvent(right)
+  }
+
+  return isKeyEvent(right)
 }
 
 function getWheelDeltaPixels(event: ReactWheelEvent<HTMLDivElement>): number {
@@ -2160,10 +2201,6 @@ function getWheelDeltaPixels(event: ReactWheelEvent<HTMLDivElement>): number {
   }
 
   return event.deltaY
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
