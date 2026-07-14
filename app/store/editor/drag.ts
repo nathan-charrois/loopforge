@@ -1,4 +1,4 @@
-import type { DragState } from './types'
+import type { DragState } from './type'
 import {
   type Block,
   getBlockEndTick,

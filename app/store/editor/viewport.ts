@@ -1,4 +1,4 @@
-import type { ViewportState } from './types'
+import type { ViewportState } from './type'
 import type { Tick } from '~/domain'
 
 export function tickToX(viewport: ViewportState, tick: Tick): number {

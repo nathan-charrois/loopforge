@@ -1,4 +1,4 @@
-import type { ClipboardState, EditorState } from './types'
+import type { ClipboardState, EditorState } from './type'
 
 export function copySelectionToClipboard(editorState: EditorState): ClipboardState {
   return {

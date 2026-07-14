@@ -1,4 +1,4 @@
-import type { InspectorDraft } from './types'
+import type { InspectorDraft } from './type'
 import {
   type Block,
   isMeterEvent,

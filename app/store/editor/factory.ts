@@ -1,5 +1,5 @@
 import { createEntityStore } from '../type'
-import type { ClipboardState, EditorState, InspectorState, SelectionState, ViewportState } from './types'
+import type { ClipboardState, EditorState, InspectorState, SelectionState, ViewportState } from './type'
 import {
   type Block,
   createAutomationEvent,

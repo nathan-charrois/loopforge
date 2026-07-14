@@ -1,5 +1,5 @@
 import { selectBlock, selectSection, type Workspace } from '../workspace'
-import type { EditorState } from './types'
+import type { EditorState } from './type'
 import type { Block, Section } from '~/domain'
 
 export function selectFirstSelectedBlock(editorState: EditorState, workspace: Workspace): Block | undefined {
@@ -16,4 +16,11 @@ export function selectFirstSelectedSection(editorState: EditorState, workspace: 
   }
 
   return undefined
+}
+
+export function hasAnySelection(editorState: EditorState): boolean {
+  return editorState.selection.selectedBlockIds.length > 0
+    || editorState.selection.selectedSectionIds.length > 0
+    || editorState.selection.selectedPatternEventIds.length > 0
+    || editorState.selection.selectedTrackIds.length > 0
 }

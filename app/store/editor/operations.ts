@@ -1,15 +1,13 @@
 import { createInspectorState, createSelectionState } from './factory'
-import {
-  toggleSelectionIds,
-} from './selection'
 import type {
   ActiveTool,
   EditorState,
   InspectorPanel,
-} from './types'
+} from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
 import type { PatternEventId } from '~/domain/patternEvents'
 import type { TrackId } from '~/domain/tracks'
+import { toggleInArray } from '~/utils/array'
 
 export function setActiveTool(editorState: EditorState, tool: ActiveTool): EditorState {
   return {
@@ -31,7 +29,7 @@ export function addBlockToSelection(editorState: EditorState, blockId: BlockId, 
       ...editorState,
       selection: {
         ...editorState.selection,
-        selectedBlockIds: toggleSelectionIds(editorState.selection.selectedBlockIds, blockId),
+        selectedBlockIds: toggleInArray(editorState.selection.selectedBlockIds, blockId),
       },
     }
   }
@@ -51,7 +49,7 @@ export function addSectionToSelection(editorState: EditorState, sectionId: Secti
       ...editorState,
       selection: {
         ...editorState.selection,
-        selectedSectionIds: toggleSelectionIds(
+        selectedSectionIds: toggleInArray(
           editorState.selection.selectedSectionIds,
           sectionId,
         ),
@@ -79,7 +77,7 @@ export function addPatternEventToSelection(
       ...editorState,
       selection: {
         ...editorState.selection,
-        selectedPatternEventIds: toggleSelectionIds(
+        selectedPatternEventIds: toggleInArray(
           editorState.selection.selectedPatternEventIds,
           patternEventId,
         ),
@@ -107,7 +105,7 @@ export function addTrackToSelection(
       ...editorState,
       selection: {
         ...editorState.selection,
-        selectedTrackIds: toggleSelectionIds(
+        selectedTrackIds: toggleInArray(
           editorState.selection.selectedTrackIds,
           trackId,
         ),

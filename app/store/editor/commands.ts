@@ -11,7 +11,7 @@ import type {
   InspectorDraft,
   SelectionState,
   TimelineEventDraft,
-} from './types'
+} from './type'
 import {
   type Block,
   type Command,

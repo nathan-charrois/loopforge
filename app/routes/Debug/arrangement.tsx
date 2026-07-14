@@ -257,7 +257,7 @@ function ArrangementDebugContent() {
         return
       }
 
-      if ((event.key === 'Backspace' || event.key === 'Delete') && hasAnySelection(editorState.selection)) {
+      if ((event.key === 'Backspace' || event.key === 'Delete') && hasAnySelection(editorState)) {
         event.preventDefault()
         deleteSelectedEntities()
         return
@@ -1694,7 +1694,6 @@ function InspectorPanel({
         <Group gap="xs">
           <Button
             color="red"
-            disabled={!hasAnySelection(selection)}
             leftSection={<HugeiconsIcon icon={Delete01Icon} size={14} />}
             size="xs"
             variant="light"
