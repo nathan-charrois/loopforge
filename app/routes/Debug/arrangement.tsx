@@ -95,7 +95,6 @@ import {
   createArrangementDebugWorkspace,
   createBlockInspectorCommands,
   createBlockToolCommands,
-  createClipboardFromSelection,
   createDefaultTimelineViewportState,
   createDeleteSelectedEntitiesCommands,
   createDuplicateSelectionCommands,
@@ -119,7 +118,6 @@ import {
   getTimelineEventMarkerViews,
   getToolLabel,
   hasAnySelection,
-  hasClipboardContent,
   type InspectorDraft,
   numberInputValue,
   pixelToTick,
@@ -369,15 +367,14 @@ function ArrangementDebugContent() {
   function copySelection() {
     setEditorState(currentState => ({
       ...currentState,
-      clipboard: createClipboardFromSelection(currentState.selection),
+      clipboard: {
+        blockIds: [...currentState.selection.selectedBlockIds],
+        patternEventIds: [...currentState.selection.selectedPatternEventIds],
+      },
     }))
   }
 
   function pasteClipboard() {
-    if (!hasClipboardContent(editorState.clipboard)) {
-      return
-    }
-
     runEditorCommands(createPasteClipboardCommands({
       clipboard: editorState.clipboard,
       workspace,

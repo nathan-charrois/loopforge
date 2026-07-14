@@ -7,16 +7,14 @@ import {
 } from '~/store/workspace'
 import { buildSchedule, type PlaybackTrigger, type ScheduledPlaybackEvent } from '~/utils/schedule'
 
-export type FocusedBlockPlaybackView = {
-  blockId: BlockId
-  events: ScheduledPlaybackEvent[]
-  triggers: PlaybackTrigger[]
-}
-
 export function getFocusedBlockPlaybackView(
   workspace: Workspace,
   focusedBlockId: BlockId | undefined,
-): FocusedBlockPlaybackView | undefined {
+): {
+  blockId: BlockId
+  events: ScheduledPlaybackEvent[]
+  triggers: PlaybackTrigger[]
+} | undefined {
   if (focusedBlockId === undefined) {
     return undefined
   }

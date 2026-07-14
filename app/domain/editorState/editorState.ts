@@ -38,10 +38,3 @@ export function clearSelection(selection: SelectionState): SelectionState {
     selectedTrackIds: [],
   }
 }
-
-export function hasSelection(selection: SelectionState): boolean {
-  return selection.selectedBlockIds.length > 0
-    || selection.selectedPatternEventIds.length > 0
-    || selection.selectedTrackIds.length > 0
-    || selection.selectedSectionIds.length > 0
-}

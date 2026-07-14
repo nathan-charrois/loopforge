@@ -3,18 +3,16 @@ import {
   createArrangementSectionDraft,
 } from './factory'
 import { createEmptySelectionState } from './selection'
-import { clampPositiveLengthTicks, snapTimelineRange, type TimelineRange } from './snap'
+import { snapTimelineRange, snapToMinimumTimeLineRange } from './snap'
 import { createTimelineMoveCommand } from './timelineInteraction'
 import {
   type Block,
   clearSelection,
   type Command,
   getSectionEndTick,
-  getSmallestGridDivisionTicks,
   type Section,
   type SelectionState,
   type Tick,
-  type Timeline,
   type TimelineEventSelection,
 } from '~/domain'
 import {
@@ -98,12 +96,6 @@ export type DragState
     startClientX: number
   }
 
-export type DragCompletion = {
-  commands: Command[]
-  selection?: SelectionState
-  selectedTimelineEvent?: TimelineEventSelection
-}
-
 export function completeArrangementDrag(input: {
   dragState: DragState
   endTick: Tick
@@ -112,7 +104,11 @@ export function completeArrangementDrag(input: {
   targetTrackId?: string
   threshold: number
   workspace: Workspace
-}): DragCompletion {
+}): {
+  commands: Command[]
+  selection?: SelectionState
+  selectedTimelineEvent?: TimelineEventSelection
+} {
   const {
     dragState,
     endTick,
@@ -124,7 +120,7 @@ export function completeArrangementDrag(input: {
   } = input
 
   if (dragState.kind === 'drawBlock') {
-    const range = createMinimumDrawRange(workspace.timeline, dragState.startTick, endTick)
+    const range = snapToMinimumTimeLineRange(workspace.timeline, dragState.startTick, endTick)
     const block = createArrangementBlockDraft(workspace, {
       lengthTicks: range.lengthTicks,
       startTick: range.startTick,
@@ -141,7 +137,7 @@ export function completeArrangementDrag(input: {
   }
 
   if (dragState.kind === 'drawSection') {
-    const range = createMinimumDrawRange(workspace.timeline, dragState.startTick, endTick)
+    const range = snapToMinimumTimeLineRange(workspace.timeline, dragState.startTick, endTick)
     const section = createArrangementSectionDraft(workspace, {
       lengthTicks: range.lengthTicks,
       startTick: range.startTick,
@@ -293,14 +289,4 @@ function isPointerDrag(movementX: number, movementY: number, threshold: number):
 
 function isCommand(command: Command | undefined): command is Command {
   return command !== undefined
-}
-
-function createMinimumDrawRange(timeline: Timeline, startTick: Tick, endTick: Tick): TimelineRange {
-  const range = snapTimelineRange(timeline, startTick, endTick)
-  const minimumLengthTicks = getSmallestGridDivisionTicks(timeline, range.startTick)
-
-  return {
-    ...range,
-    lengthTicks: clampPositiveLengthTicks(Math.max(range.lengthTicks, minimumLengthTicks)),
-  }
 }

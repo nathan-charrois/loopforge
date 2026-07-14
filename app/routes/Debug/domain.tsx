@@ -95,7 +95,6 @@ import {
   getTicksPerBeat,
   GRID_DIVISIONS,
   type GridDivision,
-  hasSelection,
   INSPECTOR_PANELS,
   type InspectorPanel,
   isBarBoundaryTick,
@@ -842,7 +841,6 @@ export default function Debug() {
                 }))}
               />
               <RunButton label="clearSelection" onClick={() => run('editorState', 'clearSelection', () => clearSelection(selection()))} />
-              <RunButton label="hasSelection" onClick={() => run('editorState', 'hasSelection', () => hasSelection(selection()))} />
             </ButtonGroup>
           </DomainPanel>
 

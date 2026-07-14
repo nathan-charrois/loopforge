@@ -1,4 +1,3 @@
-export * from './clipboard'
 export * from './drag'
 export * from './factory'
 export * from './inspector'
