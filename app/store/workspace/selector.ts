@@ -1,5 +1,5 @@
 import type { Workspace } from './type'
-import type { KeyEvent, MeterEvent, TempoEvent } from '~/domain'
+import { type KeyEvent, type MeterEvent, sortTimelineEventsByTick, type TempoEvent, type TimelineEvent } from '~/domain'
 import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
 import type { Tick, TickRange } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
@@ -88,4 +88,12 @@ export function selectWorkspaceEndTick(workspace: Workspace): Tick {
   const blockEndTicks = workspace.arrangement.blocks.map(getBlockEndTick)
 
   return Math.max(0, ...sectionEndTicks, ...blockEndTicks)
+}
+
+export function selectTimelineEvents(workspace: Workspace): TimelineEvent[] {
+  return sortTimelineEventsByTick([
+    ...workspace.timeline.tempoEvents,
+    ...workspace.timeline.meterEvents,
+    ...workspace.timeline.keyEvents,
+  ])
 }

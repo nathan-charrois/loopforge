@@ -112,19 +112,16 @@ import {
   createTimelineEventUpdateCommands,
   createTimelineMarkerAddCommand,
   type DragState,
-  formatPlaybackTrigger,
   getBlockDragPreviews,
   getDragStartClientX,
   getDragStartClientY,
   getInitialDrawEndTick,
-  getPlaybackTriggerTop,
   getSectionDragPreviews,
-  getToolLabel,
   hasAnySelection,
   type InspectorDraft,
-  selectFocusedBlockEvents,
+  selectFirstSelectedBlock,
+  selectFirstSelectedSection,
   type SelectionState,
-  selectTimelineEvents,
   snapTimelineTick,
   tickToX,
   updateInspectorDraftFromSelection,
@@ -136,11 +133,10 @@ import {
 import {
   executeCommand,
   redoCommand,
-  selectBlock,
   selectBlocksForTrack,
   selectPattern,
   selectPatterns,
-  selectSection,
+  selectTimelineEvents,
   selectTracks,
   selectWorkspaceEndTick,
   setGridDivisionCommand,
@@ -190,31 +186,29 @@ function ArrangementDebugContent() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const timelineGridRef = useRef<HTMLDivElement>(null)
   const trackRowsRef = useRef<HTMLDivElement>(null)
+
   const { editorState, setActiveTool, setEditorState } = useEditorState()
   const { canRedo, canUndo, commandHistory, setCommandHistory } = useCommandHistory()
+
   const [workspace, setWorkspace] = useState<Workspace>(() => createArrangementDebugWorkspace())
   const [viewport, setViewport] = useState<ViewportState>(() => createDefaultViewportState())
+
   const [focusedBlockId, setFocusedBlockId] = useState<string | undefined>(undefined)
   const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | undefined>(undefined)
   const [dragState, setDragState] = useState<DragState | undefined>(undefined)
   const [hoveredBlockId, setHoveredBlockId] = useState<string | undefined>(undefined)
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined)
   const [inspectorDraft, setInspectorDraft] = useState<InspectorDraft>(() => createEmptyInspectorDraft())
+
   const tracks = useMemo(() => selectTracks(workspace), [workspace])
   const patterns = useMemo(() => selectPatterns(workspace), [workspace])
-  const selectedBlock = editorState.selection.selectedBlockIds.length === 1
-    ? selectBlock(workspace, editorState.selection.selectedBlockIds[0])
-    : undefined
-  const selectedSection = editorState.selection.selectedSectionIds.length === 1
-    ? selectSection(workspace, editorState.selection.selectedSectionIds[0])
-    : undefined
-  const focusedPlaybackView = useMemo(
-    () => selectFocusedBlockEvents(workspace, focusedBlockId),
-    [focusedBlockId, workspace],
-  )
-  const projectEndTick = Math.max(selectWorkspaceEndTick(workspace), 1)
+  const selectedBlock = useMemo(() => selectFirstSelectedBlock(editorState, workspace), [editorState, workspace])
+  const selectedSection = useMemo(() => selectFirstSelectedSection(editorState, workspace), [editorState, workspace])
+
+  const projectEndTick = selectWorkspaceEndTick(workspace)
   const timelineEndTick = projectEndTick + TIMELINE_PADDING_TICKS
   const timelineWidth = Math.max(980, Math.ceil(tickToX(viewport, timelineEndTick)))
+
   const rulerMarks = useMemo(
     () => getRulerMarks(workspace.timeline, 0, timelineEndTick),
     [timelineEndTick, workspace.timeline],
@@ -890,7 +884,6 @@ function ArrangementDebugContent() {
                       key={track.id}
                       dragState={dragState}
                       focusedBlockId={focusedBlockId}
-                      focusedPlaybackView={focusedPlaybackView}
                       hoveredBlockId={hoveredBlockId}
                       marks={rulerMarks}
                       selectedBlockIds={editorState.selection.selectedBlockIds}
@@ -917,7 +910,6 @@ function ArrangementDebugContent() {
             commandHistory={commandHistory.undoStack}
             draft={inspectorDraft}
             focusedBlockId={focusedBlockId}
-            focusedPlaybackView={focusedPlaybackView}
             patterns={patterns}
             selectedBlock={selectedBlock}
             selectedSection={selectedSection}
@@ -1353,7 +1345,6 @@ function SectionLane({
 function TrackLane({
   dragState,
   focusedBlockId,
-  focusedPlaybackView,
   hoveredBlockId,
   marks,
   onBlockDoubleClick,
@@ -1372,7 +1363,6 @@ function TrackLane({
 }: {
   dragState?: DragState
   focusedBlockId?: string
-  focusedPlaybackView?: { events: ScheduledPlaybackEvent[], triggers: PlaybackTrigger[] }
   hoveredBlockId?: string
   marks: RulerMark[]
   onBlockDoubleClick: (blockId: string) => void
@@ -1411,7 +1401,6 @@ function TrackLane({
           key={block.id}
           block={block}
           focusedBlockId={focusedBlockId}
-          focusedPlaybackView={focusedBlockId === block.id ? focusedPlaybackView : undefined}
           hovered={hoveredBlockId === block.id}
           pattern={selectPattern(workspace, block.patternId)}
           selected={selectedBlockIds.includes(block.id)}
@@ -1460,22 +1449,18 @@ function TrackLane({
 function BlockView({
   block,
   focusedBlockId,
-  focusedPlaybackView,
   hovered,
   onDoubleClick,
-  onPatternEventClick,
   onPointerDown,
   onResizePointerDown,
   onSetHoveredBlock,
   pattern,
   selected,
-  selectedPatternEventIds,
   viewport,
   workspace,
 }: {
   block: Block
   focusedBlockId?: string
-  focusedPlaybackView?: { events: ScheduledPlaybackEvent[], triggers: PlaybackTrigger[] }
   hovered: boolean
   onDoubleClick: (blockId: string) => void
   onPatternEventClick: (patternEventId: string, additive: boolean) => void
@@ -1531,14 +1516,9 @@ function BlockView({
         </Badge>
       </Group>
       <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, block, 'right')} />
-      {focusedPlaybackView !== undefined && (
+      {focusedBlockId === block.id && (
         <FocusedBlockOverlay
           block={block}
-          events={focusedPlaybackView.events}
-          selectedPatternEventIds={selectedPatternEventIds}
-          triggers={focusedPlaybackView.triggers}
-          viewport={viewport}
-          onPatternEventClick={onPatternEventClick}
         />
       )}
     </Box>
@@ -1547,18 +1527,9 @@ function BlockView({
 
 function FocusedBlockOverlay({
   block,
-  events,
-  onPatternEventClick,
-  selectedPatternEventIds,
-  triggers,
-  viewport,
+
 }: {
   block: Block
-  events: ScheduledPlaybackEvent[]
-  onPatternEventClick: (patternEventId: string, additive: boolean) => void
-  selectedPatternEventIds: string[]
-  triggers: PlaybackTrigger[]
-  viewport: ViewportState
 }) {
   return (
     <Box
@@ -1573,45 +1544,22 @@ function FocusedBlockOverlay({
         top: 24,
       }}
     >
-      {events.map(event => (
-        <Box
-          key={event.id}
-          onClick={(clickEvent) => {
-            clickEvent.stopPropagation()
-            onPatternEventClick(event.event.id, clickEvent.shiftKey)
-          }}
-          style={{
-            background: selectedPatternEventIds.includes(event.event.id)
-              ? 'rgba(255, 235, 59, 0.82)'
-              : 'rgba(255, 255, 255, 0.5)',
-            borderRadius: 2,
-            bottom: 3,
-            cursor: 'pointer',
-            left: Math.max(0, tickToX(viewport, event.startTick - block.startTick)),
-            minWidth: 3,
-            position: 'absolute',
-            top: 3,
-            width: Math.max(3, tickToX(viewport, event.durationTicks)),
-          }}
-          title={formatPatternEvent(event.event)}
-        />
-      ))}
-      {triggers.map(trigger => (
-        <Box
-          key={trigger.id}
-          style={{
-            background: trigger.kind === 'note' ? '#ffffff' : trigger.kind === 'drum' ? '#111111' : '#7950f2',
-            borderRadius: 999,
-            height: 4,
-            left: Math.max(0, tickToX(viewport, trigger.startTick - block.startTick)),
-            opacity: 0.9,
-            position: 'absolute',
-            top: getPlaybackTriggerTop(trigger),
-            width: Math.max(4, trigger.kind === 'note' ? tickToX(viewport, trigger.durationTicks) : 4),
-          }}
-          title={formatPlaybackTrigger(trigger)}
-        />
-      ))}
+      <Box
+        style={{
+          background: 'rgba(255, 235, 59, 0.82)',
+          borderRadius: 2,
+          bottom: 3,
+          cursor: 'pointer',
+          left: 1,
+          minWidth: 3,
+          position: 'absolute',
+          top: 3,
+          width: 22,
+          height: 10,
+        }}
+      >
+        <Text size="xs">{block.id}</Text>
+      </Box>
     </Box>
   )
 }
@@ -2207,4 +2155,42 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
+}
+function getToolLabel(tool: ActiveTool): string {
+  switch (tool) {
+    case 'audition':
+      return 'Audition'
+    case 'drawBlock':
+      return 'Draw block'
+    case 'drawPatternEvent':
+      return 'Draw pattern event'
+    case 'drawSection':
+      return 'Draw section'
+    case 'erase':
+      return 'Erase'
+    case 'hand':
+      return 'Hand'
+    case 'key':
+      return 'Key'
+    case 'loopRange':
+      return 'Loop range'
+    case 'marquee':
+      return 'Marquee'
+    case 'meter':
+      return 'Meter'
+    case 'move':
+      return 'Move'
+    case 'mute':
+      return 'Mute'
+    case 'resize':
+      return 'Resize'
+    case 'select':
+      return 'Select'
+    case 'split':
+      return 'Split'
+    case 'tempo':
+      return 'Tempo'
+    case 'zoom':
+      return 'Zoom'
+  }
 }
