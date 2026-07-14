@@ -47,7 +47,7 @@ export function createInspectorState(): InspectorState {
   }
 }
 
-export function createDefaultEditorState(input: Partial<EditorState> = {}): EditorState {
+export function createEditorState(input: Partial<EditorState> = {}): EditorState {
   return {
     activeTool: input.activeTool ?? 'select',
     clipboard: input.clipboard ?? createClipboardState(),

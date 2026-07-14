@@ -147,7 +147,7 @@ import {
   ACTIVE_TOOLS,
   type ActiveTool,
   createClipboardState,
-  createDefaultEditorState,
+  createEditorState,
   createInspectorState,
   createSelectionState,
   INSPECTOR_PANELS,
@@ -827,8 +827,8 @@ export default function Debug() {
               <RunButton label="createClipboardState" onClick={() => run('editor', 'createClipboardState', createClipboardState)} />
               <RunButton label="createInspectorState" onClick={() => run('editor', 'createInspectorState', createInspectorState)} />
               <RunButton
-                label="createDefaultEditorState"
-                onClick={() => run('editor', 'createDefaultEditorState', () => createDefaultEditorState({
+                label="createEditorState"
+                onClick={() => run('editor', 'createEditorState', () => createEditorState({
                   activeTool,
                   clipboard: {
                     blockIds: parseCsv(selectedBlockIds),

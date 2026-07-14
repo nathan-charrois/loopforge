@@ -11,7 +11,7 @@ import {
 
 import {
   type ActiveTool,
-  createDefaultEditorState,
+  createEditorState,
   type EditorState,
   type InspectorPanel,
   setActiveTool as setEditorActiveTool,
@@ -32,7 +32,7 @@ type Props = {
 }
 
 export function EditorStateProvider({ children }: Props) {
-  const [editorState, setEditorState] = useState<EditorState>(() => createDefaultEditorState())
+  const [editorState, setEditorState] = useState(() => createEditorState())
 
   const setActiveTool = useCallback((tool: ActiveTool) => {
     setEditorState(currentState => setEditorActiveTool(currentState, tool))
