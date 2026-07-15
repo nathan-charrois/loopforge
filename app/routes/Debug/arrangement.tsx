@@ -10,17 +10,14 @@ import { type MetaArgs } from 'react-router'
 import {
   Cancel01Icon,
   Copy01Icon,
-  CursorPointer01Icon,
-  CursorRectangleSelection01Icon,
+  CursorIcon,
   Delete01Icon,
   EraserIcon,
-  FocusPointIcon,
   GridIcon,
-  HandGripIcon,
+  HoldIcon,
   Key01Icon,
   MagnetIcon,
   MoveIcon,
-  MusicNote01Icon,
   MuteIcon,
   PaintBrush01Icon,
   PencilEdit01Icon,
@@ -30,8 +27,6 @@ import {
   ScissorIcon,
   TimeSetting01Icon,
   Undo03Icon,
-  ViewIcon,
-  VolumeHighIcon,
   ZoomInAreaIcon,
   ZoomOutAreaIcon,
 } from '@hugeicons/core-free-icons'
@@ -162,7 +157,15 @@ const ROOT_OPTIONS = Array.from({ length: 12 }, (_, value) => ({
   value: `${value}`,
 }))
 
-const TOOLBAR_TOOLS = ACTIVE_TOOLS.map(tool => ({
+const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['drawBlock', 'drawSection', 'tempo', 'meter', 'key']
+
+const TOOLBAR_SECTION_LEFT = ACTIVE_TOOLS.filter(tool => !TOOLBAR_SECTION_KEYS.includes(tool)).map(tool => ({
+  icon: getToolIcon(tool),
+  label: getToolLabel(tool),
+  tool,
+}))
+
+const TOOLBAR_SECTION_RIGHT = ACTIVE_TOOLS.filter(tool => TOOLBAR_SECTION_KEYS.includes(tool)).map(tool => ({
   icon: getToolIcon(tool),
   label: getToolLabel(tool),
   tool,
@@ -449,7 +452,7 @@ function ArrangementDebugContent() {
       return
     }
 
-    if (editorState.activeTool === 'marquee' || editorState.activeTool === 'select') {
+    if (editorState.activeTool === 'select') {
       event.currentTarget.setPointerCapture(event.pointerId)
       setDragState({
         currentTick: tick,
@@ -483,7 +486,7 @@ function ArrangementDebugContent() {
       return
     }
 
-    if (editorState.activeTool === 'marquee' || editorState.activeTool === 'select') {
+    if (editorState.activeTool === 'select') {
       event.currentTarget.setPointerCapture(event.pointerId)
       setDragState({
         currentTick: tick,
@@ -915,7 +918,22 @@ function Toolbar({
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between" gap="xs">
         <Group gap={4}>
-          {TOOLBAR_TOOLS.map(item => (
+          {TOOLBAR_SECTION_LEFT.map(item => (
+            <Tooltip key={item.tool} label={item.label}>
+              <ActionIcon
+                aria-label={item.label}
+                color={activeTool === item.tool ? 'blue' : 'gray'}
+                size="lg"
+                variant={activeTool === item.tool ? 'filled' : 'light'}
+                onClick={() => onSetTool(item.tool)}
+              >
+                <HugeiconsIcon icon={item.icon} size={18} />
+              </ActionIcon>
+            </Tooltip>
+          ))}
+        </Group>
+        <Group gap={4}>
+          {TOOLBAR_SECTION_RIGHT.map(item => (
             <Tooltip key={item.tool} label={item.label}>
               <ActionIcon
                 aria-label={item.label}
@@ -1171,7 +1189,7 @@ function TimelineEventMarker({
         cursor: 'grab',
         display: 'flex',
         height: 26,
-        left: Math.max(0, left - 7),
+        left: Math.max(-2, left - 3),
         minWidth: 42,
         opacity: isPreview ? 0.52 : 1,
         padding: 3,
@@ -1179,6 +1197,7 @@ function TimelineEventMarker({
         position: 'absolute',
         top: Math.max(0, top - 3),
         zIndex: isSelected ? 8 : isPreview ? 7 : 5,
+        userSelect: 'none',
       }}
     >
       <Box
@@ -1296,6 +1315,7 @@ function SectionLane({
             position: 'absolute',
             top: 8,
             width: Math.max(MIN_SECTION_WIDTH, tickToX(viewport.pixelsPerTick, section.lengthTicks)),
+            userSelect: 'none',
           }}
         >
           <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
@@ -1488,6 +1508,7 @@ function BlockView({
         top: BLOCK_TOP,
         width: Math.max(MIN_BLOCK_WIDTH, tickToX(viewport.pixelsPerTick, block.lengthTicks)),
         zIndex: isFocused ? 7 : selected ? 4 : 2,
+        userSelect: 'none',
       }}
     >
       <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, block, 'left')} />
@@ -1985,24 +2006,16 @@ function StatsGrid({ items }: { items: Array<[string, number]> }) {
 
 function getToolIcon(tool: ActiveTool) {
   switch (tool) {
-    case 'audition':
-      return VolumeHighIcon
     case 'drawBlock':
       return PencilEdit01Icon
-    case 'drawPatternEvent':
-      return MusicNote01Icon
     case 'drawSection':
       return PaintBrush01Icon
     case 'erase':
       return EraserIcon
     case 'hand':
-      return HandGripIcon
+      return HoldIcon
     case 'key':
       return Key01Icon
-    case 'loopRange':
-      return FocusPointIcon
-    case 'marquee':
-      return CursorRectangleSelection01Icon
     case 'meter':
       return MagnetIcon
     case 'move':
@@ -2012,13 +2025,11 @@ function getToolIcon(tool: ActiveTool) {
     case 'resize':
       return Resize01Icon
     case 'select':
-      return CursorPointer01Icon
+      return CursorIcon
     case 'split':
       return ScissorIcon
     case 'tempo':
       return TimeSetting01Icon
-    case 'zoom':
-      return ViewIcon
   }
 }
 
@@ -2099,12 +2110,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 function getToolLabel(tool: ActiveTool): string {
   switch (tool) {
-    case 'audition':
-      return 'Audition'
     case 'drawBlock':
       return 'Draw block'
-    case 'drawPatternEvent':
-      return 'Draw pattern event'
     case 'drawSection':
       return 'Draw section'
     case 'erase':
@@ -2113,10 +2120,6 @@ function getToolLabel(tool: ActiveTool): string {
       return 'Hand'
     case 'key':
       return 'Key'
-    case 'loopRange':
-      return 'Loop range'
-    case 'marquee':
-      return 'Marquee'
     case 'meter':
       return 'Meter'
     case 'move':
@@ -2131,7 +2134,5 @@ function getToolLabel(tool: ActiveTool): string {
       return 'Split'
     case 'tempo':
       return 'Tempo'
-    case 'zoom':
-      return 'Zoom'
   }
 }

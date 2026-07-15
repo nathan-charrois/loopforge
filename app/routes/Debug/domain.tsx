@@ -44,7 +44,6 @@ import {
   createDefaultArrangement,
   createDefaultChordPlayback,
   createDefaultChordVoicing,
-  createDefaultKey,
   createDefaultTimeline,
   createDefaultTracks,
   createDrumHitEvent,
@@ -558,7 +557,6 @@ export default function Debug() {
               <Field label="Transpose interval" value={harmonyInterval} onChange={setHarmonyInterval} />
             </SimpleGrid>
             <ButtonGroup>
-              <RunButton label="createDefaultKey" onClick={() => run('harmony', 'createDefaultKey', createDefaultKey)} />
               <RunButton label="createChordSymbol" onClick={() => run('harmony', 'createChordSymbol', harmonyChord)} />
               <RunButton label="formatChordSymbol" onClick={() => run('harmony', 'formatChordSymbol', () => formatChordSymbol(harmonyChord()))} />
               <RunButton label="transposeChordSymbol" onClick={() => run('harmony', 'transposeChordSymbol', () => transposeChordSymbol(harmonyChord(), parseInteger(harmonyInterval)))} />

@@ -47,19 +47,14 @@ import {
 } from '~/store/editor'
 
 const DISABLED_ACTIVE_TOOLS = new Set<ActiveTool>([
-  'audition',
-  'drawPatternEvent',
   'hand',
   'key',
-  'loopRange',
-  'marquee',
   'meter',
   'move',
   'mute',
   'resize',
   'split',
   'tempo',
-  'zoom',
 ])
 const TICK_WIDTH = 0.09
 type SelectionField = keyof EditorState['selection']
