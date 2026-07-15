@@ -16,17 +16,22 @@ export type TimeSignature = {
   denominator: TimeSignatureDenominator
 }
 
+export type TimelineEventId = string
+
 export type TempoEvent = {
+  id: TimelineEventId
   tick: Tick
   bpm: BeatsPerMinute
 }
 
 export type MeterEvent = {
+  id: TimelineEventId
   tick: Tick
   timeSignature: TimeSignature
 }
 
 export type KeyEvent = {
+  id: TimelineEventId
   tick: Tick
   key: Key
 }
@@ -256,6 +261,18 @@ export function isMeterEvent(event: TimelineEvent): event is MeterEvent {
 
 export function isKeyEvent(event: TimelineEvent): event is KeyEvent {
   return 'key' in event
+}
+
+export function getTimelineEventField(event: TimelineEvent): TimelineEventField {
+  if (isTempoEvent(event)) {
+    return 'tempoEvents'
+  }
+
+  if (isMeterEvent(event)) {
+    return 'meterEvents'
+  }
+
+  return 'keyEvents'
 }
 
 export function sortTimelineEventsByTick<TEvent extends TimelineEvent>(events: readonly TEvent[]): TEvent[] {

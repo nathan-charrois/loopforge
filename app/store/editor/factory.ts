@@ -30,6 +30,7 @@ export function createSelectionState(): SelectionState {
     selectedBlockIds: [],
     selectedPatternEventIds: [],
     selectedSectionIds: [],
+    selectedTimelineEventIds: [],
     selectedTrackIds: [],
   }
 }
@@ -55,7 +56,6 @@ export function createEditorState(input: Partial<EditorState> = {}): EditorState
     focusedBlockId: input.focusedBlockId,
     hoveredChord: input.hoveredChord,
     inspector: input.inspector ?? createInspectorState(),
-    selectedTimelineEvent: input.selectedTimelineEvent,
     selection: input.selection ?? createSelectionState(),
   }
 }

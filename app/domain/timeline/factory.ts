@@ -8,6 +8,7 @@ import {
   type MeterEvent,
   type TempoEvent,
   type Timeline,
+  type TimelineEventId,
   type TimeSignature,
 } from './timeline'
 
@@ -25,18 +26,26 @@ export function createTimeline(input: Partial<Timeline> = {}): Timeline {
   }
 }
 
-export function createTempoEvent(input: { tick?: Tick, bpm: BeatsPerMinute }): TempoEvent {
+export function createTempoEvent(input: {
+  id?: TimelineEventId
+  tick?: Tick
+  bpm: BeatsPerMinute
+}): TempoEvent {
   if (input.bpm <= 0) {
     throw new RangeError(`BPM must be greater than 0. Received ${input.bpm}.`)
   }
 
+  const tick = createTick(input.tick ?? 0)
+
   return {
     bpm: input.bpm,
-    tick: createTick(input.tick ?? 0),
+    id: input.id ?? `tempoEvent_${tick}`,
+    tick,
   }
 }
 
 export function createMeterEvent(input: {
+  id?: TimelineEventId
   tick?: Tick
   timeSignature?: TimeSignature
 }): MeterEvent {
@@ -46,15 +55,34 @@ export function createMeterEvent(input: {
     throw new RangeError(`Invalid time signature ${timeSignature.numerator}/${timeSignature.denominator}.`)
   }
 
+  const tick = createTick(input.tick ?? 0)
+
   return {
-    tick: createTick(input.tick ?? 0),
+    id: input.id ?? `meterEvent_${tick}`,
+    tick,
     timeSignature,
   }
 }
 
-export function createKeyEvent(input: { tick?: Tick, key: Key }): KeyEvent {
+export function createKeyEvent(input: { id?: TimelineEventId, tick?: Tick, key: Key }): KeyEvent {
+  const tick = createTick(input.tick ?? 0)
+
   return {
+    id: input.id ?? `keyEvent_${tick}`,
     key: input.key,
-    tick: createTick(input.tick ?? 0),
+    tick,
   }
+}
+
+export function createDraftEntityId(prefix: string, existingIds: string[]): TimelineEventId {
+  const existingIdSet = new Set(existingIds)
+  let index = existingIds.length + 1
+  let id = `${prefix}_${index}`
+
+  while (existingIdSet.has(id)) {
+    index += 1
+    id = `${prefix}_${index}`
+  }
+
+  return id
 }

@@ -6,6 +6,7 @@ import type {
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
 import type { PatternEventId } from '~/domain/patternEvents'
+import type { TimelineEventId } from '~/domain/timeline'
 import type { TrackId } from '~/domain/tracks'
 import { toggleInArray } from '~/utils/array'
 
@@ -118,6 +119,33 @@ export function addTrackToSelection(
     selection: {
       ...createSelectionState(),
       selectedTrackIds: [trackId],
+    },
+  }
+}
+
+export function addTimelineEventToSelection(
+  editorState: EditorState,
+  timelineEventId: TimelineEventId,
+  additive = false,
+): EditorState {
+  if (additive) {
+    return {
+      ...editorState,
+      selection: {
+        ...editorState.selection,
+        selectedTimelineEventIds: toggleInArray(
+          editorState.selection.selectedTimelineEventIds,
+          timelineEventId,
+        ),
+      },
+    }
+  }
+
+  return {
+    ...editorState,
+    selection: {
+      ...createSelectionState(),
+      selectedTimelineEventIds: [timelineEventId],
     },
   }
 }

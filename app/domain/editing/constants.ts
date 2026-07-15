@@ -49,16 +49,14 @@ export const COMMAND_KINDS = [
   // timeline
   'addTempoEvent',
   'deleteTempoEvent',
-  'moveTempoEvent',
   'updateTempoEvent',
   'addMeterEvent',
   'deleteMeterEvent',
-  'moveMeterEvent',
   'updateMeterEvent',
   'addKeyEvent',
   'deleteKeyEvent',
-  'moveKeyEvent',
   'updateKeyEvent',
+  'moveTimelineEvent',
   'setGridDivision',
 
   // generic fallback

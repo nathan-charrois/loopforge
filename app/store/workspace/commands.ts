@@ -23,6 +23,7 @@ import {
   type CommandKind,
   type CommandPayload,
   createCommand,
+  getTimelineEventField,
   type GridDivision,
   type JsonValue,
   type KeyEvent,
@@ -36,6 +37,7 @@ import {
   type SectionId,
   snapTickToGrid,
   sortPatternEventsByTime,
+  sortTimelineEventsByTick,
   type TempoEvent,
   type Tick,
   type Timeline,
@@ -357,36 +359,23 @@ export function addTempoEventCommand(workspace: Workspace, event: TempoEvent): C
 }
 
 export function deleteTempoEventCommand(workspace: Workspace, tick: Tick): Command {
-  return deleteTimelineEventCommand(workspace.timeline, 'deleteTempoEvent', 'Delete tempo event', 'tempoEvents', tick)
-}
-
-export function moveTempoEventCommand(workspace: Workspace, fromTick: Tick, toTick: Tick): Command {
-  const event = requireTimelineEvent(workspace.timeline.tempoEvents, fromTick, 'tempo')
-
-  return updateTimelineEventCommand(
+  return deleteTimelineEventCommand(
     workspace.timeline,
-    'moveTempoEvent',
-    'Move tempo event',
+    'deleteTempoEvent',
+    'Delete tempo event',
     'tempoEvents',
-    fromTick,
-    { ...event, tick: Math.max(0, Math.round(toTick)) },
+    tick,
   )
 }
 
-export function updateTempoEventCommand(workspace: Workspace, tick: Tick, bpm: number, nextTick = tick): Command {
-  const event = requireTimelineEvent(workspace.timeline.tempoEvents, tick, 'tempo')
-
-  return updateTimelineEventCommand(
+export function updateTempoEventCommand(workspace: Workspace, tick: Tick, event: TempoEvent): Command {
+  return updateTimelineEventSnapshotCommand(
     workspace.timeline,
     'updateTempoEvent',
-    `Update tempo ${bpm}`,
+    `Update tempo ${event.bpm}`,
     'tempoEvents',
     tick,
-    {
-      ...event,
-      bpm: Math.max(1, Math.round(bpm)),
-      tick: Math.max(0, Math.round(nextTick)),
-    },
+    event,
   )
 }
 
@@ -404,24 +393,17 @@ export function addMeterEventCommand(workspace: Workspace, event: MeterEvent): C
 }
 
 export function deleteMeterEventCommand(workspace: Workspace, tick: Tick): Command {
-  return deleteTimelineEventCommand(workspace.timeline, 'deleteMeterEvent', 'Delete meter event', 'meterEvents', tick)
-}
-
-export function moveMeterEventCommand(workspace: Workspace, fromTick: Tick, toTick: Tick): Command {
-  const event = requireTimelineEvent(workspace.timeline.meterEvents, fromTick, 'meter')
-
-  return updateTimelineEventCommand(
+  return deleteTimelineEventCommand(
     workspace.timeline,
-    'moveMeterEvent',
-    'Move meter event',
+    'deleteMeterEvent',
+    'Delete meter event',
     'meterEvents',
-    fromTick,
-    { ...event, tick: snapTickToGrid(workspace.timeline, Math.max(0, Math.round(toTick)), 'bar') },
+    tick,
   )
 }
 
 export function updateMeterEventCommand(workspace: Workspace, tick: Tick, event: MeterEvent): Command {
-  return updateTimelineEventCommand(
+  return updateTimelineEventSnapshotCommand(
     workspace.timeline,
     'updateMeterEvent',
     `Update meter ${event.timeSignature.numerator}/${event.timeSignature.denominator}`,
@@ -432,28 +414,54 @@ export function updateMeterEventCommand(workspace: Workspace, tick: Tick, event:
 }
 
 export function addKeyEventCommand(workspace: Workspace, event: KeyEvent): Command {
-  return createTimelineEventCommand(workspace.timeline, 'addKeyEvent', 'Add key event', 'keyEvents', event)
+  return createTimelineEventCommand(
+    workspace.timeline,
+    'addKeyEvent',
+    'Add key event',
+    'keyEvents',
+    event,
+  )
 }
 
 export function deleteKeyEventCommand(workspace: Workspace, tick: Tick): Command {
-  return deleteTimelineEventCommand(workspace.timeline, 'deleteKeyEvent', 'Delete key event', 'keyEvents', tick)
-}
-
-export function moveKeyEventCommand(workspace: Workspace, fromTick: Tick, toTick: Tick): Command {
-  const event = requireTimelineEvent(workspace.timeline.keyEvents, fromTick, 'key')
-
-  return updateTimelineEventCommand(
+  return deleteTimelineEventCommand(
     workspace.timeline,
-    'moveKeyEvent',
-    'Move key event',
+    'deleteKeyEvent',
+    'Delete key event',
     'keyEvents',
-    fromTick,
-    { ...event, tick: Math.max(0, Math.round(toTick)) },
+    tick,
   )
 }
 
 export function updateKeyEventCommand(workspace: Workspace, tick: Tick, event: KeyEvent): Command {
-  return updateTimelineEventCommand(workspace.timeline, 'updateKeyEvent', 'Update key event', 'keyEvents', tick, event)
+  return updateTimelineEventSnapshotCommand(
+    workspace.timeline,
+    'updateKeyEvent',
+    'Update key event',
+    'keyEvents',
+    tick,
+    event,
+  )
+}
+
+export function moveTimelineEventCommand(workspace: Workspace, event: TimelineEvent, tick: Tick): Command {
+  const nextTick = snapTickToGrid(
+    workspace.timeline,
+    tick,
+    workspace.timeline.grid,
+  )
+
+  return updateTimelineEventSnapshotCommand(
+    workspace.timeline,
+    'moveTimelineEvent',
+    'Move timeline event',
+    getTimelineEventField(event),
+    event.tick,
+    {
+      ...event,
+      tick: nextTick,
+    },
+  )
 }
 
 export function setGridDivisionCommand(workspace: Workspace, grid: GridDivision): Command {
@@ -627,7 +635,7 @@ function deleteTimelineEventCommand<TEvent extends { tick: Tick }>(
   })
 }
 
-function updateTimelineEventCommand<TEvent extends { tick: Tick }>(
+function updateTimelineEventSnapshotCommand<TEvent extends { tick: Tick }>(
   timeline: Timeline,
   kind: CommandKind,
   label: string,
@@ -639,9 +647,11 @@ function updateTimelineEventCommand<TEvent extends { tick: Tick }>(
 
   return createEditorCommand(kind, label, {
     event: toJsonValue(event),
+    field,
     previousTick,
   }, {
     event: toJsonValue(previousEvent),
+    field,
     previousTick: event.tick,
   })
 }
@@ -694,19 +704,22 @@ function applyCommandPayload(workspace: Workspace, kind: CommandKind, payload: C
       return applyPatternEventPayload(workspace, payload)
     case 'addTempoEvent':
     case 'deleteTempoEvent':
-    case 'moveTempoEvent':
     case 'updateTempoEvent':
       return applyTimelineEventPayload(workspace, payload, 'tempoEvents')
     case 'addMeterEvent':
     case 'deleteMeterEvent':
-    case 'moveMeterEvent':
     case 'updateMeterEvent':
       return applyTimelineEventPayload(workspace, payload, 'meterEvents')
     case 'addKeyEvent':
     case 'deleteKeyEvent':
-    case 'moveKeyEvent':
     case 'updateKeyEvent':
       return applyTimelineEventPayload(workspace, payload, 'keyEvents')
+    case 'moveTimelineEvent':
+      return applyTimelineEventPayload(
+        workspace,
+        payload,
+        getPayloadString(payload, 'field') as TimelineEventField,
+      )
     case 'setGridDivision':
       return setWorkspaceTimeline(workspace, {
         ...workspace.timeline,
@@ -875,7 +888,7 @@ function applyTimelineEventPayload(
 
   return setWorkspaceTimeline(workspace, {
     ...workspace.timeline,
-    [field]: sortTimelineEvents(events),
+    [field]: sortTimelineEventsByTick(events),
   })
 }
 
@@ -908,10 +921,6 @@ function upsertTimelineEvent<TEvent extends TimelineEvent>(events: TEvent[], eve
     ...events.filter(currentEvent => currentEvent.tick !== event.tick),
     event,
   ]
-}
-
-function sortTimelineEvents<TEvent extends TimelineEvent>(events: TEvent[]): TEvent[] {
-  return [...events].sort((left, right) => left.tick - right.tick)
 }
 
 function requireBlock(workspace: Workspace, blockId: BlockId): Block {

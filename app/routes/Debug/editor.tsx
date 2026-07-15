@@ -452,6 +452,7 @@ function createDebugCommand(
       selectedBlockIds: editorState.selection.selectedBlockIds,
       selectedPatternEventIds: editorState.selection.selectedPatternEventIds,
       selectedSectionIds: editorState.selection.selectedSectionIds,
+      selectedTimelineEventIds: editorState.selection.selectedTimelineEventIds,
       selectedTrackIds: editorState.selection.selectedTrackIds,
       sequence,
       ...payload,
@@ -465,6 +466,7 @@ function createEmptySelection(selection: EditorState['selection']): EditorState[
     selectedBlockIds: [],
     selectedPatternEventIds: [],
     selectedSectionIds: [],
+    selectedTimelineEventIds: [],
     selectedTrackIds: [],
   }
 }

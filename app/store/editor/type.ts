@@ -8,7 +8,7 @@ import type {
 import type { ChordSymbol, Key } from '~/domain/harmony'
 import type { Tick } from '~/domain/musicPrimitives'
 import type { PatternEventId } from '~/domain/patternEvents'
-import type { TimelineEvent, TimeSignatureDenominator } from '~/domain/timeline'
+import type { TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
 import type { TrackId } from '~/domain/tracks'
 
 export const ACTIVE_TOOLS = [
@@ -40,6 +40,7 @@ export type SelectionState = {
   selectedPatternEventIds: PatternEventId[]
   selectedTrackIds: TrackId[]
   selectedSectionIds: SectionId[]
+  selectedTimelineEventIds: TimelineEventId[]
 }
 
 export type ClipboardState = {
@@ -129,6 +130,8 @@ export type DragState
     kind: 'moveTimelineEvent'
     pointerId: number
     startClientX: number
+    startClientY: number
+    startTick: Tick
   }
 
 export type TimelineEventDraft = {
@@ -157,6 +160,5 @@ export type EditorState = {
   focusedBlockId?: BlockId
   hoveredChord?: ChordSymbol
   inspector: InspectorState
-  selectedTimelineEvent?: TimelineEvent
   selection: SelectionState
 }

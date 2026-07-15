@@ -1,5 +1,5 @@
 import type { Workspace } from './type'
-import { type KeyEvent, type MeterEvent, sortTimelineEventsByTick, type TempoEvent, type TimelineEvent } from '~/domain'
+import { type KeyEvent, type MeterEvent, sortTimelineEventsByTick, type TempoEvent, type TimelineEvent, type TimelineEventId } from '~/domain'
 import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
 import type { Tick, TickRange } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
@@ -55,18 +55,6 @@ export function selectPatternIdForEvent(
   return undefined
 }
 
-export function selectTempoEvents(workspace: Workspace, tick: Tick): TempoEvent | undefined {
-  return workspace.timeline.tempoEvents.find(event => event.tick === tick)
-}
-
-export function selectMeterEvents(workspace: Workspace, tick: Tick): MeterEvent | undefined {
-  return workspace.timeline.meterEvents.find(event => event.tick === tick)
-}
-
-export function selectKeyEvents(workspace: Workspace, tick: Tick): KeyEvent | undefined {
-  return workspace.timeline.keyEvents.find(event => event.tick === tick)
-}
-
 export function selectBlocksForTrack(workspace: Workspace, trackId: TrackId): Block[] {
   return sortBlocksByStartTick(selectBlocksByTrackId(workspace, trackId))
 }
@@ -90,10 +78,30 @@ export function selectWorkspaceEndTick(workspace: Workspace): Tick {
   return Math.max(0, ...sectionEndTicks, ...blockEndTicks)
 }
 
+export function selectTimelineEvent(workspace: Workspace, timelineEventId: TimelineEventId): TimelineEvent | undefined {
+  return selectTimelineEvents(workspace).find(timelineEvent => timelineEvent.id === timelineEventId)
+}
+
 export function selectTimelineEvents(workspace: Workspace): TimelineEvent[] {
   return sortTimelineEventsByTick([
     ...workspace.timeline.tempoEvents,
     ...workspace.timeline.meterEvents,
     ...workspace.timeline.keyEvents,
   ])
+}
+
+export function selectTimelineEventIds(workspace: Workspace): TimelineEventId[] {
+  return selectTimelineEvents(workspace).map(timelineEvent => timelineEvent.id)
+}
+
+export function selectTempoEvents(workspace: Workspace, tick: Tick): TempoEvent | undefined {
+  return workspace.timeline.tempoEvents.find(event => event.tick === tick)
+}
+
+export function selectMeterEvents(workspace: Workspace, tick: Tick): MeterEvent | undefined {
+  return workspace.timeline.meterEvents.find(event => event.tick === tick)
+}
+
+export function selectKeyEvents(workspace: Workspace, tick: Tick): KeyEvent | undefined {
+  return workspace.timeline.keyEvents.find(event => event.tick === tick)
 }

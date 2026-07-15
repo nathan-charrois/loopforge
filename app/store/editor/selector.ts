@@ -1,6 +1,6 @@
-import { selectBlock, selectSection, type Workspace } from '../workspace'
+import { selectBlock, selectSection, selectTimelineEvent, type Workspace } from '../workspace'
 import type { EditorState } from './type'
-import type { Block, Section } from '~/domain'
+import type { Block, Section, TimelineEvent } from '~/domain'
 
 export function selectFirstSelectedBlock(editorState: EditorState, workspace: Workspace): Block | undefined {
   if (editorState.selection.selectedBlockIds.length === 1) {
@@ -18,9 +18,18 @@ export function selectFirstSelectedSection(editorState: EditorState, workspace: 
   return undefined
 }
 
+export function selectFirstSelectedTimelineEvent(editorState: EditorState, workspace: Workspace): TimelineEvent | undefined {
+  if (editorState.selection.selectedTimelineEventIds.length === 1) {
+    return selectTimelineEvent(workspace, editorState.selection.selectedTimelineEventIds[0])
+  }
+
+  return undefined
+}
+
 export function hasAnySelection(editorState: EditorState): boolean {
   return editorState.selection.selectedBlockIds.length > 0
     || editorState.selection.selectedSectionIds.length > 0
     || editorState.selection.selectedPatternEventIds.length > 0
     || editorState.selection.selectedTrackIds.length > 0
+    || editorState.selection.selectedTimelineEventIds.length > 0
 }

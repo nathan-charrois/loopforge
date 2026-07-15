@@ -457,6 +457,7 @@ export default function Debug() {
     selectedBlockIds: parseCsv(selectedBlockIds),
     selectedPatternEventIds: parseCsv(selectedEventIds),
     selectedSectionIds: parseCsv(selectedSectionIds),
+    selectedTimelineEventIds: [],
     selectedTrackIds: parseCsv(selectedTrackIds),
   })
 

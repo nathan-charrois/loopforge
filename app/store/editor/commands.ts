@@ -15,6 +15,7 @@ import type {
 import {
   type Block,
   type Command,
+  createDraftEntityId,
   createKeyEvent,
   createMeterEvent,
   createTempoEvent,
@@ -22,7 +23,6 @@ import {
   getMeterAtTick,
   getSectionEndTick,
   getTempoAtTick,
-  type GridDivision,
   isMeterEvent,
   isTempoEvent,
   type Key,
@@ -46,10 +46,8 @@ import {
   duplicateBlockCommand,
   duplicateSectionCommand,
   moveBlockCommand,
-  moveKeyEventCommand,
-  moveMeterEventCommand,
   moveSectionCommand,
-  moveTempoEventCommand,
+  moveTimelineEventCommand,
   renameSectionCommand,
   resizeBlockCommand,
   resizeSectionCommand,
@@ -57,6 +55,8 @@ import {
   selectBlocksInRange,
   selectPatternIdForEvent,
   selectSectionsInRange,
+  selectTimelineEvent,
+  selectTimelineEventIds,
   setBlockMutedCommand,
   splitBlockCommand,
   updateBlockSnapshotCommand,
@@ -66,7 +66,7 @@ import {
   type Workspace,
 } from '~/store/workspace'
 
-export function createDeleteSelectedEntitiesCommands(input: {
+export function createDeleteSelectionCommands(input: {
   selection: SelectionState
   workspace: Workspace
 }): Command[] {
@@ -86,6 +86,14 @@ export function createDeleteSelectedEntitiesCommands(input: {
 
     if (eventContext !== undefined) {
       commands.push(deletePatternEventCommand(workspace, eventContext, patternEventId))
+    }
+  }
+
+  for (const timelineEventId of selection.selectedTimelineEventIds) {
+    const timelineEvent = selectTimelineEvent(workspace, timelineEventId)
+
+    if (timelineEvent !== undefined) {
+      commands.push(...createTimelineEventDeleteCommands({ workspace, timelineEvent }))
     }
   }
 
@@ -172,7 +180,6 @@ export function completeArrangementDrag(input: {
 }): {
   commands: Command[]
   selection?: SelectionState
-  selectedTimelineEvent?: TimelineEvent
 } {
   const {
     dragState,
@@ -320,12 +327,10 @@ export function completeArrangementDrag(input: {
   }
 
   if (dragState.kind === 'moveTimelineEvent') {
+    const deltaTicks = endTick - dragState.startTick
+
     return {
-      commands: [createTimelineMoveCommand(workspace, dragState.event, endTick)],
-      selectedTimelineEvent: {
-        ...dragState.event,
-        tick: endTick,
-      },
+      commands: [moveTimelineEventCommand(workspace, dragState.event, Math.max(0, dragState.event.tick + deltaTicks))],
     }
   }
 
@@ -386,92 +391,88 @@ export function createSectionInspectorCommands(input: {
   return [renameSectionCommand(workspace, section.id, draft.sectionName)]
 }
 
-export function createTimelineMarkerAddCommand(
+export function createTimelineEventToolCommands(
   workspace: Workspace,
-  activeTool: ActiveTool,
+  tool: ActiveTool,
   tick: number,
-): Command | undefined {
-  if (activeTool === 'tempo') {
-    return addTempoEventCommand(workspace, createTempoEvent({
-      bpm: getTempoAtTick(workspace.timeline, tick),
-      tick,
-    }))
+): Command[] {
+  const existingIds = selectTimelineEventIds(workspace)
+
+  if (tool === 'tempo') {
+    return [
+      addTempoEventCommand(workspace, createTempoEvent({
+        id: createDraftEntityId('tempoEvent', existingIds),
+        bpm: getTempoAtTick(workspace.timeline, tick),
+        tick,
+      })),
+    ]
   }
 
-  if (activeTool === 'meter') {
-    return addMeterEventCommand(workspace, createMeterEvent({
-      tick,
-      timeSignature: getMeterAtTick(workspace.timeline, tick),
-    }))
+  if (tool === 'meter') {
+    return [
+      addMeterEventCommand(workspace, createMeterEvent({
+        id: createDraftEntityId('meterEvent', existingIds),
+        timeSignature: getMeterAtTick(workspace.timeline, tick),
+        tick,
+      })),
+    ]
   }
 
-  if (activeTool === 'key') {
-    return addKeyEventCommand(workspace, createKeyEvent({
-      key: getKeyAtTick(workspace.timeline, tick),
-      tick,
-    }))
+  if (tool === 'key') {
+    return [
+      addKeyEventCommand(workspace, createKeyEvent({
+        id: createDraftEntityId('keyEvent', existingIds),
+        key: getKeyAtTick(workspace.timeline, tick),
+        tick,
+      })),
+    ]
   }
 
-  return undefined
+  return []
 }
 
-export function createTimelineMoveCommand(
-  workspace: Workspace,
-  timelineEvent: TimelineEvent,
-  tick: number,
-): Command {
+export function createTimelineEventDeleteCommands({
+  workspace,
+  timelineEvent,
+}: {
+  workspace: Workspace
+  timelineEvent: TimelineEvent
+}): Command[] {
   if (isTempoEvent(timelineEvent)) {
-    return moveTempoEventCommand(workspace, timelineEvent.tick, tick)
+    return [deleteTempoEventCommand(workspace, timelineEvent.tick)]
   }
 
   if (isMeterEvent(timelineEvent)) {
-    return moveMeterEventCommand(workspace, timelineEvent.tick, tick)
+    return [deleteMeterEventCommand(workspace, timelineEvent.tick)]
   }
 
-  return moveKeyEventCommand(workspace, timelineEvent.tick, tick)
+  return [deleteKeyEventCommand(workspace, timelineEvent.tick)]
 }
 
-export function createTimelineDeleteCommand(
-  workspace: Workspace,
-  timelineEvent: TimelineEvent,
-): Command {
-  if (isTempoEvent(timelineEvent)) {
-    return deleteTempoEventCommand(workspace, timelineEvent.tick)
-  }
-
-  if (isMeterEvent(timelineEvent)) {
-    return deleteMeterEventCommand(workspace, timelineEvent.tick)
-  }
-
-  return deleteKeyEventCommand(workspace, timelineEvent.tick)
-}
-
-export function createTimelineEventUpdateCommands(input: {
+export function createTimelineEventInspectorCommands(input: {
   draft: TimelineEventDraft
   timelineEvent: TimelineEvent
   workspace: Workspace
-}): {
-  commands: Command[]
-  selectedTimelineEvent: TimelineEvent
-} {
+}): Command[] {
   const { draft, timelineEvent, workspace } = input
 
   if (isTempoEvent(timelineEvent)) {
     const nextTick = snapTimelineTick(workspace.timeline, draft.tempoTick)
-    const nextEvent = createTempoEvent({
+
+    const tempoEvent = createTempoEvent({
       bpm: draft.tempoBpm,
+      id: timelineEvent.id,
       tick: nextTick,
     })
 
-    return {
-      commands: [updateTempoEventCommand(workspace, timelineEvent.tick, nextEvent.bpm, nextEvent.tick)],
-      selectedTimelineEvent: nextEvent,
-    }
+    return [updateTempoEventCommand(workspace, timelineEvent.tick, tempoEvent)]
   }
 
   if (isMeterEvent(timelineEvent)) {
-    const nextTick = snapTimelineTick(workspace.timeline, draft.meterTick, 'bar' satisfies GridDivision)
+    const nextTick = snapTimelineTick(workspace.timeline, draft.meterTick, workspace.timeline.grid)
+
     const meterEvent = createMeterEvent({
+      id: timelineEvent.id,
       tick: nextTick,
       timeSignature: {
         denominator: draft.meterDenominator,
@@ -479,14 +480,13 @@ export function createTimelineEventUpdateCommands(input: {
       },
     })
 
-    return {
-      commands: [updateMeterEventCommand(workspace, timelineEvent.tick, meterEvent)],
-      selectedTimelineEvent: meterEvent,
-    }
+    return [updateMeterEventCommand(workspace, timelineEvent.tick, meterEvent)]
   }
 
   const nextTick = snapTimelineTick(workspace.timeline, draft.keyTick)
+
   const keyEvent = createKeyEvent({
+    id: timelineEvent.id,
     key: {
       mode: draft.keyMode,
       tonic: draft.keyTonic as Key['tonic'],
@@ -494,10 +494,7 @@ export function createTimelineEventUpdateCommands(input: {
     tick: nextTick,
   })
 
-  return {
-    commands: [updateKeyEventCommand(workspace, timelineEvent.tick, keyEvent)],
-    selectedTimelineEvent: keyEvent,
-  }
+  return [updateKeyEventCommand(workspace, timelineEvent.tick, keyEvent)]
 }
 
 function isPointerDrag(movementX: number, movementY: number, threshold: number): boolean {

@@ -5,6 +5,7 @@ import {
   getSectionEndTick,
   type Section,
   type Tick,
+  type TimelineEvent,
 } from '~/domain'
 import { selectBlock, type Workspace } from '~/store/workspace'
 
@@ -123,4 +124,17 @@ export function getSectionDragPreviews(dragState?: DragState): Section[] {
   }
 
   return []
+}
+
+export function getTimelineEventDragPreview(dragState?: DragState): TimelineEvent | undefined {
+  if (dragState?.kind !== 'moveTimelineEvent') {
+    return undefined
+  }
+
+  const deltaTicks = getDragDeltaTicks(dragState)
+
+  return {
+    ...dragState.event,
+    tick: Math.max(0, dragState.event.tick + deltaTicks),
+  }
 }

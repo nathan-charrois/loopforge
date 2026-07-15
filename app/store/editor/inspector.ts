@@ -7,7 +7,7 @@ import {
   type TimelineEvent,
 } from '~/domain'
 
-export function createEmptyInspectorDraft(): InspectorDraft {
+export function createInspectorDraft(): InspectorDraft {
   return {
     blockColor: '#4c6ef5',
     blockMuted: false,
