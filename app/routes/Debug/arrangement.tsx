@@ -96,11 +96,11 @@ import {
   addSectionToSelection,
   completeArrangementDrag,
   copySelectionToClipboard,
-  createArrangementDebugWorkspace,
   createBlockInspectorCommands,
   createBlockToolCommands,
   createDeleteSelectedEntitiesCommands,
   createDuplicateSelectionCommands,
+  createEditorWorkspace,
   createEmptyInspectorDraft,
   createPasteClipboardCommands,
   createSectionInspectorCommands,
@@ -186,7 +186,7 @@ function ArrangementDebugContent() {
   const { canRedo, canUndo, commandHistory, setCommandHistory } = useCommandHistory()
   const { viewport, scrollRef, handleViewportWheel, handleZoomBy } = useViewport()
 
-  const [workspace, setWorkspace] = useState<Workspace>(() => createArrangementDebugWorkspace())
+  const [workspace, setWorkspace] = useState<Workspace>(() => createEditorWorkspace())
 
   const [focusedBlockId, setFocusedBlockId] = useState<string | undefined>(undefined)
   const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | undefined>(undefined)

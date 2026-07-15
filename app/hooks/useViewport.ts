@@ -7,44 +7,47 @@ import {
 } from 'react'
 import { flushSync } from 'react-dom'
 
+import { useAnimationFrameThrottle } from './useAnimationFrameThrottle'
 import {
   createViewportState,
   zoomViewport,
 } from '~/store/editor'
 
-const WHEEL_ZOOM_SENSITIVITY = 0.0005
+const WHEEL_ZOOM_SENSITIVITY = 0.001
 
 export function useViewport() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState(() => createViewportState())
 
-  const zoomViewportAt = useCallback((
-    scrollElement: HTMLDivElement,
-    anchorPixel: number,
-    multiplier: number,
-  ) => {
-    const scrollX = scrollElement.scrollLeft
-    let nextScrollX = scrollX
+  const zoomViewportAt = useAnimationFrameThrottle(
+    useCallback((
+      scrollElement: HTMLDivElement,
+      anchorPixel: number,
+      multiplier: number,
+    ) => {
+      const scrollX = scrollElement.scrollLeft
+      let nextScrollX = scrollX
 
-    flushSync(() => {
-      setViewport((currentViewport) => {
-        const nextViewport = zoomViewport(
-          {
-            ...currentViewport,
-            scrollX,
-          },
-          anchorPixel,
-          multiplier,
-        )
+      flushSync(() => {
+        setViewport((currentViewport) => {
+          const nextViewport = zoomViewport(
+            {
+              ...currentViewport,
+              scrollX,
+            },
+            anchorPixel,
+            multiplier,
+          )
 
-        nextScrollX = nextViewport.scrollX
+          nextScrollX = nextViewport.scrollX
 
-        return nextViewport
+          return nextViewport
+        })
       })
-    })
 
-    scrollElement.scrollLeft = nextScrollX
-  }, [])
+      scrollElement.scrollLeft = nextScrollX
+    }, []),
+  )
 
   const handleZoomBy = useCallback((multiplier: number) => {
     const scrollElement = scrollRef.current

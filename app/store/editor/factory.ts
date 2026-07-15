@@ -73,7 +73,7 @@ export function createViewportState(input: Partial<ViewportState> = {}): Viewpor
   }
 }
 
-export function createArrangementDebugWorkspace(): Workspace {
+export function createEditorWorkspace(): Workspace {
   const tracks = createArrangementDebugTracks()
   const patterns = createArrangementDebugPatterns()
 
