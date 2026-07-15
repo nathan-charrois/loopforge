@@ -1,12 +1,18 @@
 import type { ViewportState } from './type'
 import type { Tick } from '~/domain'
 
-export function tickToX(viewport: ViewportState, tick: Tick): number {
-  return tick * viewport.pixelsPerTick
+export function tickToX(
+  pixelsPerTick: number,
+  tick: Tick,
+): number {
+  return tick * pixelsPerTick
 }
 
-export function xToTick(viewport: ViewportState, x: number): Tick {
-  return Math.max(0, Math.round(x / viewport.pixelsPerTick))
+export function xToTick(
+  pixelsPerTick: number,
+  x: number,
+): Tick {
+  return x / pixelsPerTick
 }
 
 export function zoomViewport(
@@ -14,36 +20,32 @@ export function zoomViewport(
   anchorX: number,
   multiplier: number,
 ): ViewportState {
-  const nextPixelsPerTick = getNextPixelsPerTick(viewport, multiplier)
-  const pixelsPerTick = clampPixelsPerTick(viewport, nextPixelsPerTick)
-  const scrollX = getScrollPosition(viewport, pixelsPerTick, anchorX)
+  const pixelsPerTick = getZoomedPixlesPerTick(viewport, multiplier)
+  const anchorTick = xToTick(viewport.pixelsPerTick, viewport.scrollX + anchorX)
+  const scrollX = Math.max(0, tickToX(pixelsPerTick, anchorTick) - anchorX)
 
-  return clampViewport({ ...viewport, pixelsPerTick, scrollX })
-}
-
-function clampViewport(viewport: ViewportState): ViewportState {
   return {
     ...viewport,
-    pixelsPerTick: clampPixelsPerTick(viewport, viewport.pixelsPerTick),
-    scrollX: Math.max(0, viewport.scrollX),
-    scrollY: Math.max(0, viewport.scrollY),
+    pixelsPerTick,
+    scrollX,
   }
 }
 
-function clampPixelsPerTick(viewport: ViewportState, pixelsPerTick: number): number {
-  return Math.min(viewport.maxPixelsPerTick, Math.max(viewport.minPixelsPerTick, pixelsPerTick))
+function getZoomedPixlesPerTick(
+  viewport: ViewportState,
+  multiplier: number,
+): number {
+  return clampPixelsPerTick(
+    viewport.pixelsPerTick * multiplier,
+    viewport.minPixelsPerTick,
+    viewport.maxPixelsPerTick,
+  )
 }
 
-function getNextPixelsPerTick(viewport: ViewportState, multiplier: number): number {
-  if (multiplier) {
-    return viewport.pixelsPerTick * multiplier
-  }
-
-  return viewport.pixelsPerTick
-}
-
-function getScrollPosition(viewport: ViewportState, nextPixelsPerTick: number, anchorX: number): number {
-  const tickAtAnchor = (viewport.scrollX + anchorX) / viewport.pixelsPerTick
-
-  return Math.max(0, (tickAtAnchor * nextPixelsPerTick) - anchorX)
+function clampPixelsPerTick(
+  pixelsPerTick: number,
+  minPixelsPerTick: number,
+  maxPixelsPerTick: number,
+): number {
+  return Math.min(maxPixelsPerTick, Math.max(minPixelsPerTick, pixelsPerTick))
 }

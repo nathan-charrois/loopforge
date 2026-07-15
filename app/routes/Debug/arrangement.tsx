@@ -202,7 +202,7 @@ function ArrangementDebugContent() {
 
   const projectEndTick = selectWorkspaceEndTick(workspace)
   const timelineEndTick = projectEndTick + TIMELINE_PADDING_TICKS
-  const timelineWidth = Math.max(980, Math.ceil(tickToX(viewport, timelineEndTick)))
+  const timelineWidth = Math.max(980, Math.ceil(tickToX(viewport.pixelsPerTick, timelineEndTick)))
 
   const rulerMarks = useMemo(
     () => getRulerMarks(workspace.timeline, 0, timelineEndTick),
@@ -393,7 +393,7 @@ function ArrangementDebugContent() {
     }
 
     const rect = timelineGridRef.current.getBoundingClientRect()
-    const rawTick = xToTick(viewport, Math.max(0, clientX - rect.left))
+    const rawTick = xToTick(viewport.pixelsPerTick, Math.max(0, clientX - rect.left))
 
     return shouldSnap
       ? snapTimelineTick(workspace.timeline, rawTick)
@@ -1079,7 +1079,7 @@ function TimelineRuler({
           style={{
             borderLeft: getRulerBorder(mark),
             height: mark.kind === 'bar' ? '100%' : mark.kind === 'beat' ? '70%' : '42%',
-            left: tickToX(viewport, mark.tick),
+            left: tickToX(viewport.pixelsPerTick, mark.tick),
             position: 'absolute',
             top: 0,
           }}
@@ -1099,7 +1099,7 @@ function TimelineRuler({
           icon={getTimelineEventMarkerIcon(timelineEvent)}
           isSelected={selectedTimelineEvent !== undefined && isSameTimelineEvent(selectedTimelineEvent, timelineEvent)}
           label={getTimelineEventMarkerLabel(timelineEvent)}
-          left={tickToX(viewport, timelineEvent.tick)}
+          left={tickToX(viewport.pixelsPerTick, timelineEvent.tick)}
           top={getTimelineEventMarkerTop(timelineEvent)}
           onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, timelineEvent)}
         />
@@ -1111,7 +1111,7 @@ function TimelineRuler({
           isPreview
           isSelected={false}
           label={getTimelineEventMarkerLabel(dragState.event)}
-          left={tickToX(viewport, dragState.currentTick)}
+          left={tickToX(viewport.pixelsPerTick, dragState.currentTick)}
           top={getTimelineEventMarkerTop(dragState.event)}
         />
       )}
@@ -1183,7 +1183,7 @@ function TimelineGridLines({
           style={{
             borderLeft: getGridLineBorder(mark),
             bottom: 0,
-            left: tickToX(viewport, mark.tick),
+            left: tickToX(viewport.pixelsPerTick, mark.tick),
             opacity: mark.kind === 'bar' ? 0.7 : mark.kind === 'beat' ? 0.55 : 0.4,
             pointerEvents: 'none',
             position: 'absolute',
@@ -1250,13 +1250,13 @@ function SectionLane({
             cursor: 'grab',
             display: 'flex',
             height: 28,
-            left: tickToX(viewport, section.startTick),
+            left: tickToX(viewport.pixelsPerTick, section.startTick),
             outline: selectedSectionIds.includes(section.id) ? '2px solid var(--mantine-color-blue-6)' : undefined,
             overflow: 'hidden',
             paddingInline: 7,
             position: 'absolute',
             top: 8,
-            width: Math.max(MIN_SECTION_WIDTH, tickToX(viewport, section.lengthTicks)),
+            width: Math.max(MIN_SECTION_WIDTH, tickToX(viewport.pixelsPerTick, section.lengthTicks)),
           }}
         >
           <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
@@ -1440,14 +1440,14 @@ function BlockView({
         color: 'white',
         cursor: 'grab',
         height: isFocused ? 56 : 42,
-        left: tickToX(viewport, block.startTick),
+        left: tickToX(viewport.pixelsPerTick, block.startTick),
         opacity: dimmedByFocus ? 0.22 : block.muted ? 0.58 : 0.96,
         outline: selected ? '2px solid var(--mantine-color-blue-2)' : undefined,
         overflow: 'hidden',
         padding: '5px 8px',
         position: 'absolute',
         top: BLOCK_TOP,
-        width: Math.max(MIN_BLOCK_WIDTH, tickToX(viewport, block.lengthTicks)),
+        width: Math.max(MIN_BLOCK_WIDTH, tickToX(viewport.pixelsPerTick, block.lengthTicks)),
         zIndex: isFocused ? 7 : selected ? 4 : 2,
       }}
     >
@@ -1879,12 +1879,12 @@ function DragPreview({
         border: `1px solid var(--mantine-color-${color}-6)`,
         borderRadius: 4,
         bottom: 8,
-        left: tickToX(viewport, leftTick),
+        left: tickToX(viewport.pixelsPerTick, leftTick),
         opacity: 0.55,
         pointerEvents: 'none',
         position: 'absolute',
         top: 8,
-        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport, lengthTicks)),
+        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
         zIndex: 8,
       }}
     />
@@ -1918,14 +1918,14 @@ function RangePlaceholder({
         color: `var(--mantine-color-${color}-9)`,
         display: 'flex',
         height,
-        left: tickToX(viewport, startTick),
+        left: tickToX(viewport.pixelsPerTick, startTick),
         opacity: 0.72,
         overflow: 'hidden',
         paddingInline: 6,
         pointerEvents: 'none',
         position: 'absolute',
         top,
-        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport, lengthTicks)),
+        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
         zIndex: 9,
       }}
     >
