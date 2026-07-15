@@ -210,15 +210,25 @@ function ArrangementDebugContent() {
   const selectedSection = useMemo(() => selectFirstSelectedSection(editorState, workspace), [editorState, workspace])
   const selectedTimelineEvent = useMemo(() => selectFirstSelectedTimelineEvent(editorState, workspace), [editorState, workspace])
 
-  const projectEndTick = selectWorkspaceEndTick(workspace)
-  const timelineEndTick = projectEndTick + TIMELINE_PADDING_TICKS
-  const timelineWidth = Math.max(980, Math.ceil(tickToX(viewport.pixelsPerTick, timelineEndTick)))
+  const timelineEndTick = useMemo(
+    () => selectWorkspaceEndTick(workspace) + TIMELINE_PADDING_TICKS,
+    [workspace],
+  )
+
+  const timelineWidth = useMemo(
+    () => Math.max(980, Math.ceil(tickToX(viewport.pixelsPerTick, timelineEndTick))),
+    [viewport.pixelsPerTick, timelineEndTick],
+  )
 
   const rulerMarks = useMemo(
     () => getRulerMarks(workspace.timeline, 0, timelineEndTick),
     [timelineEndTick, workspace.timeline],
   )
-  const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
+
+  const workspaceErrors = useMemo(
+    () => validateWorkspace(workspace),
+    [workspace],
+  )
 
   useEffect(() => {
     setInspectorDraft(currentDraft => updateInspectorDraftFromSelection(
@@ -620,6 +630,7 @@ function ArrangementDebugContent() {
 
     const toolCommands = createSectionToolCommands({
       section,
+      tick: getTickFromClientX(event.clientX),
       tool: editorState.activeTool,
       workspace,
     })

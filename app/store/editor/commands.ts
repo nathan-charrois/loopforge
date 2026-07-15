@@ -59,6 +59,7 @@ import {
   selectTimelineEventIds,
   setBlockMutedCommand,
   splitBlockCommand,
+  splitSectionCommand,
   updateBlockSnapshotCommand,
   updateKeyEventCommand,
   updateMeterEventCommand,
@@ -157,13 +158,18 @@ export function createBlockToolCommands(input: {
 
 export function createSectionToolCommands(input: {
   section: Section
+  tick: Tick
   tool: ActiveTool
   workspace: Workspace
 }): Command[] {
-  const { section, tool, workspace } = input
+  const { section, tick, tool, workspace } = input
 
   if (tool === 'erase') {
     return [deleteSectionCommand(workspace, [section.id])]
+  }
+
+  if (tool === 'split') {
+    return [splitSectionCommand(workspace, section.id, tick)]
   }
 
   return []

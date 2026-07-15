@@ -339,6 +339,32 @@ export function resizeSectionCommand(
   })
 }
 
+export function splitSectionCommand(workspace: Workspace, sectionId: SectionId, splitTick: Tick): Command {
+  const section = requireSection(workspace, sectionId)
+  const sectionEndTick = section.startTick + section.lengthTicks
+  const targetTick = Math.max(section.startTick + 1, Math.min(sectionEndTick - 1, Math.round(splitTick)))
+  const rightSectionId = createUniqueId(`${section.id}_split`, new Set(workspace.arrangement.sections.map(currentSection => currentSection.id)))
+  const leftSection: Section = {
+    ...section,
+    lengthTicks: targetTick - section.startTick,
+  }
+  const rightSection: Section = {
+    ...section,
+    id: rightSectionId,
+    lengthTicks: sectionEndTick - targetTick,
+    name: `${section.name} Split`,
+    startTick: targetTick,
+  }
+
+  return createEditorCommand('splitSection', `Split section ${section.name}`, {
+    leftSection: toJsonValue(leftSection),
+    rightSection: toJsonValue(rightSection),
+  }, {
+    section: toJsonValue(section),
+    sectionIds: [rightSection.id],
+  })
+}
+
 export function renameSectionCommand(workspace: Workspace, sectionId: SectionId, name: string): Command {
   const section = requireSection(workspace, sectionId)
 
@@ -679,6 +705,8 @@ function applyCommandPayload(workspace: Workspace, kind: CommandKind, payload: C
     case 'resizeSection':
     case 'renameSection':
       return applySectionPayload(workspace, payload)
+    case 'splitSection':
+      return applySplitSectionPayload(workspace, payload)
     case 'addTrack':
     case 'deleteTrack':
     case 'renameTrack':
@@ -779,6 +807,17 @@ function applySectionPayload(workspace: Workspace, payload: CommandPayload): Wor
   }
 
   return nextWorkspace
+}
+
+function applySplitSectionPayload(workspace: Workspace, payload: CommandPayload): Workspace {
+  const leftSection = getPayloadObject<Section>(payload, 'leftSection')
+  const rightSection = getPayloadObject<Section>(payload, 'rightSection')
+
+  if (leftSection !== undefined && rightSection !== undefined) {
+    return upsertSection(upsertSection(workspace, leftSection), rightSection)
+  }
+
+  return applySectionPayload(workspace, payload)
 }
 
 function applyTrackPayload(workspace: Workspace, payload: CommandPayload): Workspace {

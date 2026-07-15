@@ -19,6 +19,7 @@ export const COMMAND_KINDS = [
   'duplicateSection',
   'moveSection',
   'resizeSection',
+  'splitSection',
   'renameSection',
 
   // tracks
