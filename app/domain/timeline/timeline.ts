@@ -251,16 +251,16 @@ export function getBarStartTick(timeline: Timeline, tick: Tick): Tick {
   })
 }
 
-export function isTempoEvent(event: TimelineEvent): event is TempoEvent {
-  return 'bpm' in event
+export function isTempoEvent(event?: TimelineEvent): event is TempoEvent {
+  return typeof event !== 'undefined' && 'bpm' in event
 }
 
-export function isMeterEvent(event: TimelineEvent): event is MeterEvent {
-  return 'timeSignature' in event
+export function isMeterEvent(event?: TimelineEvent): event is MeterEvent {
+  return typeof event !== 'undefined' && 'timeSignature' in event
 }
 
-export function isKeyEvent(event: TimelineEvent): event is KeyEvent {
-  return 'key' in event
+export function isKeyEvent(event?: TimelineEvent): event is KeyEvent {
+  return typeof event !== 'undefined' && 'key' in event
 }
 
 export function getTimelineEventField(event: TimelineEvent): TimelineEventField {

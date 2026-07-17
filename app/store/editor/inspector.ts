@@ -1,6 +1,7 @@
 import type { InspectorDraft } from './type'
 import {
   type Block,
+  isKeyEvent,
   isMeterEvent,
   isTempoEvent,
   type Section,
@@ -29,42 +30,74 @@ export function updateInspectorDraftFromSelection(
   currentDraft: InspectorDraft,
   selectedBlock?: Block,
   selectedSection?: Section,
+  selectionTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
-  return {
-    ...currentDraft,
-    blockColor: selectedBlock?.color ?? currentDraft.blockColor,
-    blockMuted: selectedBlock?.muted ?? currentDraft.blockMuted,
-    blockName: selectedBlock?.name ?? currentDraft.blockName,
-    blockPlaybackMode: selectedBlock?.playbackMode ?? currentDraft.blockPlaybackMode,
-    sectionName: selectedSection?.name ?? currentDraft.sectionName,
+  const withBlock = updateInspectorDraftFromBlock(currentDraft, selectedBlock)
+  const withSection = updateInspectorDraftFromSection(withBlock, selectedSection)
+
+  return updateInspectorDraftFromTimelineEvent(withSection, selectionTimelineEvent)
+}
+
+export function updateInspectorDraftFromBlock(
+  currentDraft: InspectorDraft,
+  selectedBlock?: Block,
+): InspectorDraft {
+  if (selectedBlock) {
+    return {
+      ...currentDraft,
+      blockColor: selectedBlock?.color ?? currentDraft.blockColor,
+      blockMuted: selectedBlock?.muted ?? currentDraft.blockMuted,
+      blockName: selectedBlock?.name ?? currentDraft.blockName,
+      blockPlaybackMode: selectedBlock?.playbackMode ?? currentDraft.blockPlaybackMode,
+    }
   }
+
+  return currentDraft
+}
+
+export function updateInspectorDraftFromSection(
+  currentDraft: InspectorDraft,
+  selectedSection?: Section,
+): InspectorDraft {
+  if (selectedSection) {
+    return {
+      ...currentDraft,
+      sectionName: selectedSection?.name ?? currentDraft.sectionName,
+    }
+  }
+
+  return currentDraft
 }
 
 export function updateInspectorDraftFromTimelineEvent(
   currentDraft: InspectorDraft,
-  timelineEvent: TimelineEvent,
+  selectedTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
-  if (isTempoEvent(timelineEvent)) {
+  if (isTempoEvent(selectedTimelineEvent)) {
     return {
       ...currentDraft,
-      tempoBpm: timelineEvent.bpm,
-      tempoTick: timelineEvent.tick,
+      tempoBpm: selectedTimelineEvent.bpm,
+      tempoTick: selectedTimelineEvent.tick,
     }
   }
 
-  if (isMeterEvent(timelineEvent)) {
+  if (isMeterEvent(selectedTimelineEvent)) {
     return {
       ...currentDraft,
-      meterDenominator: timelineEvent.timeSignature.denominator,
-      meterNumerator: timelineEvent.timeSignature.numerator,
-      meterTick: timelineEvent.tick,
+      meterDenominator: selectedTimelineEvent.timeSignature.denominator,
+      meterNumerator: selectedTimelineEvent.timeSignature.numerator,
+      meterTick: selectedTimelineEvent.tick,
     }
   }
 
-  return {
-    ...currentDraft,
-    keyMode: timelineEvent.key.mode,
-    keyTick: timelineEvent.tick,
-    keyTonic: timelineEvent.key.tonic,
+  if (isKeyEvent(selectedTimelineEvent)) {
+    return {
+      ...currentDraft,
+      keyMode: selectedTimelineEvent.key.mode,
+      keyTick: selectedTimelineEvent.tick,
+      keyTonic: selectedTimelineEvent.key.tonic,
+    }
   }
+
+  return currentDraft
 }

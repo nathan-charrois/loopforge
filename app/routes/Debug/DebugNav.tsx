@@ -3,7 +3,6 @@ import { Button, Group } from '@mantine/core'
 
 const DEBUG_NAV_ITEMS = [
   { label: 'Chord', path: '/chord' },
-  { label: 'Domain', path: '/domain' },
   { label: 'Notes', path: '/notes' },
   { label: 'Playback', path: '/playback' },
   { label: 'Editor', path: '/editor' },

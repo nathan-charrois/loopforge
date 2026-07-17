@@ -122,7 +122,6 @@ import {
   snapTimelineTick,
   tickToX,
   updateInspectorDraftFromSelection,
-  updateInspectorDraftFromTimelineEvent,
   type ViewportState,
   xToTick,
 } from '~/store/editor'
@@ -235,19 +234,9 @@ function ArrangementDebugContent() {
       currentDraft,
       selectedBlock,
       selectedSection,
-    ))
-  }, [selectedBlock, selectedSection])
-
-  useEffect(() => {
-    if (selectedTimelineEvent === undefined) {
-      return
-    }
-
-    setInspectorDraft(currentDraft => updateInspectorDraftFromTimelineEvent(
-      currentDraft,
       selectedTimelineEvent,
     ))
-  }, [selectedTimelineEvent])
+  }, [selectedBlock, selectedSection, selectedTimelineEvent])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
