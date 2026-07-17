@@ -1,9 +1,9 @@
-import type { ClipboardState, EditorState } from './type'
+import type { ClipboardState, Editor } from './type'
 
-export function copySelectionToClipboard(editorState: EditorState): ClipboardState {
+export function copySelectionToClipboard(editor: Editor): ClipboardState {
   return {
-    blockIds: [...editorState.selection.selectedBlockIds],
-    patternEventIds: [...editorState.selection.selectedPatternEventIds],
+    blockIds: [...editor.selection.selectedBlockIds],
+    patternEventIds: [...editor.selection.selectedPatternEventIds],
   }
 }
 

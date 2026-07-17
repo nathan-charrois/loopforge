@@ -1,8 +1,11 @@
 import { createInspectorState, createSelectionState } from './factory'
 import type {
   ActiveTool,
-  EditorState,
+  ClipboardState,
+  Editor,
   InspectorPanel,
+  InspectorState,
+  SelectionState,
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
 import type { PatternEventId } from '~/domain/patternEvents'
@@ -10,48 +13,116 @@ import type { TimelineEventId } from '~/domain/timeline'
 import type { TrackId } from '~/domain/tracks'
 import { toggleInArray } from '~/utils/array'
 
-export function setActiveTool(editorState: EditorState, tool: ActiveTool): EditorState {
+export function setActiveTool(
+  editor: Editor,
+  tool: ActiveTool,
+): Editor {
   return {
-    ...editorState,
+    ...editor,
     activeTool: tool,
   }
 }
 
-export function removeSelection(editorState: EditorState): EditorState {
+export function setFocusedBlockId(
+  editor: Editor,
+  blockId?: BlockId,
+): Editor {
   return {
-    ...editorState,
+    ...editor,
+    focusedBlockId: blockId,
+  }
+}
+
+export function setClipboard(
+  editor: Editor,
+  clipboard: ClipboardState,
+): Editor {
+  return {
+    ...editor,
+    clipboard,
+  }
+}
+
+export function setHoveredChord(
+  editor: Editor,
+  hoveredChord: Editor['hoveredChord'],
+): Editor {
+  return {
+    ...editor,
+    hoveredChord,
+  }
+}
+
+export function setInspector(
+  editor: Editor,
+  inspector: InspectorState,
+): Editor {
+  return {
+    ...editor,
+    inspector,
+  }
+}
+
+export function setSelection(
+  editor: Editor,
+  selection: SelectionState,
+): Editor {
+  return {
+    ...editor,
+    selection,
+  }
+}
+
+export function removeSelection(
+  editor: Editor,
+): Editor {
+  return {
+    ...editor,
     selection: createSelectionState(),
   }
 }
 
-export function addBlockToSelection(editorState: EditorState, blockId: BlockId, additive = false): EditorState {
+export function addBlockToSelection(
+  editor: Editor,
+  blockId: BlockId,
+  additive = false,
+): Editor {
   if (additive) {
     return {
-      ...editorState,
+      ...editor,
       selection: {
-        ...editorState.selection,
-        selectedBlockIds: toggleInArray(editorState.selection.selectedBlockIds, blockId),
+        ...editor.selection,
+        selectedBlockIds: toggleInArray(
+          editor.selection.selectedBlockIds,
+          blockId,
+        ),
       },
     }
   }
 
   return {
-    ...editorState,
+    ...editor,
     selection: {
       ...createSelectionState(),
-      selectedBlockIds: [blockId],
+      selectedBlockIds: [
+        blockId,
+      ],
     },
   }
 }
 
-export function addSectionToSelection(editorState: EditorState, sectionId: SectionId, additive = false): EditorState {
+export function addSectionToSelection(
+  editor: Editor,
+  sectionId: SectionId,
+  additive = false,
+): Editor {
   if (additive) {
     return {
-      ...editorState,
+      ...editor,
       selection: {
-        ...editorState.selection,
+        ...editor.selection,
         selectedSectionIds: toggleInArray(
-          editorState.selection.selectedSectionIds,
+          editor.selection.selectedSectionIds,
           sectionId,
         ),
       },
@@ -59,27 +130,29 @@ export function addSectionToSelection(editorState: EditorState, sectionId: Secti
   }
 
   return {
-    ...editorState,
+    ...editor,
     selection: {
       ...createSelectionState(),
-      selectedSectionIds: [sectionId],
+      selectedSectionIds: [
+        sectionId,
+      ],
     },
   }
 }
 
 export function addPatternEventToSelection(
-  editorState: EditorState,
+  editor: Editor,
   patternEventId: PatternEventId,
   additive = false,
   focusedBlockId?: BlockId,
-): EditorState {
+): Editor {
   if (additive) {
     return {
-      ...editorState,
+      ...editor,
       selection: {
-        ...editorState.selection,
+        ...editor.selection,
         selectedPatternEventIds: toggleInArray(
-          editorState.selection.selectedPatternEventIds,
+          editor.selection.selectedPatternEventIds,
           patternEventId,
         ),
       },
@@ -87,27 +160,29 @@ export function addPatternEventToSelection(
   }
 
   return {
-    ...editorState,
+    ...editor,
     selection: {
       ...createSelectionState(),
       selectedBlockIds: focusedBlockId ? [focusedBlockId] : [],
-      selectedPatternEventIds: [patternEventId],
+      selectedPatternEventIds: [
+        patternEventId,
+      ],
     },
   }
 }
 
 export function addTrackToSelection(
-  editorState: EditorState,
+  editor: Editor,
   trackId: TrackId,
   additive = false,
-): EditorState {
+): Editor {
   if (additive) {
     return {
-      ...editorState,
+      ...editor,
       selection: {
-        ...editorState.selection,
+        ...editor.selection,
         selectedTrackIds: toggleInArray(
-          editorState.selection.selectedTrackIds,
+          editor.selection.selectedTrackIds,
           trackId,
         ),
       },
@@ -115,26 +190,28 @@ export function addTrackToSelection(
   }
 
   return {
-    ...editorState,
+    ...editor,
     selection: {
       ...createSelectionState(),
-      selectedTrackIds: [trackId],
+      selectedTrackIds: [
+        trackId,
+      ],
     },
   }
 }
 
 export function addTimelineEventToSelection(
-  editorState: EditorState,
+  editor: Editor,
   timelineEventId: TimelineEventId,
   additive = false,
-): EditorState {
+): Editor {
   if (additive) {
     return {
-      ...editorState,
+      ...editor,
       selection: {
-        ...editorState.selection,
+        ...editor.selection,
         selectedTimelineEventIds: toggleInArray(
-          editorState.selection.selectedTimelineEventIds,
+          editor.selection.selectedTimelineEventIds,
           timelineEventId,
         ),
       },
@@ -142,17 +219,22 @@ export function addTimelineEventToSelection(
   }
 
   return {
-    ...editorState,
+    ...editor,
     selection: {
       ...createSelectionState(),
-      selectedTimelineEventIds: [timelineEventId],
+      selectedTimelineEventIds: [
+        timelineEventId,
+      ],
     },
   }
 }
 
-export function setInspectorPanel(editorState: EditorState, panel: InspectorPanel): EditorState {
+export function setInspectorPanel(
+  editor: Editor,
+  panel: InspectorPanel,
+): Editor {
   return {
-    ...editorState,
+    ...editor,
     inspector: {
       open: true,
       panel,
@@ -160,9 +242,11 @@ export function setInspectorPanel(editorState: EditorState, panel: InspectorPane
   }
 }
 
-export function setInspectorClose(editorState: EditorState): EditorState {
+export function setInspectorClose(
+  editor: Editor,
+): Editor {
   return {
-    ...editorState,
+    ...editor,
     inspector: createInspectorState(),
   }
 }

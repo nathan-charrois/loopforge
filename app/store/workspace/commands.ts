@@ -18,21 +18,13 @@ import {
   type Block,
   type BlockId,
   type BlockPlaybackMode,
-  type Command,
-  type CommandHistory,
-  type CommandKind,
-  type CommandPayload,
-  createCommand,
   getTimelineEventField,
   type GridDivision,
-  type JsonValue,
   type KeyEvent,
   type MeterEvent,
   type Pattern,
   type PatternEvent,
   type PatternId,
-  pushCommand as pushHistoryCommand,
-  redoCommand as redoHistoryCommand,
   type Section,
   type SectionId,
   snapTickToGrid,
@@ -45,68 +37,34 @@ import {
   type TimelineEventField,
   type Track,
   type TrackId,
-  undoCommand as undoHistoryCommand,
 } from '~/domain'
 import { touchProject } from '~/domain/project'
-
-type CommandExecutionResult = {
-  command?: Command
-  history: CommandHistory
-  workspace: Workspace
-}
+import {
+  type Command,
+  type CommandPayload,
+  type JsonValue,
+  type WorkspaceCommand,
+  type WorkspaceCommandKind,
+} from '~/store/session/command'
 
 let commandSequence = 1
 
-export function executeCommand(
+export function applyWorkspaceCommand(
   workspace: Workspace,
-  history: CommandHistory,
-  command: Command,
-): CommandExecutionResult {
-  return {
-    command,
-    history: pushHistoryCommand(history, command),
-    workspace: applyCommandPayload(workspace, command.kind, command.payload),
-  }
-}
+  command: WorkspaceCommand,
+  useInverse = false,
+): Workspace {
+  const payload = useInverse ? command.inverse : command.payload
 
-export function undoCommand(workspace: Workspace, history: CommandHistory): CommandExecutionResult {
-  const nextState = undoHistoryCommand(history)
-
-  if (nextState.command === undefined) {
-    return {
-      history: nextState.history,
-      workspace,
-    }
+  if (payload === undefined) {
+    return workspace
   }
 
-  return {
-    command: nextState.command,
-    history: nextState.history,
-    workspace: nextState.command.inverse === undefined
-      ? workspace
-      : applyCommandPayload(workspace, nextState.command.kind, nextState.command.inverse),
-  }
-}
-
-export function redoCommand(workspace: Workspace, history: CommandHistory): CommandExecutionResult {
-  const nextState = redoHistoryCommand(history)
-
-  if (nextState.command === undefined) {
-    return {
-      history: nextState.history,
-      workspace,
-    }
-  }
-
-  return {
-    command: nextState.command,
-    history: nextState.history,
-    workspace: applyCommandPayload(workspace, nextState.command.kind, nextState.command.payload),
-  }
+  return applyCommandPayload(workspace, command.kind, payload)
 }
 
 export function addBlockCommand(block: Block): Command {
-  return createEditorCommand('addBlock', `Add block ${block.name}`, {
+  return createWorkspaceCommand('addBlock', `Add block ${block.name}`, {
     blocks: [toJsonValue(block)],
   }, {
     blockIds: [block.id],
@@ -116,7 +74,7 @@ export function addBlockCommand(block: Block): Command {
 export function deleteBlockCommand(workspace: Workspace, blockIds: readonly BlockId[]): Command {
   const blocks = workspace.arrangement.blocks.filter(block => blockIds.includes(block.id))
 
-  return createEditorCommand('deleteBlock', `Delete ${blocks.length} block${blocks.length === 1 ? '' : 's'}`, {
+  return createWorkspaceCommand('deleteBlock', `Delete ${blocks.length} block${blocks.length === 1 ? '' : 's'}`, {
     blockIds: blocks.map(block => block.id),
   }, {
     blocks: blocks.map(toJsonValue),
@@ -143,7 +101,7 @@ export function duplicateBlockCommand(
       }
     })
 
-  return createEditorCommand('duplicateBlock', `Duplicate ${blocks.length} block${blocks.length === 1 ? '' : 's'}`, {
+  return createWorkspaceCommand('duplicateBlock', `Duplicate ${blocks.length} block${blocks.length === 1 ? '' : 's'}`, {
     blocks: blocks.map(toJsonValue),
   }, {
     blockIds: blocks.map(block => block.id),
@@ -199,7 +157,7 @@ export function splitBlockCommand(workspace: Workspace, blockId: BlockId, splitT
     startTick: targetTick,
   }
 
-  return createEditorCommand('splitBlock', `Split block ${block.name}`, {
+  return createWorkspaceCommand('splitBlock', `Split block ${block.name}`, {
     leftBlock: toJsonValue(leftBlock),
     rightBlock: toJsonValue(rightBlock),
   }, {
@@ -271,7 +229,7 @@ export function moveBlockToTrackCommand(workspace: Workspace, blockId: BlockId, 
 }
 
 export function addSectionCommand(section: Section): Command {
-  return createEditorCommand('addSection', `Add section ${section.name}`, {
+  return createWorkspaceCommand('addSection', `Add section ${section.name}`, {
     sections: [toJsonValue(section)],
   }, {
     sectionIds: [section.id],
@@ -281,7 +239,7 @@ export function addSectionCommand(section: Section): Command {
 export function deleteSectionCommand(workspace: Workspace, sectionIds: readonly SectionId[]): Command {
   const sections = workspace.arrangement.sections.filter(section => sectionIds.includes(section.id))
 
-  return createEditorCommand('deleteSection', `Delete ${sections.length} section${sections.length === 1 ? '' : 's'}`, {
+  return createWorkspaceCommand('deleteSection', `Delete ${sections.length} section${sections.length === 1 ? '' : 's'}`, {
     sectionIds: sections.map(section => section.id),
   }, {
     sections: sections.map(toJsonValue),
@@ -308,7 +266,7 @@ export function duplicateSectionCommand(
       }
     })
 
-  return createEditorCommand('duplicateSection', `Duplicate ${sections.length} section${sections.length === 1 ? '' : 's'}`, {
+  return createWorkspaceCommand('duplicateSection', `Duplicate ${sections.length} section${sections.length === 1 ? '' : 's'}`, {
     sections: sections.map(toJsonValue),
   }, {
     sectionIds: sections.map(section => section.id),
@@ -356,7 +314,7 @@ export function splitSectionCommand(workspace: Workspace, sectionId: SectionId, 
     startTick: targetTick,
   }
 
-  return createEditorCommand('splitSection', `Split section ${section.name}`, {
+  return createWorkspaceCommand('splitSection', `Split section ${section.name}`, {
     leftSection: toJsonValue(leftSection),
     rightSection: toJsonValue(rightSection),
   }, {
@@ -491,7 +449,7 @@ export function moveTimelineEventCommand(workspace: Workspace, event: TimelineEv
 }
 
 export function setGridDivisionCommand(workspace: Workspace, grid: GridDivision): Command {
-  return createEditorCommand('setGridDivision', `Set grid ${grid}`, {
+  return createWorkspaceCommand('setGridDivision', `Set grid ${grid}`, {
     grid,
   }, {
     grid: workspace.timeline.grid,
@@ -499,7 +457,7 @@ export function setGridDivisionCommand(workspace: Workspace, grid: GridDivision)
 }
 
 export function addTrackCommand(track: Track): Command {
-  return createEditorCommand('addTrack', `Add track ${track.name}`, {
+  return createWorkspaceCommand('addTrack', `Add track ${track.name}`, {
     track: toJsonValue(track),
   }, {
     trackId: track.id,
@@ -513,15 +471,15 @@ export function deleteTrackCommand(workspace: Workspace, trackId: TrackId): Comm
     throw new Error(`Track ${trackId} does not exist.`)
   }
 
-  return createEditorCommand('deleteTrack', `Delete track ${track.name}`, {
+  return createWorkspaceCommand('deleteTrack', `Delete track ${track.name}`, {
     trackId,
   }, {
     track: toJsonValue(track),
   })
 }
 
-export function updateTrackCommand(kind: CommandKind, label: string, previousTrack: Track, nextTrack: Track): Command {
-  return createEditorCommand(kind, label, {
+export function updateTrackCommand(kind: WorkspaceCommandKind, label: string, previousTrack: Track, nextTrack: Track): Command {
+  return createWorkspaceCommand(kind, label, {
     track: toJsonValue(nextTrack),
   }, {
     track: toJsonValue(previousTrack),
@@ -529,7 +487,7 @@ export function updateTrackCommand(kind: CommandKind, label: string, previousTra
 }
 
 export function addPatternCommand(pattern: Pattern): Command {
-  return createEditorCommand('addPattern', `Add pattern ${pattern.name}`, {
+  return createWorkspaceCommand('addPattern', `Add pattern ${pattern.name}`, {
     pattern: toJsonValue(pattern),
   }, {
     patternId: pattern.id,
@@ -543,15 +501,15 @@ export function deletePatternCommand(workspace: Workspace, patternId: PatternId)
     throw new Error(`Pattern ${patternId} does not exist.`)
   }
 
-  return createEditorCommand('deletePattern', `Delete pattern ${pattern.name}`, {
+  return createWorkspaceCommand('deletePattern', `Delete pattern ${pattern.name}`, {
     patternId,
   }, {
     pattern: toJsonValue(pattern),
   })
 }
 
-export function updatePatternCommand(kind: CommandKind, label: string, previousPattern: Pattern, nextPattern: Pattern): Command {
-  return createEditorCommand(kind, label, {
+export function updatePatternCommand(kind: WorkspaceCommandKind, label: string, previousPattern: Pattern, nextPattern: Pattern): Command {
+  return createWorkspaceCommand(kind, label, {
     pattern: toJsonValue(nextPattern),
   }, {
     pattern: toJsonValue(previousPattern),
@@ -559,7 +517,7 @@ export function updatePatternCommand(kind: CommandKind, label: string, previousP
 }
 
 export function addPatternEventCommand(patternId: PatternId, event: PatternEvent): Command {
-  return createEditorCommand('addPatternEvent', `Add ${event.kind} event`, {
+  return createWorkspaceCommand('addPatternEvent', `Add ${event.kind} event`, {
     event: toJsonValue(event),
     patternId,
   }, {
@@ -580,7 +538,7 @@ export function deletePatternEventCommand(
     throw new Error(`Pattern event ${eventId} does not exist.`)
   }
 
-  return createEditorCommand('deletePatternEvent', `Delete ${event.kind} event`, {
+  return createWorkspaceCommand('deletePatternEvent', `Delete ${event.kind} event`, {
     eventId,
     patternId,
   }, {
@@ -590,12 +548,12 @@ export function deletePatternEventCommand(
 }
 
 export function updatePatternEventCommand(
-  kind: CommandKind,
+  kind: WorkspaceCommandKind,
   patternId: PatternId,
   previousEvent: PatternEvent,
   nextEvent: PatternEvent,
 ): Command {
-  return createEditorCommand(kind, `Update ${nextEvent.kind} event`, {
+  return createWorkspaceCommand(kind, `Update ${nextEvent.kind} event`, {
     event: toJsonValue(nextEvent),
     patternId,
   }, {
@@ -605,12 +563,12 @@ export function updatePatternEventCommand(
 }
 
 export function updateBlockSnapshotCommand(
-  kind: CommandKind,
+  kind: WorkspaceCommandKind,
   label: string,
   previousBlock: Block,
   nextBlock: Block,
 ): Command {
-  return createEditorCommand(kind, label, {
+  return createWorkspaceCommand(kind, label, {
     block: toJsonValue(nextBlock),
   }, {
     block: toJsonValue(previousBlock),
@@ -618,12 +576,12 @@ export function updateBlockSnapshotCommand(
 }
 
 function updateSectionSnapshotCommand(
-  kind: CommandKind,
+  kind: WorkspaceCommandKind,
   label: string,
   previousSection: Section,
   nextSection: Section,
 ): Command {
-  return createEditorCommand(kind, label, {
+  return createWorkspaceCommand(kind, label, {
     section: toJsonValue(nextSection),
   }, {
     section: toJsonValue(previousSection),
@@ -632,12 +590,12 @@ function updateSectionSnapshotCommand(
 
 function createTimelineEventCommand<TEvent extends { tick: Tick }>(
   timeline: Timeline,
-  kind: CommandKind,
+  kind: WorkspaceCommandKind,
   label: string,
   field: TimelineEventField,
   event: TEvent,
 ): Command {
-  return createEditorCommand(kind, label, {
+  return createWorkspaceCommand(kind, label, {
     event: toJsonValue(event),
   }, {
     previousEvent: toJsonValue(timeline[field].find(currentEvent => currentEvent.tick === event.tick) ?? null),
@@ -647,14 +605,14 @@ function createTimelineEventCommand<TEvent extends { tick: Tick }>(
 
 function deleteTimelineEventCommand<TEvent extends { tick: Tick }>(
   timeline: Timeline,
-  kind: CommandKind,
+  kind: WorkspaceCommandKind,
   label: string,
   field: TimelineEventField,
   tick: Tick,
 ): Command {
   const event = requireTimelineEvent(timeline[field] as unknown as TEvent[], tick, field)
 
-  return createEditorCommand(kind, label, {
+  return createWorkspaceCommand(kind, label, {
     tick,
   }, {
     event: toJsonValue(event),
@@ -663,7 +621,7 @@ function deleteTimelineEventCommand<TEvent extends { tick: Tick }>(
 
 function updateTimelineEventSnapshotCommand<TEvent extends { tick: Tick }>(
   timeline: Timeline,
-  kind: CommandKind,
+  kind: WorkspaceCommandKind,
   label: string,
   field: TimelineEventField,
   previousTick: Tick,
@@ -671,7 +629,7 @@ function updateTimelineEventSnapshotCommand<TEvent extends { tick: Tick }>(
 ): Command {
   const previousEvent = requireTimelineEvent(timeline[field] as unknown as TEvent[], previousTick, field)
 
-  return createEditorCommand(kind, label, {
+  return createWorkspaceCommand(kind, label, {
     event: toJsonValue(event),
     field,
     previousTick,
@@ -682,7 +640,7 @@ function updateTimelineEventSnapshotCommand<TEvent extends { tick: Tick }>(
   })
 }
 
-function applyCommandPayload(workspace: Workspace, kind: CommandKind, payload: CommandPayload): Workspace {
+function applyCommandPayload(workspace: Workspace, kind: WorkspaceCommandKind, payload: CommandPayload): Workspace {
   switch (kind) {
     case 'addBlock':
     case 'deleteBlock':
@@ -1006,8 +964,8 @@ function requireTimelineEvent<TEvent extends { tick: Tick }>(
   return event
 }
 
-function createEditorCommand(
-  kind: CommandKind,
+function createWorkspaceCommand(
+  kind: WorkspaceCommandKind,
   label: string,
   payload: CommandPayload,
   inverse?: CommandPayload,
@@ -1015,14 +973,15 @@ function createEditorCommand(
   const sequence = commandSequence
   commandSequence += 1
 
-  return createCommand({
+  return {
     createdAt: new Date().toISOString(),
     id: `editor_command_${sequence}`,
     inverse,
     kind,
     label,
     payload,
-  })
+    target: 'workspace',
+  }
 }
 
 function createUniqueId(prefix: string, existingIds: Set<string>): string {

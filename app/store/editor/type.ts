@@ -148,10 +148,9 @@ export type InspectorDraft = TimelineEventDraft & {
   sectionName: string
 }
 
-export type EditorState = {
+export type Editor = {
   activeTool: ActiveTool
   clipboard: ClipboardState
-  dragState?: DragState
   focusedBlockId?: BlockId
   hoveredChord?: ChordSymbol
   inspector: InspectorState

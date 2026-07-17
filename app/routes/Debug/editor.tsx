@@ -16,18 +16,12 @@ import {
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
-import { useCommandHistory } from '~/components/Providers/CommandHistoryProvider'
-import { useEditorState } from '~/components/Providers/EditorStateProvider'
+import { useSession } from '~/components/Providers/SessionProvider'
 import {
   type Block,
-  type Command,
-  COMMAND_KINDS,
-  type CommandKind,
-  type CommandPayload,
   createBlock,
   createChordEvent,
   createChordSymbol,
-  createCommand,
   createDrumHitEvent,
   createNoteEvent,
   createPattern,
@@ -42,9 +36,22 @@ import {
 import {
   ACTIVE_TOOLS,
   type ActiveTool,
-  type EditorState,
+  type Editor,
   INSPECTOR_PANELS,
+  setEditorActiveToolCommand,
+  setEditorInspectorPanelCommand,
+  setEditorSelectionCommand,
 } from '~/store/editor'
+import {
+  type Command,
+  COMMAND_KINDS,
+  type CommandKind,
+  type CommandPayload,
+  EDITOR_COMMAND_KINDS,
+  type EditorCommandKind,
+  type WorkspaceCommandKind,
+} from '~/store/session'
+import type { Workspace } from '~/store/workspace'
 
 const DISABLED_ACTIVE_TOOLS = new Set<ActiveTool>([
   'hand',
@@ -57,7 +64,7 @@ const DISABLED_ACTIVE_TOOLS = new Set<ActiveTool>([
   'tempo',
 ])
 const TICK_WIDTH = 0.09
-type SelectionField = keyof EditorState['selection']
+type SelectionField = keyof Editor['selection']
 
 const MOCK_SECTIONS = [
   createSection({
@@ -223,21 +230,38 @@ export default function Editor() {
 }
 
 function EditorDebugContent() {
-  const { editorState, setActiveTool, setEditorState, setInspectorPanel } = useEditorState()
   const {
     canRedo,
     canUndo,
     commandHistory,
-    pushCommand,
-    redoCommand,
-    undoCommand,
-  } = useCommandHistory()
+    dispatch,
+    editor,
+    redo,
+    undo,
+    workspace,
+  } = useSession()
   const [commandSequence, setCommandSequence] = useState(1)
 
-  function handlePushCommand(kind: CommandKind, payload?: CommandPayload) {
-    const command = createDebugCommand(kind, commandSequence, editorState, payload)
+  function setActiveTool(tool: ActiveTool) {
+    dispatch(setEditorActiveToolCommand(editor, tool))
+  }
 
-    pushCommand(command)
+  function setInspectorPanel(panel: Editor['inspector']['panel']) {
+    if (panel !== undefined) {
+      dispatch(setEditorInspectorPanelCommand(editor, panel))
+    }
+  }
+
+  function handlepushHistoryCommand(kind: CommandKind, payload?: CommandPayload) {
+    const command = createDebugCommand(
+      kind,
+      commandSequence,
+      editor,
+      workspace,
+      payload,
+    )
+
+    dispatch(command)
     setCommandSequence(currentSequence => currentSequence + 1)
   }
 
@@ -252,33 +276,33 @@ function EditorDebugContent() {
     id: string
     payload?: CommandPayload
   }) {
-    if (editorState.activeTool === 'select') {
-      setEditorState(currentState => ({
-        ...currentState,
-        selection: selectOnly(currentState.selection, field, id),
-      }))
+    if (editor.activeTool === 'select') {
+      dispatch(setEditorSelectionCommand(
+        editor,
+        selectOnly(editor.selection, field, id),
+      ))
 
       return
     }
 
-    if (editorState.activeTool === 'drawBlock' || editorState.activeTool === 'drawSection') {
-      setEditorState(currentState => ({
-        ...currentState,
-        selection: toggleOnly(currentState.selection, field, id),
-      }))
+    if (editor.activeTool === 'drawBlock' || editor.activeTool === 'drawSection') {
+      dispatch(setEditorSelectionCommand(
+        editor,
+        toggleOnly(editor.selection, field, id),
+      ))
 
       return
     }
 
-    if (editorState.activeTool === 'erase') {
+    if (editor.activeTool === 'erase') {
       if (deleteCommandKind !== undefined) {
-        handlePushCommand(deleteCommandKind, payload)
+        handlepushHistoryCommand(deleteCommandKind, payload)
       }
 
-      setEditorState(currentState => ({
-        ...currentState,
-        selection: removeSelectedId(currentState.selection, field, id),
-      }))
+      dispatch(setEditorSelectionCommand(
+        editor,
+        removeSelectedId(editor.selection, field, id),
+      ))
     }
   }
 
@@ -344,7 +368,7 @@ function EditorDebugContent() {
                 key={tool}
                 disabled={DISABLED_ACTIVE_TOOLS.has(tool)}
                 size="xs"
-                variant={editorState.activeTool === tool ? 'filled' : 'light'}
+                variant={editor.activeTool === tool ? 'filled' : 'light'}
                 onClick={() => setActiveTool(tool)}
               >
                 {tool}
@@ -356,7 +380,7 @@ function EditorDebugContent() {
         <DebugPanel title="Mock Arrangement">
           <MockArrangement
             blocks={MOCK_BLOCKS}
-            editorState={editorState}
+            editor={editor}
             onBlockClick={handleMockBlockClick}
             onPatternEventClick={handleMockPatternEventClick}
             onSectionClick={handleMockSectionClick}
@@ -372,7 +396,7 @@ function EditorDebugContent() {
               <Button
                 key={panel}
                 size="xs"
-                variant={editorState.inspector.panel === panel && editorState.inspector.open ? 'filled' : 'light'}
+                variant={editor.inspector.panel === panel && editor.inspector.open ? 'filled' : 'light'}
                 onClick={() => setInspectorPanel(panel)}
               >
                 {panel}
@@ -382,8 +406,8 @@ function EditorDebugContent() {
         </DebugPanel>
 
         <SimpleGrid cols={{ base: 1, md: 2 }}>
-          <DebugPanel title="EditorState JSON">
-            <JsonBlock value={editorState} />
+          <DebugPanel title="Editor JSON">
+            <JsonBlock value={editor} />
           </DebugPanel>
           <DebugPanel title="CommandHistory JSON">
             <JsonBlock value={commandHistory} />
@@ -392,7 +416,7 @@ function EditorDebugContent() {
         <DebugPanel title="CommandKind">
           <Group gap="xs">
             {COMMAND_KINDS.map(kind => (
-              <Button key={kind} size="xs" variant="light" onClick={() => handlePushCommand(kind)}>
+              <Button key={kind} size="xs" variant="light" onClick={() => handlepushHistoryCommand(kind)}>
                 {kind}
               </Button>
             ))}
@@ -405,7 +429,7 @@ function EditorDebugContent() {
               disabled={!canUndo}
               size="xs"
               variant="light"
-              onClick={undoCommand}
+              onClick={undo}
             >
               Undo
             </Button>
@@ -413,7 +437,7 @@ function EditorDebugContent() {
               disabled={!canRedo}
               size="xs"
               variant="light"
-              onClick={redoCommand}
+              onClick={redo}
             >
               Redo
             </Button>
@@ -432,30 +456,77 @@ function EditorDebugContent() {
 function createDebugCommand(
   kind: CommandKind,
   sequence: number,
-  editorState: EditorState,
+  editor: Editor,
+  workspace: Workspace,
   payload: CommandPayload = {},
 ): Command {
-  return createCommand({
+  if (EDITOR_COMMAND_KINDS.includes(kind as EditorCommandKind)) {
+    const editorPayload = createEditorDebugCommandPayload(
+      kind as EditorCommandKind,
+      editor,
+    )
+
+    return {
+      createdAt: new Date().toISOString(),
+      id: `debug_command_${sequence}`,
+      inverse: editorPayload,
+      kind: kind as EditorCommandKind,
+      label: kind,
+      payload: editorPayload,
+      target: 'editor',
+    }
+  }
+
+  const workspacePayload: CommandPayload = kind === 'setGridDivision'
+    ? { grid: workspace.timeline.grid }
+    : {}
+
+  return {
     createdAt: new Date().toISOString(),
     id: `debug_command_${sequence}`,
-    kind,
+    inverse: kind === 'setGridDivision'
+      ? { grid: workspace.timeline.grid }
+      : undefined,
+    kind: kind as WorkspaceCommandKind,
     label: kind,
     payload: {
-      activeTool: editorState.activeTool,
-      inspectorOpen: editorState.inspector.open,
-      inspectorPanel: editorState.inspector.panel ?? null,
-      selectedBlockIds: editorState.selection.selectedBlockIds,
-      selectedPatternEventIds: editorState.selection.selectedPatternEventIds,
-      selectedSectionIds: editorState.selection.selectedSectionIds,
-      selectedTimelineEventIds: editorState.selection.selectedTimelineEventIds,
-      selectedTrackIds: editorState.selection.selectedTrackIds,
+      activeTool: editor.activeTool,
+      inspectorOpen: editor.inspector.open,
+      inspectorPanel: editor.inspector.panel ?? null,
+      selectedBlockIds: editor.selection.selectedBlockIds,
+      selectedPatternEventIds: editor.selection.selectedPatternEventIds,
+      selectedSectionIds: editor.selection.selectedSectionIds,
+      selectedTimelineEventIds: editor.selection.selectedTimelineEventIds,
+      selectedTrackIds: editor.selection.selectedTrackIds,
       sequence,
+      ...workspacePayload,
       ...payload,
     },
-  })
+    target: 'workspace',
+  }
 }
 
-function createEmptySelection(selection: EditorState['selection']): EditorState['selection'] {
+function createEditorDebugCommandPayload(
+  kind: EditorCommandKind,
+  editor: Editor,
+): CommandPayload {
+  switch (kind) {
+    case 'setActiveTool':
+      return { activeTool: editor.activeTool }
+    case 'setClipboard':
+      return { clipboard: editor.clipboard as never }
+    case 'setFocusedBlockId':
+      return { focusedBlockId: editor.focusedBlockId ?? null }
+    case 'setHoveredChord':
+      return { hoveredChord: editor.hoveredChord as never ?? null }
+    case 'setInspector':
+      return { inspector: editor.inspector as never }
+    case 'setSelection':
+      return { selection: editor.selection as never }
+  }
+}
+
+function createEmptySelection(selection: Editor['selection']): Editor['selection'] {
   return {
     ...selection,
     selectedBlockIds: [],
@@ -466,14 +537,14 @@ function createEmptySelection(selection: EditorState['selection']): EditorState[
   }
 }
 
-function selectOnly(selection: EditorState['selection'], field: SelectionField, id: string): EditorState['selection'] {
+function selectOnly(selection: Editor['selection'], field: SelectionField, id: string): Editor['selection'] {
   return {
     ...createEmptySelection(selection),
     [field]: [id],
   }
 }
 
-function toggleOnly(selection: EditorState['selection'], field: SelectionField, id: string): EditorState['selection'] {
+function toggleOnly(selection: Editor['selection'], field: SelectionField, id: string): Editor['selection'] {
   const selectedIds = selection[field]
 
   return {
@@ -484,7 +555,7 @@ function toggleOnly(selection: EditorState['selection'], field: SelectionField, 
   }
 }
 
-function removeSelectedId(selection: EditorState['selection'], field: SelectionField, id: string): EditorState['selection'] {
+function removeSelectedId(selection: Editor['selection'], field: SelectionField, id: string): Editor['selection'] {
   return {
     ...selection,
     [field]: selection[field].filter(selectedId => selectedId !== id),
@@ -493,7 +564,7 @@ function removeSelectedId(selection: EditorState['selection'], field: SelectionF
 
 function MockArrangement({
   blocks,
-  editorState,
+  editor,
   onBlockClick,
   onPatternEventClick,
   onSectionClick,
@@ -502,7 +573,7 @@ function MockArrangement({
   sections,
 }: {
   blocks: Block[]
-  editorState: EditorState
+  editor: Editor
   onBlockClick: (block: Block) => void
   onPatternEventClick: (patternEvent: PatternEvent, pattern: Pattern, block: Block) => void
   onSectionClick: (section: Section) => void
@@ -530,7 +601,7 @@ function MockArrangement({
           {sections.map(section => (
             <Box
               key={section.id}
-              aria-pressed={editorState.selection.selectedSectionIds.includes(section.id)}
+              aria-pressed={editor.selection.selectedSectionIds.includes(section.id)}
               component="button"
               onClick={() => onSectionClick(section)}
               style={{
@@ -540,7 +611,7 @@ function MockArrangement({
                 cursor: 'pointer',
                 height: 32,
                 left: section.startTick * TICK_WIDTH,
-                outline: editorState.selection.selectedSectionIds.includes(section.id) ? '3px solid var(--mantine-color-blue-5)' : undefined,
+                outline: editor.selection.selectedSectionIds.includes(section.id) ? '3px solid var(--mantine-color-blue-5)' : undefined,
                 padding: '6px 8px',
                 position: 'absolute',
                 textAlign: 'left',
@@ -564,7 +635,7 @@ function MockArrangement({
               borderRadius: 4,
               cursor: 'pointer',
               height: 94,
-              outline: editorState.selection.selectedTrackIds.includes(trackId) ? '3px solid var(--mantine-color-green-5)' : undefined,
+              outline: editor.selection.selectedTrackIds.includes(trackId) ? '3px solid var(--mantine-color-green-5)' : undefined,
               position: 'relative',
             }}
           >
@@ -583,7 +654,7 @@ function MockArrangement({
             {blocks
               .filter(block => block.trackId === trackId)
               .map((block) => {
-                const isSelected = editorState.selection.selectedBlockIds.includes(block.id)
+                const isSelected = editor.selection.selectedBlockIds.includes(block.id)
                 const pattern = patternById.get(block.patternId)
 
                 return (
@@ -620,7 +691,7 @@ function MockArrangement({
                     {pattern !== undefined && (
                       <PatternEventsStrip
                         block={block}
-                        editorState={editorState}
+                        editor={editor}
                         onPatternEventClick={onPatternEventClick}
                         pattern={pattern}
                       />
@@ -637,12 +708,12 @@ function MockArrangement({
 
 function PatternEventsStrip({
   block,
-  editorState,
+  editor,
   onPatternEventClick,
   pattern,
 }: {
   block: Block
-  editorState: EditorState
+  editor: Editor
   onPatternEventClick: (patternEvent: PatternEvent, pattern: Pattern, block: Block) => void
   pattern: Pattern
 }) {
@@ -659,7 +730,7 @@ function PatternEventsStrip({
       }}
     >
       {markers.map(({ cycleStartTick, event, leftPercent, width }) => {
-        const isSelected = editorState.selection.selectedPatternEventIds.includes(event.id)
+        const isSelected = editor.selection.selectedPatternEventIds.includes(event.id)
 
         return (
           <Box

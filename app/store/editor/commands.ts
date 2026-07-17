@@ -1,20 +1,39 @@
 import {
   createArrangementBlockDraft,
   createArrangementSectionDraft,
+  createInspectorState,
   createSelectionState,
 } from './factory'
-import { snapTimelineRange, snapTimelineTick, snapToMinimumTimelineRange } from './snap'
+import {
+  addBlockToSelection,
+  addSectionToSelection,
+  addTimelineEventToSelection,
+  setActiveTool,
+  setClipboard,
+  setFocusedBlockId,
+  setHoveredChord,
+  setInspector,
+  setSelection,
+} from './operations'
+import {
+  snapTimelineRange,
+  snapTimelineTick,
+  snapToMinimumTimelineRange,
+} from './snap'
 import type {
   ActiveTool,
   ClipboardState,
   DragState,
+  Editor,
   InspectorDraft,
+  InspectorPanel,
+  InspectorState,
   SelectionState,
   TimelineEventDraft,
 } from './type'
 import {
   type Block,
-  type Command,
+  type BlockId,
   createDraftEntityId,
   createKeyEvent,
   createMeterEvent,
@@ -27,10 +46,18 @@ import {
   isTempoEvent,
   type Key,
   type Section,
+  type SectionId,
   type Tick,
   type TimelineEvent,
+  type TimelineEventId,
   type TrackId,
 } from '~/domain'
+import {
+  type Command,
+  type CommandPayload,
+  type EditorCommand,
+  type EditorCommandKind,
+} from '~/store/session/command'
 import {
   addBlockCommand,
   addKeyEventCommand,
@@ -66,6 +93,176 @@ import {
   updateTempoEventCommand,
   type Workspace,
 } from '~/store/workspace'
+
+let editorCommandSequence = 1
+
+export function applyEditorCommand(
+  editor: Editor,
+  command: EditorCommand,
+  useInverse = false,
+): Editor {
+  const payload = useInverse ? command.inverse : command.payload
+
+  if (payload === undefined) {
+    return editor
+  }
+
+  switch (command.kind) {
+    case 'setActiveTool':
+      return setActiveTool(editor, payload.activeTool as ActiveTool)
+    case 'setClipboard':
+      return setClipboard(editor, payload.clipboard as ClipboardState)
+    case 'setFocusedBlockId':
+      return setFocusedBlockId(
+        editor,
+        typeof payload.focusedBlockId === 'string'
+          ? payload.focusedBlockId
+          : undefined,
+      )
+    case 'setHoveredChord':
+      return setHoveredChord(
+        editor,
+        payload.hoveredChord === null
+          ? undefined
+          : payload.hoveredChord as Editor['hoveredChord'],
+      )
+    case 'setInspector':
+      return setInspector(editor, payload.inspector as InspectorState)
+    case 'setSelection':
+      return setSelection(editor, payload.selection as SelectionState)
+  }
+}
+
+export function setEditorActiveToolCommand(
+  editor: Editor,
+  tool: ActiveTool,
+): EditorCommand {
+  return createEditorCommand(
+    'setActiveTool',
+    `Set active tool to ${tool}`,
+    { activeTool: tool },
+    { activeTool: editor.activeTool },
+  )
+}
+
+export function setEditorHoveredChordCommand(
+  editor: Editor,
+  hoveredChord: Editor['hoveredChord'],
+): EditorCommand {
+  return createEditorCommand(
+    'setHoveredChord',
+    hoveredChord === undefined ? 'Clear hovered chord' : 'Set hovered chord',
+    { hoveredChord: hoveredChord === undefined ? null : hoveredChord },
+    { hoveredChord: editor.hoveredChord === undefined ? null : editor.hoveredChord },
+  )
+}
+
+export function setEditorClipboardCommand(
+  editor: Editor,
+  clipboard: ClipboardState,
+): EditorCommand {
+  return createEditorCommand(
+    'setClipboard',
+    'Update clipboard',
+    { clipboard: clipboard },
+    { clipboard: editor.clipboard },
+  )
+}
+
+export function setEditorFocusedBlockIdCommand(
+  editor: Editor,
+  blockId?: string,
+): EditorCommand {
+  return createEditorCommand(
+    'setFocusedBlockId',
+    blockId === undefined ? 'Clear focused block' : `Focus block ${blockId}`,
+    { focusedBlockId: blockId ?? null },
+    { focusedBlockId: editor.focusedBlockId ?? null },
+  )
+}
+
+export function setEditorInspectorPanelCommand(
+  editor: Editor,
+  panel: InspectorPanel,
+): EditorCommand {
+  return createEditorCommand(
+    'setInspector',
+    `Open ${panel} inspector`,
+    { inspector: { open: true, panel } },
+    { inspector: editor.inspector },
+  )
+}
+
+export function closeEditorInspectorCommand(editor: Editor): EditorCommand {
+  return createEditorCommand(
+    'setInspector',
+    'Close inspector',
+    { inspector: createInspectorState() },
+    { inspector: editor.inspector },
+  )
+}
+
+export function selectEditorBlockCommand(
+  editor: Editor,
+  blockId: BlockId,
+  additive = false,
+): EditorCommand {
+  const nextEditor = addBlockToSelection(editor, blockId, additive)
+
+  return setEditorSelectionCommand(editor, nextEditor.selection)
+}
+
+export function selectEditorSectionCommand(
+  editor: Editor,
+  sectionId: SectionId,
+  additive = false,
+): EditorCommand {
+  const nextEditor = addSectionToSelection(editor, sectionId, additive)
+
+  return setEditorSelectionCommand(editor, nextEditor.selection)
+}
+
+export function selectEditorTimelineEventCommand(
+  editor: Editor,
+  timelineEventId: TimelineEventId,
+  additive = false,
+): EditorCommand {
+  const nextEditor = addTimelineEventToSelection(editor, timelineEventId, additive)
+
+  return setEditorSelectionCommand(editor, nextEditor.selection)
+}
+
+export function setEditorSelectionCommand(
+  editor: Editor,
+  selection: SelectionState,
+): EditorCommand {
+  return createEditorCommand(
+    'setSelection',
+    'Update selection',
+    { selection: selection },
+    { selection: editor.selection },
+  )
+}
+
+function createEditorCommand(
+  kind: EditorCommandKind,
+  label: string,
+  payload: CommandPayload,
+  inverse: CommandPayload,
+): EditorCommand {
+  const sequence = editorCommandSequence
+  editorCommandSequence += 1
+
+  return {
+    createdAt: new Date().toISOString(),
+    id: `editor_command_${sequence}`,
+    inverse,
+    kind,
+    label,
+    payload,
+    target: 'editor',
+  }
+}
 
 export function createDeleteSelectionCommands(input: {
   selection: SelectionState

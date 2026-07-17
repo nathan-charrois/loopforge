@@ -1,5 +1,4 @@
 export * from './arrangement'
-export * from './editing'
 export * from './harmony'
 export * from './musicPrimitives'
 export * from './patternEvents'

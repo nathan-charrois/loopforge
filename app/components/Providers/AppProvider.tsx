@@ -1,7 +1,8 @@
 import { MantineProvider } from '@mantine/core'
 
-import { CommandHistoryProvider } from './CommandHistoryProvider'
-import { EditorStateProvider } from './EditorStateProvider'
+import { SessionProvider } from './SessionProvider'
+import { createEditor } from '~/store/editor'
+import { createWorkspace } from '~/store/workspace'
 import theme from '~/utils/theme'
 
 type Props = {
@@ -11,11 +12,12 @@ type Props = {
 export default function AppProvider({ children }: Props) {
   return (
     <MantineProvider theme={theme}>
-      <EditorStateProvider>
-        <CommandHistoryProvider>
-          {children}
-        </CommandHistoryProvider>
-      </EditorStateProvider>
+      <SessionProvider
+        createInitialEditor={createEditor}
+        createInitialWorkspace={createWorkspace}
+      >
+        {children}
+      </SessionProvider>
     </MantineProvider>
   )
 }

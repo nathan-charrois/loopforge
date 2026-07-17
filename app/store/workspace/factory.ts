@@ -5,9 +5,9 @@ import type { Workspace } from './type'
 import { type Block, createBlock, createDefaultArrangement, createSection } from '~/domain/arrangement'
 import { createChordSymbol, createDefaultKey } from '~/domain/harmony'
 import type { PitchClass } from '~/domain/musicPrimitives'
-import { createChordEvent } from '~/domain/patternEvents'
+import { createAutomationEvent, createChordEvent, createDrumHitEvent, createNoteEvent } from '~/domain/patternEvents'
 import { createPattern, createSeedPatternEvents, type Pattern } from '~/domain/patterns'
-import { createProject, createProjectMetadata, createProjectVersion, type ProjectMetadata, type ProjectVersion, touchProject } from '~/domain/project'
+import { createProject, createProjectMetadata, createProjectVersion, touchProject } from '~/domain/project'
 import {
   createDefaultTimeline,
   createKeyEvent,
@@ -15,36 +15,15 @@ import {
   createTempoEvent,
   createTimeline,
   PPQ,
-  type Timeline,
   type TimeSignatureDenominator,
 } from '~/domain/timeline'
 import { createDefaultTracks, createTrack, getPatternKindForTrack, type Track, type TrackRole } from '~/domain/tracks'
 
-export function createWorkspace(input: {
-  name: string
-  id?: string
-  createdAt?: string
-  updatedAt?: string
-  metadata?: ProjectMetadata
-  version?: ProjectVersion
-  timeline?: Timeline
-  arrangement?: Workspace['arrangement']
-  tracks?: EntityStore<Track> | readonly Track[]
-  patterns?: EntityStore<Pattern> | readonly Pattern[]
-}): Workspace {
-  const project = createProject({
-    createdAt: input.createdAt,
-    id: input.id,
-    metadata: input.metadata,
-    name: input.name,
-    updatedAt: input.updatedAt,
-    version: input.version,
-  })
-
+export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
   return {
     arrangement: input.arrangement ?? createDefaultArrangement(),
     patterns: normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>()),
-    project,
+    project: createProject(),
     timeline: input.timeline ?? createDefaultTimeline(),
     tracks: normalizeEntityStore(input.tracks, createEntityStore(createDefaultTracks())),
   }
@@ -59,13 +38,16 @@ export function createWorkspaceForPlayback(input: {
   const now = new Date().toISOString()
 
   return createWorkspace({
-    createdAt: now,
-    updatedAt: now,
-    id: `project_${Date.now()}`,
-    metadata: createProjectMetadata({
-      tags: ['playback'],
+    project: createProject({
+      createdAt: now,
+      updatedAt: now,
+      id: `project_${Date.now()}`,
+      metadata: createProjectMetadata({
+        tags: ['playback'],
+      }),
+      name: input.name,
+      version: createProjectVersion(),
     }),
-    name: input.name,
     timeline: createTimeline({
       keyEvents: [createKeyEvent({ key: createDefaultKey(), tick: 0 })],
       meterEvents: [createMeterEvent({
@@ -78,7 +60,6 @@ export function createWorkspaceForPlayback(input: {
       tempoEvents: [createTempoEvent({ bpm: input.bpm, tick: 0 })],
     }),
 
-    version: createProjectVersion(),
   })
 }
 
@@ -202,6 +183,291 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
     project: touchProject(sourceWorkspace.project),
     tracks: createEntityStore(tracks),
   }
+}
+
+export function createInitialWorkspace(): Workspace {
+  return createWorkspace({
+    arrangement: {
+      blocks: [
+        createBlock({
+          color: '#4c6ef5',
+          id: 'debug_block_intro_chords',
+          lengthTicks: 3840,
+          name: 'Intro Chords',
+          patternId: 'debug_pattern_chords',
+          playbackMode: 'loop',
+          startTick: 0,
+          trackId: 'debug_track_chords',
+        }),
+        createBlock({
+          color: '#15aabf',
+          id: 'debug_block_verse_bass',
+          lengthTicks: 3840,
+          name: 'Verse Bass',
+          patternId: 'debug_pattern_bass',
+          playbackMode: 'stretch',
+          startTick: 3840,
+          trackId: 'debug_track_bass',
+        }),
+        createBlock({
+          color: '#f59f00',
+          id: 'debug_block_verse_drums',
+          lengthTicks: 3840,
+          name: 'Verse Drums',
+          patternId: 'debug_pattern_drums',
+          playbackMode: 'loop',
+          startTick: 3840,
+          trackId: 'debug_track_drums',
+        }),
+        createBlock({
+          color: '#40c057',
+          id: 'debug_block_bridge_lead',
+          lengthTicks: 3840,
+          name: 'Bridge Lead',
+          patternId: 'debug_pattern_lead',
+          playbackMode: 'oneShot',
+          startTick: 7680,
+          trackId: 'debug_track_lead',
+        }),
+        createBlock({
+          color: '#7950f2',
+          id: 'debug_block_bridge_filter',
+          lengthTicks: 3840,
+          name: 'Bridge Filter',
+          patternId: 'debug_pattern_filter',
+          playbackMode: 'stretch',
+          startTick: 7680,
+          trackId: 'debug_track_automation',
+        }),
+        createBlock({
+          color: '#f25086',
+          id: 'debug_block_outro_chords_1',
+          lengthTicks: 1920,
+          name: 'Outro Lead',
+          patternId: 'debug_pattern_chords',
+          playbackMode: 'stretch',
+          startTick: 11520,
+          trackId: 'debug_track_chords',
+        }),
+        createBlock({
+          color: '#f25086',
+          id: 'debug_block_outro_chords_2',
+          lengthTicks: 1920,
+          name: 'Outro Lead',
+          patternId: 'debug_pattern_chords',
+          playbackMode: 'stretch',
+          startTick: 13440,
+          trackId: 'debug_track_chords',
+        }),
+        createBlock({
+          color: '#f25086',
+          id: 'debug_block_outro_chords_3',
+          lengthTicks: 1920,
+          name: 'Outro Lead',
+          patternId: 'debug_pattern_chords',
+          playbackMode: 'stretch',
+          startTick: 15360,
+          trackId: 'debug_track_chords',
+        }),
+      ],
+      sections: [
+        createSection({
+          id: 'debug_section_intro',
+          lengthTicks: 3840,
+          name: 'Intro',
+          startTick: 0,
+        }),
+        createSection({
+          id: 'debug_section_verse',
+          lengthTicks: 3840,
+          name: 'Verse',
+          startTick: 3840,
+        }),
+        createSection({
+          id: 'debug_section_bridge',
+          lengthTicks: 3840,
+          name: 'Bridge',
+          startTick: 7680,
+        }),
+        createSection({
+          id: 'debug_section_outro',
+          lengthTicks: 5760,
+          name: 'Outro',
+          startTick: 11520,
+        }),
+      ],
+    },
+    patterns: createEntityStore([
+      createPattern({
+        events: [
+          createChordEvent({
+            chord: createChordSymbol({ extensions: ['7'], quality: 'minor', root: 0 }),
+            durationTicks: PPQ * 2,
+            id: 'debug_event_chord_1',
+            playback: { recipeId: 'block_staggered' },
+            timeTick: 0,
+            velocity: 96,
+          }),
+          createChordEvent({
+            chord: createChordSymbol({ quality: 'major', root: 5 }),
+            durationTicks: PPQ * 2,
+            id: 'debug_event_chord_2',
+            playback: { recipeId: 'pop_ostinato' },
+            timeTick: PPQ * 2,
+            velocity: 90,
+          }),
+        ],
+        id: 'debug_pattern_chords',
+        kind: 'chord',
+        lengthTicks: PPQ * 4,
+        name: 'Two Chord Recipe',
+      }),
+      createPattern({
+        events: [
+          createNoteEvent({
+            durationTicks: PPQ / 2,
+            id: 'debug_event_bass_1',
+            pitch: 36,
+            timeTick: 0,
+            velocity: 100,
+          }),
+          createNoteEvent({
+            durationTicks: PPQ / 2,
+            id: 'debug_event_bass_2',
+            pitch: 43,
+            timeTick: PPQ / 2,
+            velocity: 92,
+          }),
+        ],
+        id: 'debug_pattern_bass',
+        kind: 'note',
+        lengthTicks: PPQ,
+        name: 'Bass Pulse',
+      }),
+      createPattern({
+        events: [
+          createDrumHitEvent({
+            id: 'debug_event_drum_1',
+            kitPiece: 'kick',
+            timeTick: 0,
+            velocity: 118,
+          }),
+          createDrumHitEvent({
+            id: 'debug_event_drum_2',
+            kitPiece: 'hat',
+            timeTick: PPQ / 2,
+            velocity: 72,
+          }),
+          createDrumHitEvent({
+            id: 'debug_event_drum_3',
+            kitPiece: 'snare',
+            timeTick: PPQ,
+            velocity: 104,
+          }),
+          createDrumHitEvent({
+            id: 'debug_event_drum_4',
+            kitPiece: 'hat',
+            timeTick: PPQ + (PPQ / 2),
+            velocity: 76,
+          }),
+        ],
+        id: 'debug_pattern_drums',
+        kind: 'drum',
+        lengthTicks: PPQ * 2,
+        name: 'Backbeat',
+      }),
+      createPattern({
+        events: [
+          createNoteEvent({
+            durationTicks: PPQ,
+            id: 'debug_event_lead_1',
+            pitch: 72,
+            timeTick: 0,
+            velocity: 88,
+          }),
+          createNoteEvent({
+            durationTicks: PPQ,
+            id: 'debug_event_lead_2',
+            pitch: 76,
+            timeTick: PPQ,
+            velocity: 84,
+          }),
+        ],
+        id: 'debug_pattern_lead',
+        kind: 'note',
+        lengthTicks: PPQ * 5,
+        name: 'Lead One Shot',
+      }),
+      createPattern({
+        events: [
+          createAutomationEvent({
+            id: 'debug_event_filter_1',
+            parameter: 'filterCutoff',
+            timeTick: 0,
+            value: 0.28,
+          }),
+          createAutomationEvent({
+            id: 'debug_event_filter_2',
+            parameter: 'filterCutoff',
+            timeTick: PPQ * 2,
+            value: 0.72,
+          }),
+        ],
+        id: 'debug_pattern_filter',
+        kind: 'automation',
+        lengthTicks: PPQ * 5,
+        name: 'Filter Rise',
+      }),
+    ]),
+    timeline: createTimeline({
+      grid: 'eighthNote',
+      keyEvents: [
+        createKeyEvent({ key: { mode: 'major', tonic: 0 }, tick: 0 }),
+      ],
+      meterEvents: [
+        createMeterEvent({
+          tick: 0,
+          timeSignature: { denominator: 4, numerator: 4 },
+        }),
+      ],
+      tempoEvents: [
+        createTempoEvent({ bpm: 120, tick: 0 }),
+      ],
+    }),
+    tracks: createEntityStore([
+      createTrack({
+        color: '#4c6ef5',
+        id: 'debug_track_chords',
+        name: 'Chords',
+        role: 'chords',
+      }),
+      createTrack({
+        color: '#15aabf',
+        id: 'debug_track_bass',
+        name: 'Bass',
+        role: 'bass',
+      }),
+      createTrack({
+        color: '#f59f00',
+        id: 'debug_track_drums',
+        name: 'Drums',
+        role: 'drums',
+      }),
+      createTrack({
+        color: '#40c057',
+        id: 'debug_track_lead',
+        name: 'Lead',
+        role: 'melody',
+      }),
+      createTrack({
+        accepts: ['automation'],
+        color: '#7950f2',
+        id: 'debug_track_automation',
+        name: 'Automation',
+        role: 'melody',
+      }),
+    ]),
+  })
 }
 
 export function summarizeWorkspaceAction(workspace: Workspace): Record<string, number | string> {

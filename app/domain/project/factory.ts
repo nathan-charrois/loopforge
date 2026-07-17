@@ -14,7 +14,7 @@ export function createProjectVersion(input: Partial<ProjectVersion> = {}): Proje
   }
 }
 
-export function createProject(input: Partial<Project>): Project {
+export function createProject(input: Partial<Project> = {}): Project {
   const createdAt = input.createdAt ?? new Date().toISOString()
 
   return {

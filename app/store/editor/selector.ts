@@ -1,26 +1,26 @@
 import { selectBlock, selectSection, selectTimelineEvent, type Workspace } from '../workspace'
-import type { EditorState, SelectionState } from './type'
+import type { Editor, SelectionState } from './type'
 import type { Block, Section, TimelineEvent } from '~/domain'
 
-export function selectFirstSelectedBlock(editorState: EditorState, workspace: Workspace): Block | undefined {
-  if (editorState.selection.selectedBlockIds.length === 1) {
-    return selectBlock(workspace, editorState.selection.selectedBlockIds[0])
+export function selectFirstSelectedBlock(editor: Editor, workspace: Workspace): Block | undefined {
+  if (editor.selection.selectedBlockIds.length === 1) {
+    return selectBlock(workspace, editor.selection.selectedBlockIds[0])
   }
 
   return undefined
 }
 
-export function selectFirstSelectedSection(editorState: EditorState, workspace: Workspace): Section | undefined {
-  if (editorState.selection.selectedSectionIds.length === 1) {
-    return selectSection(workspace, editorState.selection.selectedSectionIds[0])
+export function selectFirstSelectedSection(editor: Editor, workspace: Workspace): Section | undefined {
+  if (editor.selection.selectedSectionIds.length === 1) {
+    return selectSection(workspace, editor.selection.selectedSectionIds[0])
   }
 
   return undefined
 }
 
-export function selectFirstSelectedTimelineEvent(editorState: EditorState, workspace: Workspace): TimelineEvent | undefined {
-  if (editorState.selection.selectedTimelineEventIds.length === 1) {
-    return selectTimelineEvent(workspace, editorState.selection.selectedTimelineEventIds[0])
+export function selectFirstSelectedTimelineEvent(editor: Editor, workspace: Workspace): TimelineEvent | undefined {
+  if (editor.selection.selectedTimelineEventIds.length === 1) {
+    return selectTimelineEvent(workspace, editor.selection.selectedTimelineEventIds[0])
   }
 
   return undefined
