@@ -1,6 +1,8 @@
 import {
+  memo,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -88,7 +90,6 @@ import {
   ACTIVE_TOOLS,
   type ActiveTool,
   addBlockToSelection,
-  addPatternEventToSelection,
   addSectionToSelection,
   addTimelineEventToSelection,
   completeArrangementDrag,
@@ -238,6 +239,451 @@ function ArrangementDebugContent() {
     ))
   }, [selectedBlock, selectedSection, selectedTimelineEvent])
 
+  const runEditorCommands = useCallback((commands: Command[]) => {
+    if (commands.length === 0) {
+      return
+    }
+
+    try {
+      let nextWorkspace = workspace
+      let nextHistory = commandHistory
+
+      for (const command of commands) {
+        const result = executeCommand(nextWorkspace, nextHistory, command)
+        nextWorkspace = result.workspace
+        nextHistory = result.history
+      }
+
+      setWorkspace(nextWorkspace)
+      setCommandHistory(nextHistory)
+      setErrorMessage(undefined)
+    }
+    catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+    }
+  }, [commandHistory, setCommandHistory, workspace])
+
+  const handleUndo = useCallback(() => {
+    const result = undoCommand(workspace, commandHistory)
+
+    setWorkspace(result.workspace)
+    setCommandHistory(result.history)
+  }, [commandHistory, setCommandHistory, workspace])
+
+  const handleRedo = useCallback(() => {
+    const result = redoCommand(workspace, commandHistory)
+
+    setWorkspace(result.workspace)
+    setCommandHistory(result.history)
+  }, [commandHistory, setCommandHistory, workspace])
+
+  const updateSelection = useCallback((updater: (selection: SelectionState) => SelectionState) => {
+    setEditorState(currentState => ({
+      ...currentState,
+      selection: updater(currentState.selection),
+    }))
+  }, [setEditorState])
+
+  const selectEditorBlock = useCallback((blockId: string, additive: boolean) => {
+    setEditorState(currentState => addBlockToSelection(currentState, blockId, additive))
+  }, [setEditorState])
+
+  const selectEditorSection = useCallback((sectionId: string, additive: boolean) => {
+    setEditorState(currentState => addSectionToSelection(currentState, sectionId, additive))
+  }, [setEditorState])
+
+  const selectTimelineEvent = useCallback((timelineEventId: string, additive: boolean) => {
+    setEditorState(currentState => addTimelineEventToSelection(currentState, timelineEventId, additive))
+  }, [setEditorState])
+
+  const copySelection = useCallback(() => {
+    setEditorState(currentState => ({
+      ...currentState,
+      clipboard: copySelectionToClipboard(currentState),
+    }))
+  }, [setEditorState])
+
+  const pasteClipboard = useCallback(() => {
+    runEditorCommands(createPasteClipboardCommands({
+      clipboard: editorState.clipboard,
+      workspace,
+    }))
+  }, [editorState.clipboard, runEditorCommands, workspace])
+
+  const duplicateSelection = useCallback(() => {
+    runEditorCommands(createDuplicateSelectionCommands({
+      selection: editorState.selection,
+      workspace,
+    }))
+  }, [editorState.selection, runEditorCommands, workspace])
+
+  const deleteSelection = useCallback(() => {
+    runEditorCommands(createDeleteSelectionCommands({
+      selection: editorState.selection,
+      workspace,
+    }))
+  }, [editorState.selection, runEditorCommands, workspace])
+
+  const updateGridDivision = useCallback((grid: GridDivision) => {
+    runEditorCommands([setGridDivisionCommand(
+      workspace,
+      grid,
+    )])
+  }, [runEditorCommands, workspace])
+
+  const getTickFromClientX = useCallback((clientX: number, shouldSnap = true): Tick => {
+    if (timelineGridRef.current === null) {
+      return 0
+    }
+
+    const rect = timelineGridRef.current.getBoundingClientRect()
+    const rawTick = xToTick(viewport.pixelsPerTick, Math.max(0, clientX - rect.left))
+
+    return shouldSnap
+      ? snapTimelineTick(workspace.timeline, rawTick)
+      : rawTick
+  }, [viewport.pixelsPerTick, workspace.timeline])
+
+  const getTrackIdFromClientY = useCallback((clientY: number): string | undefined => {
+    if (trackRowsRef.current === null) {
+      return undefined
+    }
+
+    const rect = trackRowsRef.current.getBoundingClientRect()
+    const trackIndex = Math.floor((clientY - rect.top) / viewport.laneHeight)
+
+    return tracks[trackIndex]?.id
+  }, [tracks, viewport.laneHeight])
+
+  const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const tick = getTickFromClientX(event.clientX)
+
+    const toolCommands = createTimelineEventToolCommands(
+      workspace,
+      editorState.activeTool,
+      tick,
+    )
+
+    if (toolCommands.length > 0) {
+      runEditorCommands(toolCommands)
+      return
+    }
+  }, [editorState.activeTool, getTickFromClientX, runEditorCommands, workspace])
+
+  const handleSectionLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const tick = getTickFromClientX(event.clientX)
+
+    if (editorState.activeTool === 'drawSection') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDragState({
+        currentTick: getInitialDrawEndTick(workspace.timeline, tick),
+        kind: 'drawSection',
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startTick: tick,
+      })
+      return
+    }
+
+    if (editorState.activeTool === 'select') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDragState({
+        currentTick: tick,
+        kind: 'marquee',
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startTick: tick,
+      })
+    }
+  }, [editorState.activeTool, getTickFromClientX, workspace.timeline])
+
+  const handleTrackLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, trackId: string) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    const tick = getTickFromClientX(event.clientX)
+
+    if (editorState.activeTool === 'drawBlock') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDragState({
+        currentTick: getInitialDrawEndTick(workspace.timeline, tick),
+        kind: 'drawBlock',
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startTick: tick,
+        trackId,
+      })
+      return
+    }
+
+    if (editorState.activeTool === 'select') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDragState({
+        currentTick: tick,
+        kind: 'marquee',
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startTick: tick,
+      })
+    }
+  }, [editorState.activeTool, getTickFromClientX, workspace.timeline])
+
+  const handleTimelinePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragState === undefined || dragState.pointerId !== event.pointerId) {
+      return
+    }
+
+    if (
+      dragState.kind === 'drawBlock'
+      || dragState.kind === 'drawSection'
+      || dragState.kind === 'marquee'
+      || dragState.kind === 'moveBlock'
+      || dragState.kind === 'resizeBlock'
+      || dragState.kind === 'moveSection'
+      || dragState.kind === 'resizeSection'
+      || dragState.kind === 'moveTimelineEvent'
+    ) {
+      setDragState({
+        ...dragState,
+        currentTick: getTickFromClientX(event.clientX),
+        ...(dragState.kind === 'moveBlock'
+          ? { currentTrackId: getTrackIdFromClientY(event.clientY) }
+          : {}),
+      })
+    }
+  }, [dragState, getTickFromClientX, getTrackIdFromClientY])
+
+  const handleTimelinePointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragState === undefined || dragState.pointerId !== event.pointerId) {
+      return
+    }
+
+    const endTick = getTickFromClientX(event.clientX)
+    const movementX = Math.abs(event.clientX - getDragStartClientX(dragState))
+    const movementY = Math.abs(event.clientY - getDragStartClientY(dragState))
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    const result = completeArrangementDrag({
+      dragState,
+      endTick,
+      movementX,
+      movementY,
+      targetTrackId: getTrackIdFromClientY(event.clientY),
+      threshold: POINTER_DRAG_THRESHOLD,
+      workspace,
+    })
+
+    runEditorCommands(result.commands)
+
+    if (result.selection !== undefined) {
+      updateSelection(() => result.selection as SelectionState)
+    }
+
+    setDragState(undefined)
+  }, [dragState, getTickFromClientX, getTrackIdFromClientY, runEditorCommands, updateSelection, workspace])
+
+  const handleBlockPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, block: Block) => {
+    event.stopPropagation()
+
+    const toolCommands = createBlockToolCommands({
+      block,
+      tick: getTickFromClientX(event.clientX),
+      tool: editorState.activeTool,
+      workspace,
+    })
+
+    if (toolCommands.length > 0) {
+      runEditorCommands(toolCommands)
+      return
+    }
+
+    selectEditorBlock(block.id, event.shiftKey)
+
+    if (editorState.activeTool === 'select' || editorState.activeTool === 'move') {
+      const pointerTick = getTickFromClientX(event.clientX)
+      const selectedBlockIds = editorState.selection.selectedBlockIds.includes(block.id)
+        ? editorState.selection.selectedBlockIds
+        : [block.id]
+
+      event.currentTarget.setPointerCapture(event.pointerId)
+
+      setDragState({
+        kind: 'moveBlock',
+        blockIds: selectedBlockIds,
+        currentTick: pointerTick,
+        startTick: pointerTick,
+        currentTrackId: block.trackId,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+      })
+    }
+  }, [editorState.activeTool, editorState.selection.selectedBlockIds, getTickFromClientX, runEditorCommands, selectEditorBlock, workspace])
+
+  const handleBlockResizePointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    block: Block,
+    edge: 'left' | 'right',
+  ) => {
+    event.stopPropagation()
+
+    event.currentTarget.setPointerCapture(event.pointerId)
+
+    selectEditorBlock(block.id, event.shiftKey)
+
+    setDragState({
+      kind: 'resizeBlock',
+      currentTick: getTickFromClientX(event.clientX),
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      block,
+      edge,
+    })
+  }, [getTickFromClientX, selectEditorBlock])
+
+  const handleSectionPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, section: Section) => {
+    event.stopPropagation()
+
+    const toolCommands = createSectionToolCommands({
+      section,
+      tick: getTickFromClientX(event.clientX),
+      tool: editorState.activeTool,
+      workspace,
+    })
+
+    if (toolCommands.length > 0) {
+      runEditorCommands(toolCommands)
+      return
+    }
+
+    selectEditorSection(section.id, event.shiftKey)
+
+    if (editorState.activeTool === 'select' || editorState.activeTool === 'move') {
+      const pointerTick = getTickFromClientX(event.clientX)
+
+      event.currentTarget.setPointerCapture(event.pointerId)
+
+      setDragState({
+        kind: 'moveSection',
+        currentTick: pointerTick,
+        startTick: pointerTick,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        section,
+      })
+    }
+  }, [editorState.activeTool, getTickFromClientX, runEditorCommands, selectEditorSection, workspace])
+
+  const handleSectionResizePointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    section: Section,
+    edge: 'left' | 'right',
+  ) => {
+    event.stopPropagation()
+
+    event.currentTarget.setPointerCapture(event.pointerId)
+
+    selectEditorSection(section.id, event.shiftKey)
+
+    setDragState({
+      kind: 'resizeSection',
+      currentTick: getTickFromClientX(event.clientX),
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      edge,
+      section,
+    })
+  }, [getTickFromClientX, selectEditorSection])
+
+  const handleTimelineEventPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEvent) => {
+    event.stopPropagation()
+
+    if (editorState.activeTool === 'erase') {
+      runEditorCommands(createTimelineEventDeleteCommands({
+        timelineEvent,
+        workspace,
+      }))
+      return
+    }
+
+    selectTimelineEvent(timelineEvent.id, event.shiftKey)
+
+    if (editorState.activeTool === 'select' || editorState.activeTool === 'move') {
+      const pointerTick = getTickFromClientX(event.clientX)
+
+      event.currentTarget.setPointerCapture(event.pointerId)
+
+      setDragState({
+        kind: 'moveTimelineEvent',
+        event: timelineEvent,
+        currentTick: pointerTick,
+        startTick: pointerTick,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+      })
+    }
+  }, [editorState.activeTool, getTickFromClientX, runEditorCommands, selectTimelineEvent, workspace])
+
+  const handleBlockCloseFocus = useCallback(() => {
+    setFocusedBlockId(undefined)
+  }, [])
+
+  const handleBlockDoubleClick = useCallback((blockId: string) => {
+    setFocusedBlockId(blockId)
+  }, [])
+
+  const handleToolbarZoomIn = useCallback(() => {
+    handleZoomBy(1.25)
+  }, [handleZoomBy])
+
+  const handleToolbarZoomOut = useCallback(() => {
+    handleZoomBy(0.8)
+  }, [handleZoomBy])
+
+  const updateSelectedBlockFromInspector = useCallback(() => {
+    if (selectedBlock === undefined) {
+      return
+    }
+
+    runEditorCommands(createBlockInspectorCommands({
+      block: selectedBlock,
+      draft: inspectorDraft,
+    }))
+  }, [inspectorDraft, runEditorCommands, selectedBlock])
+
+  const updateSelectedSectionFromInspector = useCallback(() => {
+    if (selectedSection === undefined) {
+      return
+    }
+
+    runEditorCommands(createSectionInspectorCommands({
+      draft: inspectorDraft,
+      section: selectedSection,
+      workspace,
+    }))
+  }, [inspectorDraft, runEditorCommands, selectedSection, workspace])
+
+  const updateSelectedTimelineEventFromInspector = useCallback(() => {
+    if (selectedTimelineEvent === undefined) {
+      return
+    }
+
+    runEditorCommands(createTimelineEventInspectorCommands({
+      draft: inspectorDraft,
+      timelineEvent: selectedTimelineEvent,
+      workspace,
+    }))
+  }, [inspectorDraft, runEditorCommands, selectedTimelineEvent, workspace])
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (isEditableTarget(event.target)) {
@@ -305,433 +751,17 @@ function ArrangementDebugContent() {
     window.addEventListener('keydown', handleKeyDown)
 
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [commandHistory, editorState.selection, focusedBlockId, workspace])
-
-  function runEditorCommands(commands: Command[]) {
-    if (commands.length === 0) {
-      return
-    }
-
-    try {
-      let nextWorkspace = workspace
-      let nextHistory = commandHistory
-
-      for (const command of commands) {
-        const result = executeCommand(nextWorkspace, nextHistory, command)
-        nextWorkspace = result.workspace
-        nextHistory = result.history
-      }
-
-      setWorkspace(nextWorkspace)
-      setCommandHistory(nextHistory)
-      setErrorMessage(undefined)
-    }
-    catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : String(error))
-    }
-  }
-
-  function handleUndo() {
-    const result = undoCommand(workspace, commandHistory)
-
-    setWorkspace(result.workspace)
-    setCommandHistory(result.history)
-  }
-
-  function handleRedo() {
-    const result = redoCommand(workspace, commandHistory)
-
-    setWorkspace(result.workspace)
-    setCommandHistory(result.history)
-  }
-
-  function updateSelection(updater: (selection: SelectionState) => SelectionState) {
-    setEditorState(currentState => ({
-      ...currentState,
-      selection: updater(currentState.selection),
-    }))
-  }
-
-  function selectEditorBlock(blockId: string, additive: boolean) {
-    setEditorState(currentState => addBlockToSelection(currentState, blockId, additive))
-  }
-
-  function selectEditorSection(sectionId: string, additive: boolean) {
-    setEditorState(currentState => addSectionToSelection(currentState, sectionId, additive))
-  }
-
-  function selectPatternEvent(patternEventId: string, additive: boolean) {
-    setEditorState(currentState => addPatternEventToSelection(currentState, patternEventId, additive, focusedBlockId))
-  }
-
-  function selectTimelineEvent(timelineEventId: string, additive: boolean) {
-    setEditorState(currentState => addTimelineEventToSelection(currentState, timelineEventId, additive))
-  }
-
-  function copySelection() {
-    setEditorState(currentState => ({
-      ...currentState,
-      clipboard: copySelectionToClipboard(currentState),
-    }))
-  }
-
-  function pasteClipboard() {
-    runEditorCommands(createPasteClipboardCommands({
-      clipboard: editorState.clipboard,
-      workspace,
-    }))
-  }
-
-  function duplicateSelection() {
-    runEditorCommands(createDuplicateSelectionCommands({
-      selection: editorState.selection,
-      workspace,
-    }))
-  }
-
-  function deleteSelection() {
-    runEditorCommands(createDeleteSelectionCommands({
-      selection: editorState.selection,
-      workspace,
-    }))
-  }
-
-  function getTickFromClientX(clientX: number, shouldSnap = true): Tick {
-    if (timelineGridRef.current === null) {
-      return 0
-    }
-
-    const rect = timelineGridRef.current.getBoundingClientRect()
-    const rawTick = xToTick(viewport.pixelsPerTick, Math.max(0, clientX - rect.left))
-
-    return shouldSnap
-      ? snapTimelineTick(workspace.timeline, rawTick)
-      : rawTick
-  }
-
-  function getTrackIdFromClientY(clientY: number): string | undefined {
-    if (trackRowsRef.current === null) {
-      return undefined
-    }
-
-    const rect = trackRowsRef.current.getBoundingClientRect()
-    const trackIndex = Math.floor((clientY - rect.top) / viewport.laneHeight)
-
-    return tracks[trackIndex]?.id
-  }
-
-  function handleRulerPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    const tick = getTickFromClientX(event.clientX)
-
-    const toolCommands = createTimelineEventToolCommands(
-      workspace,
-      editorState.activeTool,
-      tick,
-    )
-
-    if (toolCommands.length > 0) {
-      runEditorCommands(toolCommands)
-      return
-    }
-  }
-
-  function handleSectionLanePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    const tick = getTickFromClientX(event.clientX)
-
-    if (editorState.activeTool === 'drawSection') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: getInitialDrawEndTick(workspace.timeline, tick),
-        kind: 'drawSection',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-      })
-      return
-    }
-
-    if (editorState.activeTool === 'select') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: tick,
-        kind: 'marquee',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-      })
-    }
-  }
-
-  function handleTrackLanePointerDown(event: ReactPointerEvent<HTMLDivElement>, trackId: string) {
-    if (event.button !== 0) {
-      return
-    }
-
-    const tick = getTickFromClientX(event.clientX)
-
-    if (editorState.activeTool === 'drawBlock') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: getInitialDrawEndTick(workspace.timeline, tick),
-        kind: 'drawBlock',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-        trackId,
-      })
-      return
-    }
-
-    if (editorState.activeTool === 'select') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: tick,
-        kind: 'marquee',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-      })
-    }
-  }
-
-  function handleTimelinePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (dragState === undefined || dragState.pointerId !== event.pointerId) {
-      return
-    }
-
-    if (
-      dragState.kind === 'drawBlock'
-      || dragState.kind === 'drawSection'
-      || dragState.kind === 'marquee'
-      || dragState.kind === 'moveBlock'
-      || dragState.kind === 'resizeBlock'
-      || dragState.kind === 'moveSection'
-      || dragState.kind === 'resizeSection'
-      || dragState.kind === 'moveTimelineEvent'
-    ) {
-      setDragState({
-        ...dragState,
-        currentTick: getTickFromClientX(event.clientX),
-        ...(dragState.kind === 'moveBlock'
-          ? { currentTrackId: getTrackIdFromClientY(event.clientY) }
-          : {}),
-      })
-    }
-  }
-
-  function handleTimelinePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
-    if (dragState === undefined || dragState.pointerId !== event.pointerId) {
-      return
-    }
-
-    const endTick = getTickFromClientX(event.clientX)
-    const movementX = Math.abs(event.clientX - getDragStartClientX(dragState))
-    const movementY = Math.abs(event.clientY - getDragStartClientY(dragState))
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-
-    const result = completeArrangementDrag({
-      dragState,
-      endTick,
-      movementX,
-      movementY,
-      targetTrackId: getTrackIdFromClientY(event.clientY),
-      threshold: POINTER_DRAG_THRESHOLD,
-      workspace,
-    })
-
-    runEditorCommands(result.commands)
-
-    if (result.selection !== undefined) {
-      updateSelection(() => result.selection as SelectionState)
-    }
-
-    setDragState(undefined)
-  }
-
-  function handleBlockPointerDown(event: ReactPointerEvent<HTMLDivElement>, block: Block) {
-    event.stopPropagation()
-
-    const toolCommands = createBlockToolCommands({
-      block,
-      tick: getTickFromClientX(event.clientX),
-      tool: editorState.activeTool,
-      workspace,
-    })
-
-    if (toolCommands.length > 0) {
-      runEditorCommands(toolCommands)
-      return
-    }
-
-    selectEditorBlock(block.id, event.shiftKey)
-
-    if (editorState.activeTool === 'select' || editorState.activeTool === 'move') {
-      const pointerTick = getTickFromClientX(event.clientX)
-      const selectedBlockIds = editorState.selection.selectedBlockIds.includes(block.id)
-        ? editorState.selection.selectedBlockIds
-        : [block.id]
-
-      event.currentTarget.setPointerCapture(event.pointerId)
-
-      setDragState({
-        kind: 'moveBlock',
-        blockIds: selectedBlockIds,
-        currentTick: pointerTick,
-        startTick: pointerTick,
-        currentTrackId: block.trackId,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-      })
-    }
-  }
-
-  function handleBlockResizePointerDown(
-    event: ReactPointerEvent<HTMLDivElement>,
-    block: Block,
-    edge: 'left' | 'right',
-  ) {
-    event.stopPropagation()
-
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    selectEditorBlock(block.id, event.shiftKey)
-
-    setDragState({
-      kind: 'resizeBlock',
-      currentTick: getTickFromClientX(event.clientX),
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      block,
-      edge,
-    })
-  }
-
-  function handleSectionPointerDown(event: ReactPointerEvent<HTMLDivElement>, section: Section) {
-    event.stopPropagation()
-
-    const toolCommands = createSectionToolCommands({
-      section,
-      tick: getTickFromClientX(event.clientX),
-      tool: editorState.activeTool,
-      workspace,
-    })
-
-    if (toolCommands.length > 0) {
-      runEditorCommands(toolCommands)
-      return
-    }
-
-    selectEditorSection(section.id, event.shiftKey)
-
-    if (editorState.activeTool === 'select' || editorState.activeTool === 'move') {
-      const pointerTick = getTickFromClientX(event.clientX)
-
-      event.currentTarget.setPointerCapture(event.pointerId)
-
-      setDragState({
-        kind: 'moveSection',
-        currentTick: pointerTick,
-        startTick: pointerTick,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        section,
-      })
-    }
-  }
-
-  function handleSectionResizePointerDown(
-    event: ReactPointerEvent<HTMLDivElement>,
-    section: Section,
-    edge: 'left' | 'right',
-  ) {
-    event.stopPropagation()
-
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    selectEditorSection(section.id, event.shiftKey)
-
-    setDragState({
-      kind: 'resizeSection',
-      currentTick: getTickFromClientX(event.clientX),
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      edge,
-      section,
-    })
-  }
-
-  function handleTimelineEventPointerDown(event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEvent) {
-    event.stopPropagation()
-
-    if (editorState.activeTool === 'erase') {
-      runEditorCommands(createTimelineEventDeleteCommands({
-        timelineEvent,
-        workspace,
-      }))
-      return
-    }
-
-    selectTimelineEvent(timelineEvent.id, event.shiftKey)
-
-    if (editorState.activeTool === 'select' || editorState.activeTool === 'move') {
-      const pointerTick = getTickFromClientX(event.clientX)
-
-      event.currentTarget.setPointerCapture(event.pointerId)
-
-      setDragState({
-        kind: 'moveTimelineEvent',
-        event: timelineEvent,
-        currentTick: pointerTick,
-        startTick: pointerTick,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-      })
-    }
-  }
-
-  function updateSelectedBlockFromInspector() {
-    if (selectedBlock === undefined) {
-      return
-    }
-
-    runEditorCommands(createBlockInspectorCommands({
-      block: selectedBlock,
-      draft: inspectorDraft,
-    }))
-  }
-
-  function updateSelectedSectionFromInspector() {
-    if (selectedSection === undefined) {
-      return
-    }
-
-    runEditorCommands(createSectionInspectorCommands({
-      draft: inspectorDraft,
-      section: selectedSection,
-      workspace,
-    }))
-  }
-
-  function updateSelectedTimelineEventFromInspector() {
-    if (selectedTimelineEvent === undefined) {
-      return
-    }
-
-    runEditorCommands(createTimelineEventInspectorCommands({
-      draft: inspectorDraft,
-      timelineEvent: selectedTimelineEvent,
-      workspace,
-    }))
-  }
+  }, [
+    copySelection,
+    deleteSelection,
+    duplicateSelection,
+    editorState.selection,
+    focusedBlockId,
+    handleRedo,
+    handleUndo,
+    pasteClipboard,
+    updateSelection,
+  ])
 
   return (
     <AppLayout>
@@ -752,29 +782,26 @@ function ArrangementDebugContent() {
             </Badge>
           </Group>
         </Group>
-
         {errorMessage !== undefined && (
           <Paper withBorder radius="sm" p="sm" bg="red.0">
             <Text c="red" size="sm" fw={600}>{errorMessage}</Text>
           </Paper>
         )}
-
         <Toolbar
           activeTool={editorState.activeTool}
           canRedo={canRedo}
           canUndo={canUndo}
           focusedBlockId={focusedBlockId}
           grid={workspace.timeline.grid}
-          onClearFocus={() => setFocusedBlockId(undefined)}
+          onCloseFocus={handleBlockCloseFocus}
           onDuplicate={duplicateSelection}
           onRedo={handleRedo}
-          onSetGrid={grid => runEditorCommands([setGridDivisionCommand(workspace, grid)])}
+          onSetGrid={updateGridDivision}
           onSetTool={setActiveTool}
           onUndo={handleUndo}
-          onZoomIn={() => handleZoomBy(1.25)}
-          onZoomOut={() => handleZoomBy(0.8)}
+          onZoomIn={handleToolbarZoomIn}
+          onZoomOut={handleToolbarZoomOut}
         />
-
         <SimpleGrid cols={{ base: 1, lg: 4 }} spacing="md">
           <Paper withBorder radius="sm" p={0} style={{ gridColumn: 'span 3', overflow: 'hidden' }}>
             <Box
@@ -817,9 +844,9 @@ function ArrangementDebugContent() {
                   viewport={viewport}
                   workspace={workspace}
                   marks={rulerMarks}
+                  onMarkerPointerEnter={setHoveredTimelineEventId}
                   onMarkerPointerDown={handleTimelineEventPointerDown}
                   onRulerPointerDown={handleRulerPointerDown}
-                  onSetHoveredTimelineEvent={setHoveredTimelineEventId}
                 />
                 <SectionLane
                   dragState={dragState}
@@ -829,7 +856,7 @@ function ArrangementDebugContent() {
                   timelineWidth={timelineWidth}
                   viewport={viewport}
                   workspace={workspace}
-                  onEmptyDoubleClick={() => setFocusedBlockId(undefined)}
+                  onEmptyDoubleClick={handleBlockCloseFocus}
                   onPointerDown={handleSectionLanePointerDown}
                   onResizePointerDown={handleSectionResizePointerDown}
                   onSectionPointerDown={handleSectionPointerDown}
@@ -843,16 +870,14 @@ function ArrangementDebugContent() {
                       hoveredBlockId={hoveredBlockId}
                       marks={rulerMarks}
                       selectedBlockIds={editorState.selection.selectedBlockIds}
-                      selectedPatternEventIds={editorState.selection.selectedPatternEventIds}
                       timelineWidth={timelineWidth}
                       track={track}
                       viewport={viewport}
                       workspace={workspace}
-                      onBlockDoubleClick={blockId => setFocusedBlockId(blockId)}
+                      onBlockDoubleClick={handleBlockDoubleClick}
                       onBlockPointerDown={handleBlockPointerDown}
                       onBlockResizePointerDown={handleBlockResizePointerDown}
-                      onEmptyDoubleClick={() => setFocusedBlockId(undefined)}
-                      onPatternEventClick={selectPatternEvent}
+                      onEmptyDoubleClick={handleBlockCloseFocus}
                       onPointerDown={handleTrackLanePointerDown}
                       onSetHoveredBlock={setHoveredBlockId}
                     />
@@ -861,7 +886,6 @@ function ArrangementDebugContent() {
               </Box>
             </Box>
           </Paper>
-
           <InspectorPanel
             commandHistory={commandHistory.undoStack}
             draft={inspectorDraft}
@@ -885,13 +909,13 @@ function ArrangementDebugContent() {
   )
 }
 
-function Toolbar({
+const Toolbar = memo(function Toolbar({
   activeTool,
   canRedo,
   canUndo,
   focusedBlockId,
   grid,
-  onClearFocus,
+  onCloseFocus,
   onDuplicate,
   onRedo,
   onSetGrid,
@@ -905,7 +929,7 @@ function Toolbar({
   canUndo: boolean
   focusedBlockId?: string
   grid: GridDivision
-  onClearFocus: () => void
+  onCloseFocus: () => void
   onDuplicate: () => void
   onRedo: () => void
   onSetGrid: (grid: GridDivision) => void
@@ -947,7 +971,6 @@ function Toolbar({
             </Tooltip>
           ))}
         </Group>
-
         <Group gap="xs">
           <Tooltip label="Undo">
             <ActionIcon aria-label="Undo" disabled={!canUndo} size="lg" variant="light" onClick={onUndo}>
@@ -976,7 +999,7 @@ function Toolbar({
           </Tooltip>
           {focusedBlockId !== undefined && (
             <Tooltip label="Close focus">
-              <ActionIcon aria-label="Close focus" color="yellow" size="lg" variant="light" onClick={onClearFocus}>
+              <ActionIcon aria-label="Close focus" color="yellow" size="lg" variant="light" onClick={onCloseFocus}>
                 <HugeiconsIcon icon={Cancel01Icon} size={18} />
               </ActionIcon>
             </Tooltip>
@@ -995,9 +1018,9 @@ function Toolbar({
       </Group>
     </Paper>
   )
-}
+})
 
-function TimelineLabelColumn({
+const TimelineLabelColumn = memo(function TimelineLabelColumn({
   focusedBlockId,
   tracks,
   viewport,
@@ -1038,9 +1061,9 @@ function TimelineLabelColumn({
       ))}
     </Box>
   )
-}
+})
 
-function StaticTimelineLabel({
+const StaticTimelineLabel = memo(function StaticTimelineLabel({
   children,
   height,
   opacity = 1,
@@ -1063,15 +1086,15 @@ function StaticTimelineLabel({
       {children}
     </Box>
   )
-}
+})
 
-function TimelineRuler({
+const TimelineRuler = memo(function TimelineRuler({
   dragState,
   hoveredTimelineEventId,
   marks,
   onMarkerPointerDown,
   onRulerPointerDown,
-  onSetHoveredTimelineEvent,
+  onMarkerPointerEnter,
   selectedTimelineEventIds,
   timelineWidth,
   viewport,
@@ -1082,7 +1105,7 @@ function TimelineRuler({
   marks: RulerMark[]
   onMarkerPointerDown: (event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEvent) => void
   onRulerPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onSetHoveredTimelineEvent: (timelineEventId: TimelineEventId | undefined) => void
+  onMarkerPointerEnter: (timelineEventId: TimelineEventId | undefined) => void
   selectedTimelineEventIds: TimelineEventId[]
   timelineWidth: number
   viewport: ViewportState
@@ -1132,8 +1155,8 @@ function TimelineRuler({
             label={getTimelineEventMarkerLabel(timelineEvent)}
             left={tickToX(viewport.pixelsPerTick, timelineEvent.tick)}
             top={getTimelineEventMarkerTop(timelineEvent)}
-            onMouseEnter={() => onSetHoveredTimelineEvent(timelineEvent.id)}
-            onMouseLeave={() => onSetHoveredTimelineEvent(undefined)}
+            onMouseEnter={() => onMarkerPointerEnter(timelineEvent.id)}
+            onMouseLeave={() => onMarkerPointerEnter(undefined)}
             onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, timelineEvent)}
           />
         )
@@ -1152,9 +1175,9 @@ function TimelineRuler({
       )}
     </Box>
   )
-}
+})
 
-function TimelineEventMarker({
+const TimelineEventMarker = memo(function TimelineEventMarker({
   color,
   icon,
   isHovered,
@@ -1224,9 +1247,9 @@ function TimelineEventMarker({
       </Box>
     </Box>
   )
-}
+})
 
-function TimelineGridLines({
+const TimelineGridLines = memo(function TimelineGridLines({
   marks,
   viewport,
 }: {
@@ -1252,9 +1275,9 @@ function TimelineGridLines({
       ))}
     </>
   )
-}
+})
 
-function SectionLane({
+const SectionLane = memo(function SectionLane({
   dragState,
   focusedBlockId,
   marks,
@@ -1345,9 +1368,9 @@ function SectionLane({
       ))}
     </Box>
   )
-}
+})
 
-function TrackLane({
+const TrackLane = memo(function TrackLane({
   dragState,
   focusedBlockId,
   hoveredBlockId,
@@ -1356,11 +1379,9 @@ function TrackLane({
   onBlockPointerDown,
   onBlockResizePointerDown,
   onEmptyDoubleClick,
-  onPatternEventClick,
   onPointerDown,
   onSetHoveredBlock,
   selectedBlockIds,
-  selectedPatternEventIds,
   timelineWidth,
   track,
   viewport,
@@ -1374,19 +1395,24 @@ function TrackLane({
   onBlockPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
   onBlockResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block, edge: 'left' | 'right') => void
   onEmptyDoubleClick: () => void
-  onPatternEventClick: (patternEventId: string, additive: boolean) => void
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, trackId: string) => void
   onSetHoveredBlock: (blockId: string | undefined) => void
   selectedBlockIds: string[]
-  selectedPatternEventIds: string[]
   timelineWidth: number
   track: Track
   viewport: ViewportState
   workspace: Workspace
 }) {
-  const blocks = selectBlocksForTrack(workspace, track.id)
-  const blockDragPreviews = getBlockDragPreviews(workspace, dragState)
-    .filter(block => block.trackId === track.id)
+  const blocks = useMemo(
+    () => selectBlocksForTrack(workspace, track.id),
+    [workspace, track.id],
+  )
+
+  const blockDragPreviews = useMemo(
+    () => getBlockDragPreviews(workspace, dragState)
+      .filter(block => block.trackId === track.id),
+    [workspace, track.id, dragState],
+  )
 
   return (
     <Box
@@ -1409,11 +1435,9 @@ function TrackLane({
           hovered={hoveredBlockId === block.id}
           pattern={selectPattern(workspace, block.patternId)}
           selected={selectedBlockIds.includes(block.id)}
-          selectedPatternEventIds={selectedPatternEventIds}
           viewport={viewport}
           workspace={workspace}
           onDoubleClick={onBlockDoubleClick}
-          onPatternEventClick={onPatternEventClick}
           onPointerDown={onBlockPointerDown}
           onResizePointerDown={onBlockResizePointerDown}
           onSetHoveredBlock={onSetHoveredBlock}
@@ -1449,9 +1473,9 @@ function TrackLane({
       ))}
     </Box>
   )
-}
+})
 
-function BlockView({
+const BlockView = memo(function BlockView({
   block,
   focusedBlockId,
   hovered,
@@ -1468,13 +1492,11 @@ function BlockView({
   focusedBlockId?: string
   hovered: boolean
   onDoubleClick: (blockId: string) => void
-  onPatternEventClick: (patternEventId: string, additive: boolean) => void
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block, edge: 'left' | 'right') => void
   onSetHoveredBlock: (blockId: string | undefined) => void
   pattern?: ReturnType<typeof selectPattern>
   selected: boolean
-  selectedPatternEventIds: string[]
   viewport: ViewportState
   workspace: Workspace
 }) {
@@ -1495,7 +1517,7 @@ function BlockView({
         background: block.muted ? 'var(--mantine-color-gray-5)' : block.color,
         border: '1px solid rgba(0, 0, 0, 0.24)',
         borderRadius: 5,
-        boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? '0 0 0 2px var(--mantine-color-gray-5)' : undefined,
+        boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? '0 0 0 3px var(--mantine-color-gray-5)' : undefined,
         color: 'white',
         cursor: 'grab',
         height: isFocused ? 56 : 42,
@@ -1529,11 +1551,10 @@ function BlockView({
       )}
     </Box>
   )
-}
+})
 
-function FocusedBlockOverlay({
+const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
   block,
-
 }: {
   block: Block
 }) {
@@ -1568,9 +1589,9 @@ function FocusedBlockOverlay({
       </Box>
     </Box>
   )
-}
+})
 
-function InspectorPanel({
+const InspectorPanel = memo(function InspectorPanel({
   commandHistory,
   draft,
   focusedBlockId,
@@ -1613,7 +1634,6 @@ function InspectorPanel({
           <Badge color="gray" variant="light">
             {selection.selectedBlockIds.length
               + selection.selectedSectionIds.length
-              + selection.selectedPatternEventIds.length
               + selection.selectedTimelineEventIds.length}
             {' '}
             selected
@@ -1744,9 +1764,9 @@ function InspectorPanel({
       </Stack>
     </Paper>
   )
-}
+})
 
-function TimelineEventInspector({
+const TimelineEventInspector = memo(function TimelineEventInspector({
   draft,
   event,
   onUpdate,
@@ -1851,7 +1871,7 @@ function TimelineEventInspector({
       </Group>
     </Stack>
   )
-}
+})
 
 function FocusedBlockPanel({
   focusedBlockId,
