@@ -85,6 +85,7 @@ import {
   type TimeSignatureDenominator,
   type Track,
 } from '~/domain'
+import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
 import { useViewport } from '~/hooks/useViewport'
 import {
   ACTIVE_TOOLS,
@@ -303,7 +304,7 @@ function ArrangementDebugContent() {
     }))
   }, [setEditorState])
 
-  const pasteClipboard = useCallback(() => {
+  const handlePaste = useCallback(() => {
     runEditorCommands(createPasteClipboardCommands({
       clipboard: editorState.clipboard,
       workspace,
@@ -318,6 +319,10 @@ function ArrangementDebugContent() {
   }, [editorState.selection, runEditorCommands, workspace])
 
   const deleteSelection = useCallback(() => {
+    if (!hasAnySelection(editorState.selection)) {
+      return
+    }
+
     runEditorCommands(createDeleteSelectionCommands({
       selection: editorState.selection,
       workspace,
@@ -684,84 +689,24 @@ function ArrangementDebugContent() {
     }))
   }, [inspectorDraft, runEditorCommands, selectedTimelineEvent, workspace])
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (isEditableTarget(event.target)) {
-        if (event.key !== 'Escape') {
-          return
-        }
-      }
-
-      const modifierPressed = event.metaKey || event.ctrlKey
-
-      if (event.key === 'Escape') {
-        event.preventDefault()
-
-        if (focusedBlockId !== undefined) {
-          setFocusedBlockId(undefined)
-          return
-        }
-
-        updateSelection(() => createSelectionState())
-        return
-      }
-
-      if ((event.key === 'Backspace' || event.key === 'Delete') && hasAnySelection(editorState)) {
-        event.preventDefault()
-        deleteSelection()
-        return
-      }
-
-      if (modifierPressed && event.key.toLowerCase() === 'z' && event.shiftKey) {
-        event.preventDefault()
-        handleRedo()
-        return
-      }
-
-      if (modifierPressed && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        handleUndo()
-        return
-      }
-
-      if (modifierPressed && event.key.toLowerCase() === 'y') {
-        event.preventDefault()
-        handleRedo()
-        return
-      }
-
-      if (modifierPressed && event.key.toLowerCase() === 'd') {
-        event.preventDefault()
-        duplicateSelection()
-        return
-      }
-
-      if (modifierPressed && event.key.toLowerCase() === 'c') {
-        event.preventDefault()
-        copySelection()
-        return
-      }
-
-      if (modifierPressed && event.key.toLowerCase() === 'v') {
-        event.preventDefault()
-        pasteClipboard()
-      }
+  const unfocusSelection = useCallback(() => {
+    if (focusedBlockId !== undefined) {
+      setFocusedBlockId(undefined)
+      return
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    updateSelection(() => createSelectionState())
+  }, [focusedBlockId, updateSelection])
 
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [
-    copySelection,
-    deleteSelection,
-    duplicateSelection,
-    editorState.selection,
-    focusedBlockId,
-    handleRedo,
-    handleUndo,
-    pasteClipboard,
-    updateSelection,
-  ])
+  useKeyboardShortcuts({
+    onCopy: copySelection,
+    onDelete: deleteSelection,
+    onDuplicate: duplicateSelection,
+    onEscape: unfocusSelection,
+    onPaste: handlePaste,
+    onRedo: handleRedo,
+    onUndo: handleUndo,
+  })
 
   return (
     <AppLayout>
@@ -2123,11 +2068,6 @@ function getTimelineEventMarkerTop(event: TimelineEvent): number {
   return TIMELINE_MARKER_TOP + 6
 }
 
-function isEditableTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement
-    || target instanceof HTMLTextAreaElement
-    || target instanceof HTMLSelectElement
-}
 function getToolLabel(tool: ActiveTool): string {
   switch (tool) {
     case 'drawBlock':
