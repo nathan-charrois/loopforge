@@ -1,6 +1,7 @@
 import type { InspectorDraft } from './type'
 import {
   type Block,
+  DEFAULT_TRACK_COLOR,
   isKeyEvent,
   isMeterEvent,
   isTempoEvent,
@@ -30,7 +31,7 @@ export function createInspectorDraft(): InspectorDraft {
     tempoBpm: 120,
     tempoTick: 0,
     trackAccepts: ['chord'],
-    trackColor: '#9b51e0',
+    trackColor: DEFAULT_TRACK_COLOR,
     trackName: '',
     trackRole: 'chords',
   }

@@ -17,9 +17,4 @@ export const DEFAULT_SOUND_BY_ROLE = {
   melody: 'lead.default',
 } as const satisfies Record<TrackRole, InstrumentSoundId>
 
-export const DEFAULT_COLOR_BY_ROLE = {
-  bass: '#2f80ed',
-  chords: '#9b51e0',
-  drums: '#f2994a',
-  melody: '#27ae60',
-} as const satisfies Record<TrackRole, string>
+export const DEFAULT_TRACK_COLOR = '#eee9df'

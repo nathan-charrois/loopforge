@@ -18,9 +18,9 @@ import {
   createMixChannel,
   getTimelineEventField,
   type GridDivision,
+  type MasterMixChannel,
   type MixChannel,
   type MixChannelId,
-  type Mixer,
   type PatternEvent,
   type PatternEventId,
   type PatternId,
@@ -113,18 +113,34 @@ export function updateMixChannel(workspace: Workspace, mixChannel: MixChannel): 
   }
 }
 
-export function removeTrack(workspace: Workspace, trackId: string): Workspace {
-  const track = requireTrack(workspace, trackId)
-  requireMixChannel(workspace, track.mixChannelId)
+export function removeTracks(workspace: Workspace, trackIds: readonly TrackId[]): Workspace {
+  const tracks = trackIds.map(trackId => requireTrack(workspace, trackId))
 
   return {
     ...workspace,
     mixer: {
       ...workspace.mixer,
-      channels: removeEntity(workspace.mixer.channels, track.mixChannelId),
+      channels: tracks.reduce(
+        (channels, track) => removeEntity(channels, track.mixChannelId),
+        workspace.mixer.channels,
+      ),
     },
     project: touchProject(workspace.project),
-    tracks: removeEntity(workspace.tracks, trackId),
+    tracks: trackIds.reduce(removeEntity, workspace.tracks),
+  }
+}
+
+export function removeMixChannels(
+  workspace: Workspace,
+  mixChannelIds: readonly MixChannelId[],
+): Workspace {
+  return {
+    ...workspace,
+    mixer: {
+      ...workspace.mixer,
+      channels: mixChannelIds.reduce(removeEntity, workspace.mixer.channels),
+    },
+    project: touchProject(workspace.project),
   }
 }
 
@@ -160,10 +176,19 @@ export function duplicateTrack(workspace: Workspace, trackId: TrackId): Workspac
   )
 }
 
-export function updateMixer(workspace: Workspace, mixer: Mixer): Workspace {
+export function updateMixer(
+  workspace: Workspace,
+  update: Partial<MasterMixChannel>,
+): Workspace {
   return {
     ...workspace,
-    mixer,
+    mixer: {
+      ...workspace.mixer,
+      master: {
+        ...workspace.mixer.master,
+        ...update,
+      },
+    },
     project: touchProject(workspace.project),
   }
 }

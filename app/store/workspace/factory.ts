@@ -446,32 +446,27 @@ export function createInitialWorkspace(): Workspace {
     }),
     tracks: createEntityStore([
       createTrack({
-        color: '#4c6ef5',
         id: 'debug_track_chords',
         name: 'Chords',
         role: 'chords',
       }),
       createTrack({
-        color: '#15aabf',
         id: 'debug_track_bass',
         name: 'Bass',
         role: 'bass',
       }),
       createTrack({
-        color: '#f59f00',
         id: 'debug_track_drums',
         name: 'Drums',
         role: 'drums',
       }),
       createTrack({
-        color: '#40c057',
         id: 'debug_track_lead',
         name: 'Lead',
         role: 'melody',
       }),
       createTrack({
         accepts: ['automation'],
-        color: '#7950f2',
         id: 'debug_track_automation',
         name: 'Automation',
         role: 'melody',

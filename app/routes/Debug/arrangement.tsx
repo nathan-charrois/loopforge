@@ -49,6 +49,7 @@ import {
   Paper,
   Select,
   SimpleGrid,
+  Slider,
   Stack,
   Switch,
   Text,
@@ -65,6 +66,8 @@ import {
   type Block,
   BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
+  createTrack,
+  DEFAULT_TRACK_COLOR,
   formatTickAsBars,
   formatTickRangeAsBars,
   getBlockEndTick,
@@ -76,6 +79,7 @@ import {
   isMeterEvent,
   isTempoEvent,
   type Key,
+  type MasterMixChannel,
   MAX_MIX_CHANNEL_PAN,
   MIN_MIX_CHANNEL_PAN,
   type MixChannel,
@@ -96,6 +100,7 @@ import {
   type TrackId,
   type TrackRole,
 } from '~/domain'
+import { useAnimationFrameThrottle } from '~/hooks/useAnimationFrameThrottle'
 import { useDrag } from '~/hooks/useDrag'
 import {
   useSectionLaneOverlay,
@@ -142,6 +147,7 @@ import {
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
 import {
+  addTrackAction,
   deleteTimelineEventAction,
   selectBlocksForTrack,
   selectMixChannel,
@@ -152,6 +158,7 @@ import {
   selectWorkspaceEndTick,
   setGridDivisionAction,
   updateMixChannelAction,
+  updateMixerAction,
   validateWorkspace,
   type Workspace,
 } from '~/store/workspace'
@@ -170,12 +177,16 @@ const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -60
 const MAX_MIX_CHANNEL_VOLUME_DB = 12
 const TRACK_COLOR_PALETTE = [
-  '#2f80ed',
-  '#9b51e0',
-  '#f2994a',
-  '#27ae60',
-  '#eb5757',
-  '#56ccf2',
+  DEFAULT_TRACK_COLOR,
+  '#868e96',
+  '#fa5252',
+  '#fd7e14',
+  '#fab005',
+  '#40c057',
+  '#12b886',
+  '#15aabf',
+  '#4c6ef5',
+  '#7950f2',
 ] as const
 const ROOT_OPTIONS = Array.from({ length: 12 }, (_, value) => ({
   label: `${value}`,
@@ -459,6 +470,27 @@ function ArrangementDebugContent() {
     dispatch(updateMixChannelAction({ ...mixChannel, soloed: !mixChannel.soloed }))
   }, [dispatch])
 
+  const handleMasterMixChannelVolumeChange = useAnimationFrameThrottle((volumeDb: number) => {
+    dispatch(updateMixerAction({
+      volumeDb,
+    }))
+  })
+
+  const handleMasterMixChannelMute = useCallback(() => {
+    dispatch(updateMixerAction({
+      muted: !workspace.mixer.master.muted,
+    }))
+  }, [dispatch, workspace.mixer.master.muted])
+
+  const handleAddTrack = useCallback(() => {
+    dispatch(addTrackAction(
+      createTrack({
+        id: 'track_chords',
+        name: 'Chords',
+        role: 'chords',
+      })))
+  }, [dispatch, workspace])
+
   const copySelection = useCallback(() => {
     dispatch(copySelectionAction())
   }, [dispatch])
@@ -709,27 +741,39 @@ function ArrangementDebugContent() {
               </Box>
             </Box>
           </Paper>
-          <InspectorPanel
-            commandHistory={commandHistory.undoStack}
-            draft={inspectorDraft}
-            patterns={patterns}
-            selectedBlock={selectedBlock}
-            selectedMixChannel={selectedMixChannel}
-            selectedSection={selectedSection}
-            selectedTimelineEvent={selectedTimelineEvent}
-            selectedTrack={selectedTrack}
-            selection={editor.selection}
-            setDraft={setInspectorDraft}
-            workspace={workspace}
-            workspaceErrors={workspaceErrors}
-            onDeleteSelected={deleteSelection}
-            onUpdateBlock={updateSelectedBlockFromInspector}
-            onUpdateMixChannel={updateSelectedMixChannelFromInspector}
-            onUpdateSection={updateSelectedSectionFromInspector}
-            onUpdateTimelineEvent={updateSelectedTimelineEventFromInspector}
-            onUpdateTrack={updateSelectedTrackFromInspector}
-          />
+          <Stack gap="md">
+            <Paper withBorder radius="sm" p="md">
+              <MasterMixChannelControls
+                master={workspace.mixer.master}
+                onToggleMuted={handleMasterMixChannelMute}
+                onVolumeChange={handleMasterMixChannelVolumeChange}
+              />
+            </Paper>
+            <InspectorPanel
+              commandHistory={commandHistory.undoStack}
+              draft={inspectorDraft}
+              patterns={patterns}
+              selectedBlock={selectedBlock}
+              selectedMixChannel={selectedMixChannel}
+              selectedSection={selectedSection}
+              selectedTimelineEvent={selectedTimelineEvent}
+              selectedTrack={selectedTrack}
+              selection={editor.selection}
+              setDraft={setInspectorDraft}
+              workspace={workspace}
+              workspaceErrors={workspaceErrors}
+              onDeleteSelected={deleteSelection}
+              onUpdateBlock={updateSelectedBlockFromInspector}
+              onUpdateMixChannel={updateSelectedMixChannelFromInspector}
+              onUpdateSection={updateSelectedSectionFromInspector}
+              onUpdateTimelineEvent={updateSelectedTimelineEventFromInspector}
+              onUpdateTrack={updateSelectedTrackFromInspector}
+            />
+          </Stack>
         </SimpleGrid>
+        <Paper withBorder radius="sm" p="md">
+          <Button size="xs" onClick={handleAddTrack}>Add Track</Button>
+        </Paper>
       </Stack>
     </AppLayout>
   )
@@ -843,6 +887,45 @@ const Toolbar = memo(function Toolbar({
         </Group>
       </Group>
     </Paper>
+  )
+})
+
+const MasterMixChannelControls = memo(function MasterMixChannelControls({
+  master,
+  onToggleMuted,
+  onVolumeChange,
+}: {
+  master: MasterMixChannel
+  onToggleMuted: () => void
+  onVolumeChange: (volumeDb: number) => void
+}) {
+  return (
+    <Stack gap="xs" w="100%">
+      <Group justify="space-between">
+        <Text fw={700} size="sm">Master Mix Channel</Text>
+        <ActionIcon
+          aria-label="Mute master mix channel"
+          aria-pressed={master.muted}
+          color={master.muted ? 'red' : 'gray'}
+          size="sm"
+          variant={master.muted ? 'filled' : 'light'}
+          onClick={onToggleMuted}
+        >
+          <HugeiconsIcon icon={MuteIcon} size={14} />
+        </ActionIcon>
+      </Group>
+      <Stack gap={4}>
+        <Text c="dimmed" size="xs">{`Volume: ${master.volumeDb} dB`}</Text>
+        <Slider
+          max={MAX_MIX_CHANNEL_VOLUME_DB}
+          min={MIN_MIX_CHANNEL_VOLUME_DB}
+          size="sm"
+          step={1}
+          value={master.volumeDb}
+          onChange={onVolumeChange}
+        />
+      </Stack>
+    </Stack>
   )
 })
 
@@ -972,7 +1055,13 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
         const mixChannel = selectMixChannel(workspace, track.mixChannelId)
 
         if (mixChannel === undefined) {
-          return null
+          return (
+            <StaticTimelineLabel
+              key={`missing:${track.id}`}
+              height={viewport.laneHeight}
+              tintColor={track.color}
+            />
+          )
         }
 
         return (
@@ -1026,7 +1115,7 @@ const StaticTimelineLabel = memo(function StaticTimelineLabel({
   selected = false,
   tintColor,
 }: {
-  children: ReactNode
+  children?: ReactNode
   height: number
   hovered?: boolean
   onClick?: (event: ReactMouseEvent<HTMLDivElement>) => void
@@ -1043,12 +1132,15 @@ const StaticTimelineLabel = memo(function StaticTimelineLabel({
       onMouseLeave={onMouseLeave}
       style={{
         alignItems: 'center',
-        background: selected
-          ? 'var(--mantine-color-blue-0)'
-          : hovered
-            ? getTrackTint(tintColor, 18)
-            : getTrackTint(tintColor, 10),
+        background: getTrackTint(tintColor, 18),
         borderBottom: '1px solid var(--mantine-color-gray-3)',
+        boxShadow: selected && hovered
+          ? 'inset 3px 0 0 var(--mantine-color-blue-6), inset 0 0 0 2px var(--mantine-color-gray-6)'
+          : selected
+            ? 'inset 3px 0 0 var(--mantine-color-blue-6)'
+            : hovered
+              ? 'inset 0 0 0 2px var(--mantine-color-gray-6)'
+              : undefined,
         cursor: onClick === undefined ? undefined : 'pointer',
         display: 'flex',
         height,
@@ -1411,7 +1503,7 @@ const TrackLane = memo(function TrackLane({
       onDoubleClick={onEmptyDoubleClick}
       onPointerDown={event => onPointerDown(event, track.id)}
       style={{
-        background: getTrackTint(track.color, 8),
+        background: getTrackTint(track.color, 5),
         borderBottom: '1px solid var(--mantine-color-gray-3)',
         height: viewport.laneHeight,
         position: 'relative',
@@ -1689,7 +1781,7 @@ const InspectorPanel = memo(function InspectorPanel({
                     aria-pressed={draft.trackColor === color}
                     color={color}
                     component="button"
-                    size={28}
+                    size={34}
                     type="button"
                     onClick={() => setDraft(currentDraft => ({ ...currentDraft, trackColor: color }))}
                     style={{
@@ -1798,6 +1890,9 @@ const InspectorPanel = memo(function InspectorPanel({
                 ['ID', selectedBlock.id],
                 ['Track ID', selectedBlock.trackId],
                 ['Pattern ID', selectedBlock.patternId],
+                ['Start tick', selectedBlock.startTick],
+                ['Length ticks', selectedBlock.lengthTicks],
+                ['End tick', getBlockEndTick(selectedBlock)],
               ]}
             />
             <TextInput
@@ -1848,6 +1943,9 @@ const InspectorPanel = memo(function InspectorPanel({
             <InspectorDataList
               items={[
                 ['ID', selectedSection.id],
+                ['Start tick', selectedSection.startTick],
+                ['Length ticks', selectedSection.lengthTicks],
+                ['End tick', getSectionEndTick(selectedSection)],
               ]}
             />
             <TextInput
@@ -1946,6 +2044,7 @@ const TimelineEventInspector = memo(function TimelineEventInspector({
       <InspectorDataList
         items={[
           ['ID', event.id],
+          ['Tick', event.tick],
         ]}
       />
       {isTempoEvent(event) && (

@@ -14,8 +14,9 @@ import {
   duplicateTrack,
   moveBlock,
   moveSection,
+  removeMixChannels,
   removePattern,
-  removeTrack,
+  removeTracks,
   reorderTracks,
   resizeBlock,
   resizeSection,
@@ -37,8 +38,9 @@ import {
   type BlockId,
   createMixChannel,
   type GridDivision,
+  type MasterMixChannel,
   type MixChannel,
-  type Mixer,
+  type MixChannelId,
   type Pattern,
   type PatternEvent,
   type PatternEventId,
@@ -153,10 +155,8 @@ export function applyWorkspaceCommand(
         ? workspace
         : addTrack(workspace, track, mixChannel)
     }
-    case 'deleteTrack': {
-      const trackId = getPayloadString(payload, 'trackId')
-      return trackId === undefined ? workspace : removeTrack(workspace, trackId)
-    }
+    case 'deleteTrack':
+      return removeTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
     case 'duplicateTrack': {
       const trackId = getPayloadString(payload, 'trackId')
       return trackId === undefined ? workspace : duplicateTrack(workspace, trackId)
@@ -167,13 +167,15 @@ export function applyWorkspaceCommand(
     }
     case 'reorderTrack':
       return reorderTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
+    case 'deleteMixChannel':
+      return removeMixChannels(workspace, getPayloadStringArray(payload, 'mixChannelIds'))
     case 'updateMixChannel': {
       const mixChannel = getPayloadObject<MixChannel>(payload, 'mixChannel')
       return mixChannel === undefined ? workspace : updateMixChannel(workspace, mixChannel)
     }
     case 'updateMixer': {
-      const mixer = getPayloadObject<Mixer>(payload, 'mixer')
-      return mixer === undefined ? workspace : updateMixer(workspace, mixer)
+      const update = getPayloadObject<Partial<MasterMixChannel>>(payload, 'update')
+      return update === undefined ? workspace : updateMixer(workspace, update)
     }
     case 'addPattern': {
       const pattern = getPayloadObject<Pattern>(payload, 'pattern')
@@ -326,8 +328,12 @@ export function createAddTrackCommand(
   })
 }
 
-export function createDeleteTrackCommand(trackId: TrackId): WorkspaceCommand {
-  return createWorkspaceCommandRecord('deleteTrack', 'Delete track', { trackId })
+export function createDeleteTrackCommand(trackIds: readonly TrackId[]): WorkspaceCommand {
+  return createWorkspaceCommandRecord(
+    'deleteTrack',
+    `Delete ${trackIds.length} track${trackIds.length === 1 ? '' : 's'}`,
+    { trackIds: [...trackIds] },
+  )
 }
 
 export function createDuplicateTrackCommand(trackId: TrackId): WorkspaceCommand {
@@ -342,15 +348,27 @@ export function createReorderTrackCommand(trackIds: readonly TrackId[]): Workspa
   return createWorkspaceCommandRecord('reorderTrack', 'Reorder tracks', { trackIds: [...trackIds] })
 }
 
+export function createDeleteMixChannelCommand(
+  mixChannelIds: readonly MixChannelId[],
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord(
+    'deleteMixChannel',
+    `Delete ${mixChannelIds.length} mix channel${mixChannelIds.length === 1 ? '' : 's'}`,
+    { mixChannelIds: [...mixChannelIds] },
+  )
+}
+
 export function createUpdateMixChannelCommand(mixChannel: MixChannel): WorkspaceCommand {
   return createWorkspaceCommandRecord('updateMixChannel', 'Update mix channel', {
     mixChannel: toJsonValue(mixChannel),
   })
 }
 
-export function createUpdateMixerCommand(mixer: Mixer): WorkspaceCommand {
+export function createUpdateMixerCommand(
+  update: Partial<MasterMixChannel>,
+): WorkspaceCommand {
   return createWorkspaceCommandRecord('updateMixer', 'Update mixer', {
-    mixer: toJsonValue(mixer),
+    update: toJsonValue(update),
   })
 }
 

@@ -6,6 +6,7 @@ import {
   createAddTimelineEventCommand,
   createAddTrackCommand,
   createDeleteBlockCommand,
+  createDeleteMixChannelCommand,
   createDeletePatternCommand,
   createDeletePatternEventCommand,
   createDeleteSectionCommand,
@@ -35,8 +36,9 @@ import type {
   Block,
   BlockId,
   GridDivision,
+  MasterMixChannel,
   MixChannel,
-  Mixer,
+  MixChannelId,
   Pattern,
   PatternEvent,
   PatternEventId,
@@ -129,8 +131,8 @@ export function addTrackAction(track: Track, mixChannel?: MixChannel): Workspace
   return createAddTrackCommand(track, mixChannel)
 }
 
-export function deleteTrackAction(trackId: TrackId): WorkspaceCommand {
-  return createDeleteTrackCommand(trackId)
+export function deleteTrackAction(trackIds: readonly TrackId[]): WorkspaceCommand {
+  return createDeleteTrackCommand(trackIds)
 }
 
 export function duplicateTrackAction(trackId: TrackId): WorkspaceCommand {
@@ -149,8 +151,12 @@ export function updateMixChannelAction(mixChannel: MixChannel): WorkspaceCommand
   return createUpdateMixChannelCommand(mixChannel)
 }
 
-export function updateMixerAction(mixer: Mixer): WorkspaceCommand {
-  return createUpdateMixerCommand(mixer)
+export function deleteMixChannelAction(mixChannelIds: readonly MixChannelId[]): WorkspaceCommand {
+  return createDeleteMixChannelCommand(mixChannelIds)
+}
+
+export function updateMixerAction(update: Partial<MasterMixChannel>): WorkspaceCommand {
+  return createUpdateMixerCommand(update)
 }
 
 export function addPatternAction(pattern: Pattern): WorkspaceCommand {

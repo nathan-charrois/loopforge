@@ -36,6 +36,7 @@ export const WORKSPACE_COMMAND_KINDS = [
   'duplicateTrack',
   'reorderTrack',
   'updateTrack',
+  'deleteMixChannel',
   'updateMixChannel',
   'updateMixer',
   'addPattern',

@@ -60,9 +60,11 @@ import {
   addSectionAction,
   addTimelineEventAction,
   deleteBlockAction,
+  deleteMixChannelAction,
   deletePatternEventAction,
   deleteSectionAction,
   deleteTimelineEventAction,
+  deleteTrackAction,
   duplicateBlockAction,
   duplicateSectionAction,
   moveBlockAction,
@@ -161,6 +163,14 @@ export function deleteSelectionAction(selection: SelectionState): readonly Comma
 
   if (selection.selectedBlockIds.length > 0) {
     commands.push(deleteBlockAction(selection.selectedBlockIds))
+  }
+
+  if (selection.selectedTrackIds.length > 0) {
+    commands.push(deleteTrackAction(selection.selectedTrackIds))
+  }
+
+  if (selection.selectedMixChannelIds.length > 0) {
+    commands.push(deleteMixChannelAction(selection.selectedMixChannelIds))
   }
 
   if (selection.selectedSectionIds.length > 0) {
