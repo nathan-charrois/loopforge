@@ -14,6 +14,7 @@ import {
 } from '~/store/editor'
 
 const WHEEL_ZOOM_SENSITIVITY = 0.001
+const WHEEL_ZOOM_SAFE_ZONE_PX = 25
 
 export function useViewport() {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -73,9 +74,14 @@ export function useViewport() {
     const scrollElement = event.currentTarget
     const rect = scrollElement.getBoundingClientRect()
 
+    const anchorPixel = getWheelZoomAnchorPixel(
+      event.clientX - rect.left,
+      scrollElement.clientWidth,
+    )
+
     zoomViewportAt(
       scrollElement,
-      event.clientX - rect.left,
+      anchorPixel,
       getZoomMultiplier(event),
     )
   }, [zoomViewportAt])
@@ -91,6 +97,21 @@ export function useViewport() {
     handleViewportWheel,
     handleZoomBy,
   ])
+}
+
+function getWheelZoomAnchorPixel(
+  pointerX: number,
+  viewportWidth: number,
+): number {
+  if (pointerX <= WHEEL_ZOOM_SAFE_ZONE_PX) {
+    return 0
+  }
+
+  if (pointerX >= viewportWidth - WHEEL_ZOOM_SAFE_ZONE_PX) {
+    return viewportWidth
+  }
+
+  return pointerX
 }
 
 function getZoomMultiplier(event: ReactWheelEvent<HTMLDivElement>): number {
