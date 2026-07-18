@@ -17,7 +17,7 @@ import {
   createInspectorState,
   createSelectionState,
 } from './factory'
-import { snapTimelineTick, snapToMinimumTimelineRange } from './snap'
+import { snapToMinimumTimelineRange } from './snap'
 import type {
   ActiveTool,
   ClipboardState,
@@ -52,191 +52,153 @@ import {
 import type { Command, EditorCommand } from '~/store/session'
 import {
   addBlockAction,
-  addKeyEventAction,
-  addMeterEventAction,
   addSectionAction,
-  addTempoEventAction,
+  addTimelineEventAction,
   deleteBlockAction,
-  deleteKeyEventAction,
-  deleteMeterEventAction,
   deletePatternEventAction,
   deleteSectionAction,
-  deleteTempoEventAction,
+  deleteTimelineEventAction,
   duplicateBlockAction,
   duplicateSectionAction,
   moveBlockAction,
   moveSectionAction,
-  moveTimelineEventAction,
-  renameBlockAction,
-  renameSectionAction,
   resizeBlockAction,
   resizeSectionAction,
   selectBlock,
-  selectPatternIdForEvent,
-  selectTimelineEvent as selectWorkspaceTimelineEvent,
   selectTimelineEventIds,
-  setBlockColorAction,
-  setBlockMutedAction,
-  setBlockPlaybackModeAction,
   splitBlockAction,
   splitSectionAction,
-  updateKeyEventAction,
-  updateMeterEventAction,
-  updateTempoEventAction,
+  updateBlockAction,
+  updateSectionAction,
+  updateTimelineEventAction,
   type Workspace,
 } from '~/store/workspace'
 
 export function selectBlockAction(
-  editor: Editor,
   blockId: BlockId,
   additive = false,
 ): EditorCommand {
-  void editor
   return createSelectBlockCommand(blockId, additive)
 }
 
 export function selectSectionAction(
-  editor: Editor,
   sectionId: SectionId,
   additive = false,
 ): EditorCommand {
-  void editor
   return createSelectSectionCommand(sectionId, additive)
 }
 
 export function selectTimelineEventAction(
-  editor: Editor,
   timelineEventId: TimelineEventId,
   additive = false,
 ): EditorCommand {
-  void editor
   return createSelectTimelineEventCommand(timelineEventId, additive)
 }
 
-export function copySelectionAction(editor: Editor): EditorCommand {
-  void editor
+export function copySelectionAction(): EditorCommand {
   return createCopySelectionCommand()
 }
 
-export function setActiveToolAction(editor: Editor, tool: ActiveTool): EditorCommand {
-  void editor
+export function setActiveToolAction(tool: ActiveTool): EditorCommand {
   return createSetActiveToolCommand(tool)
 }
 
 export function setHoveredChordAction(
-  editor: Editor,
   hoveredChord: Editor['hoveredChord'],
 ): EditorCommand {
-  void editor
   return createSetHoveredChordCommand(hoveredChord)
 }
 
-export function setClipboardAction(editor: Editor, clipboard: ClipboardState): EditorCommand {
-  void editor
+export function setClipboardAction(clipboard: ClipboardState): EditorCommand {
   return createSetClipboardCommand(clipboard)
 }
 
-export function setFocusedBlockIdAction(editor: Editor, blockId?: BlockId): EditorCommand {
-  void editor
+export function setFocusedBlockIdAction(blockId?: BlockId): EditorCommand {
   return createSetFocusedBlockIdCommand(blockId)
 }
 
-export function setInspectorPanelAction(editor: Editor, panel: InspectorPanel): EditorCommand {
-  void editor
+export function setInspectorPanelAction(panel: InspectorPanel): EditorCommand {
   return createSetInspectorCommand(`Open ${panel} inspector`, { open: true, panel })
 }
 
-export function closeInspectorAction(editor: Editor): EditorCommand {
-  void editor
+export function closeInspectorAction(): EditorCommand {
   return createSetInspectorCommand('Close inspector', createInspectorState())
 }
 
-export function setSelectionAction(editor: Editor, selection: SelectionState): EditorCommand {
-  void editor
+export function setSelectionAction(selection: SelectionState): EditorCommand {
   return createSetSelectionCommand(selection)
 }
 
-export function unfocusSelectionAction(editor: Editor): EditorCommand {
-  return editor.focusedBlockId === undefined
+export function unfocusSelectionAction(focusedBlockId?: BlockId): EditorCommand {
+  return focusedBlockId === undefined
     ? createSetSelectionCommand(createSelectionState(), 'Clear selection')
     : createSetFocusedBlockIdCommand()
 }
 
-export function deleteSelectionAction(editor: Editor, workspace: Workspace): readonly Command[] {
-  const { selection } = editor
+export function deleteSelectionAction(selection: SelectionState): readonly Command[] {
   const commands: Command[] = []
 
   if (selection.selectedBlockIds.length > 0) {
-    commands.push(deleteBlockAction(workspace, selection.selectedBlockIds))
+    commands.push(deleteBlockAction(selection.selectedBlockIds))
   }
 
   if (selection.selectedSectionIds.length > 0) {
-    commands.push(deleteSectionAction(workspace, selection.selectedSectionIds))
+    commands.push(deleteSectionAction(selection.selectedSectionIds))
   }
 
-  for (const patternEventId of selection.selectedPatternEventIds) {
-    const patternId = selectPatternIdForEvent(workspace, patternEventId)
-
-    if (patternId !== undefined) {
-      commands.push(deletePatternEventAction(workspace, patternId, patternEventId))
-    }
+  if (selection.selectedPatternEventIds.length > 0) {
+    commands.push(deletePatternEventAction(selection.selectedPatternEventIds))
   }
 
-  for (const timelineEventId of selection.selectedTimelineEventIds) {
-    const timelineEvent = selectWorkspaceTimelineEvent(workspace, timelineEventId)
-
-    if (timelineEvent !== undefined) {
-      commands.push(...deleteTimelineEventAction(workspace, timelineEvent))
-    }
+  if (selection.selectedTimelineEventIds.length > 0) {
+    commands.push(deleteTimelineEventAction(selection.selectedTimelineEventIds))
   }
 
   return commands
 }
 
 export function duplicateSelectionAction(
-  editor: Editor,
-  workspace: Workspace,
-  offsetTicks = workspace.timeline.ppq,
+  selection: SelectionState,
+  offsetTicks: number,
 ): readonly Command[] {
   const commands: Command[] = []
 
-  if (editor.selection.selectedBlockIds.length > 0) {
-    commands.push(duplicateBlockAction(workspace, editor.selection.selectedBlockIds, offsetTicks))
+  if (selection.selectedBlockIds.length > 0) {
+    commands.push(duplicateBlockAction(selection.selectedBlockIds, offsetTicks))
   }
 
-  if (editor.selection.selectedSectionIds.length > 0) {
-    commands.push(duplicateSectionAction(workspace, editor.selection.selectedSectionIds, offsetTicks))
+  if (selection.selectedSectionIds.length > 0) {
+    commands.push(duplicateSectionAction(selection.selectedSectionIds, offsetTicks))
   }
 
   return commands
 }
 
-export function pasteClipboardAction(editor: Editor, workspace: Workspace): readonly Command[] {
-  if (editor.clipboard.blockIds.length === 0) {
+export function pasteClipboardAction(clipboard: ClipboardState, offsetTicks: number): readonly Command[] {
+  if (clipboard.blockIds.length === 0) {
     return []
   }
 
-  return [duplicateBlockAction(workspace, editor.clipboard.blockIds, workspace.timeline.ppq)]
+  return [duplicateBlockAction(clipboard.blockIds, offsetTicks)]
 }
 
 export function applyBlockToolAction(input: {
   block: Block
   tick: Tick
   tool: ActiveTool
-  workspace: Workspace
 }): readonly Command[] {
-  const { block, tick, tool, workspace } = input
+  const { block, tick, tool } = input
 
   if (tool === 'erase') {
-    return [deleteBlockAction(workspace, [block.id])]
+    return [deleteBlockAction([block.id])]
   }
 
   if (tool === 'split') {
-    return [splitBlockAction(workspace, block.id, tick)]
+    return [splitBlockAction(block.id, tick)]
   }
 
   if (tool === 'mute') {
-    return [setBlockMutedAction(workspace, block.id, !block.muted)]
+    return [updateBlockAction({ ...block, muted: !block.muted })]
   }
 
   return []
@@ -246,16 +208,15 @@ export function applySectionToolAction(input: {
   section: Section
   tick: Tick
   tool: ActiveTool
-  workspace: Workspace
 }): readonly Command[] {
-  const { section, tick, tool, workspace } = input
+  const { section, tick, tool } = input
 
   if (tool === 'erase') {
-    return [deleteSectionAction(workspace, [section.id])]
+    return [deleteSectionAction([section.id])]
   }
 
   if (tool === 'split') {
-    return [splitSectionAction(workspace, section.id, tick)]
+    return [splitSectionAction(section.id, tick)]
   }
 
   return []
@@ -263,7 +224,6 @@ export function applySectionToolAction(input: {
 
 export function completeArrangementDragAction(input: {
   dragState: DragState
-  editor: Editor
   endTick: Tick
   movementX: number
   movementY: number
@@ -273,7 +233,6 @@ export function completeArrangementDragAction(input: {
 }): readonly Command[] {
   const {
     dragState,
-    editor,
     endTick,
     movementX,
     movementY,
@@ -291,8 +250,8 @@ export function completeArrangementDragAction(input: {
     })
 
     return [
-      addBlockAction(workspace, block),
-      setSelectionAction(editor, {
+      addBlockAction(block),
+      setSelectionAction({
         ...createSelectionState(),
         selectedBlockIds: [block.id],
       }),
@@ -307,8 +266,8 @@ export function completeArrangementDragAction(input: {
     })
 
     return [
-      addSectionAction(workspace, section),
-      setSelectionAction(editor, {
+      addSectionAction(section),
+      setSelectionAction({
         ...createSelectionState(),
         selectedSectionIds: [section.id],
       }),
@@ -334,7 +293,6 @@ export function completeArrangementDragAction(input: {
       return block === undefined
         ? []
         : [moveBlockAction(
-            workspace,
             block.id,
             Math.max(0, block.startTick + deltaTicks),
             targetTrackId ?? block.trackId,
@@ -348,7 +306,6 @@ export function completeArrangementDragAction(input: {
     if (dragState.edge === 'left') {
       const nextStartTick = Math.min(endTick, block.startTick + block.lengthTicks - 1)
       return [resizeBlockAction(
-        workspace,
         block.id,
         nextStartTick,
         block.startTick + block.lengthTicks - nextStartTick,
@@ -356,13 +313,12 @@ export function completeArrangementDragAction(input: {
     }
 
     const nextEndTick = Math.max(endTick, block.startTick + 1)
-    return [resizeBlockAction(workspace, block.id, block.startTick, nextEndTick - block.startTick)]
+    return [resizeBlockAction(block.id, block.startTick, nextEndTick - block.startTick)]
   }
 
   if (dragState.kind === 'moveSection') {
     const deltaTicks = endTick - dragState.startTick
     return [moveSectionAction(
-      workspace,
       dragState.section.id,
       Math.max(0, dragState.section.startTick + deltaTicks),
     )]
@@ -375,7 +331,6 @@ export function completeArrangementDragAction(input: {
     if (dragState.edge === 'left') {
       const nextStartTick = Math.min(endTick, sectionEndTick - 1)
       return [resizeSectionAction(
-        workspace,
         section.id,
         nextStartTick,
         sectionEndTick - nextStartTick,
@@ -383,16 +338,15 @@ export function completeArrangementDragAction(input: {
     }
 
     const nextEndTick = Math.max(endTick, section.startTick + 1)
-    return [resizeSectionAction(workspace, section.id, section.startTick, nextEndTick - section.startTick)]
+    return [resizeSectionAction(section.id, section.startTick, nextEndTick - section.startTick)]
   }
 
   if (dragState.kind === 'moveTimelineEvent') {
     const deltaTicks = endTick - dragState.startTick
-    return [moveTimelineEventAction(
-      workspace,
-      dragState.event,
-      Math.max(0, dragState.event.tick + deltaTicks),
-    )]
+    return [updateTimelineEventAction({
+      ...dragState.event,
+      tick: Math.max(0, dragState.event.tick + deltaTicks),
+    })]
   }
 
   return []
@@ -401,37 +355,26 @@ export function completeArrangementDragAction(input: {
 export function updateBlockFromInspectorAction(input: {
   block: Block
   draft: InspectorDraft
-  workspace: Workspace
-}): readonly Command[] {
-  const { block, draft, workspace } = input
-  const commands: Command[] = []
-  const name = draft.blockName.trim() || block.name
+}): Command {
+  const { block, draft } = input
 
-  if (name !== block.name) {
-    commands.push(renameBlockAction(workspace, block.id, name))
-  }
-
-  if (draft.blockColor !== block.color) {
-    commands.push(setBlockColorAction(workspace, block.id, draft.blockColor))
-  }
-
-  if (draft.blockMuted !== block.muted) {
-    commands.push(setBlockMutedAction(workspace, block.id, draft.blockMuted))
-  }
-
-  if (draft.blockPlaybackMode !== block.playbackMode) {
-    commands.push(setBlockPlaybackModeAction(workspace, block.id, draft.blockPlaybackMode))
-  }
-
-  return commands
+  return updateBlockAction({
+    ...block,
+    color: draft.blockColor,
+    muted: draft.blockMuted,
+    name: draft.blockName.trim() || block.name,
+    playbackMode: draft.blockPlaybackMode,
+  })
 }
 
 export function updateSectionFromInspectorAction(input: {
   draft: InspectorDraft
   section: Section
-  workspace: Workspace
-}): readonly Command[] {
-  return [renameSectionAction(input.workspace, input.section.id, input.draft.sectionName)]
+}): Command {
+  return updateSectionAction({
+    ...input.section,
+    name: input.draft.sectionName.trim() || input.section.name,
+  })
 }
 
 export function applyTimelineEventToolAction(
@@ -442,7 +385,7 @@ export function applyTimelineEventToolAction(
   const existingIds = selectTimelineEventIds(workspace)
 
   if (tool === 'tempo') {
-    return [addTempoEventAction(workspace, createTempoEvent({
+    return [addTimelineEventAction(createTempoEvent({
       id: createDraftEntityId('tempoEvent', existingIds),
       bpm: getTempoAtTick(workspace.timeline, tick),
       tick,
@@ -450,7 +393,7 @@ export function applyTimelineEventToolAction(
   }
 
   if (tool === 'meter') {
-    return [addMeterEventAction(workspace, createMeterEvent({
+    return [addTimelineEventAction(createMeterEvent({
       id: createDraftEntityId('meterEvent', existingIds),
       timeSignature: getMeterAtTick(workspace.timeline, tick),
       tick,
@@ -458,7 +401,7 @@ export function applyTimelineEventToolAction(
   }
 
   if (tool === 'key') {
-    return [addKeyEventAction(workspace, createKeyEvent({
+    return [addTimelineEventAction(createKeyEvent({
       id: createDraftEntityId('keyEvent', existingIds),
       key: getKeyAtTick(workspace.timeline, tick),
       tick,
@@ -468,55 +411,39 @@ export function applyTimelineEventToolAction(
   return []
 }
 
-export function deleteTimelineEventAction(
-  workspace: Workspace,
-  timelineEvent: TimelineEvent,
-): readonly Command[] {
-  if (isTempoEvent(timelineEvent)) {
-    return [deleteTempoEventAction(workspace, timelineEvent.tick)]
-  }
-
-  if (isMeterEvent(timelineEvent)) {
-    return [deleteMeterEventAction(workspace, timelineEvent.tick)]
-  }
-
-  return [deleteKeyEventAction(workspace, timelineEvent.tick)]
-}
-
 export function updateTimelineEventFromInspectorAction(input: {
   draft: TimelineEventDraft
   timelineEvent: TimelineEvent
-  workspace: Workspace
-}): readonly Command[] {
-  const { draft, timelineEvent, workspace } = input
+}): Command {
+  const { draft, timelineEvent } = input
 
   if (isTempoEvent(timelineEvent)) {
-    return [updateTempoEventAction(workspace, timelineEvent.tick, createTempoEvent({
+    return updateTimelineEventAction(createTempoEvent({
       bpm: draft.tempoBpm,
       id: timelineEvent.id,
-      tick: snapTimelineTick(workspace.timeline, draft.tempoTick),
-    }))]
+      tick: draft.tempoTick,
+    }))
   }
 
   if (isMeterEvent(timelineEvent)) {
-    return [updateMeterEventAction(workspace, timelineEvent.tick, createMeterEvent({
+    return updateTimelineEventAction(createMeterEvent({
       id: timelineEvent.id,
-      tick: snapTimelineTick(workspace.timeline, draft.meterTick, workspace.timeline.grid),
+      tick: draft.meterTick,
       timeSignature: {
         denominator: draft.meterDenominator,
         numerator: draft.meterNumerator,
       },
-    }))]
+    }))
   }
 
-  return [updateKeyEventAction(workspace, timelineEvent.tick, createKeyEvent({
+  return updateTimelineEventAction(createKeyEvent({
     id: timelineEvent.id,
     key: {
       mode: draft.keyMode,
       tonic: draft.keyTonic as Key['tonic'],
     },
-    tick: snapTimelineTick(workspace.timeline, draft.keyTick),
-  }))]
+    tick: draft.keyTick,
+  }))
 }
 
 function isPointerDrag(movementX: number, movementY: number, threshold: number): boolean {

@@ -244,12 +244,12 @@ function EditorDebugContent() {
   const [commandSequence, setCommandSequence] = useState(1)
 
   function setActiveTool(tool: ActiveTool) {
-    dispatch(setActiveToolAction(editor, tool))
+    dispatch(setActiveToolAction(tool))
   }
 
   function setInspectorPanel(panel: Editor['inspector']['panel']) {
     if (panel !== undefined) {
-      dispatch(setInspectorPanelAction(editor, panel))
+      dispatch(setInspectorPanelAction(panel))
     }
   }
 
@@ -279,7 +279,6 @@ function EditorDebugContent() {
   }) {
     if (editor.activeTool === 'select') {
       dispatch(setSelectionAction(
-        editor,
         selectOnly(editor.selection, field, id),
       ))
 
@@ -288,7 +287,6 @@ function EditorDebugContent() {
 
     if (editor.activeTool === 'drawBlock' || editor.activeTool === 'drawSection') {
       dispatch(setSelectionAction(
-        editor,
         toggleOnly(editor.selection, field, id),
       ))
 
@@ -301,7 +299,6 @@ function EditorDebugContent() {
       }
 
       dispatch(setSelectionAction(
-        editor,
         removeSelectedId(editor.selection, field, id),
       ))
     }

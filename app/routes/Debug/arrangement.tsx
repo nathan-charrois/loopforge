@@ -94,7 +94,6 @@ import {
   copySelectionAction,
   createInspectorDraft,
   deleteSelectionAction,
-  deleteTimelineEventAction,
   type DragState,
   duplicateSelectionAction,
   getBlockDragPreviews,
@@ -126,6 +125,7 @@ import {
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
 import {
+  deleteTimelineEventAction,
   selectBlocksForTrack,
   selectPattern,
   selectPatterns,
@@ -241,57 +241,52 @@ function ArrangementDebugContent() {
 
   const selectEditorBlock = useCallback((blockId: string, additive: boolean) => {
     dispatch(selectBlockAction(
-      editor,
       blockId,
       additive,
     ))
-  }, [dispatch, editor])
+  }, [dispatch])
 
   const selectEditorSection = useCallback((sectionId: string, additive: boolean) => {
     dispatch(selectSectionAction(
-      editor,
       sectionId,
       additive,
     ))
-  }, [dispatch, editor])
+  }, [dispatch])
 
   const selectTimelineEvent = useCallback((timelineEventId: string, additive: boolean) => {
     dispatch(selectTimelineEventAction(
-      editor,
       timelineEventId,
       additive,
     ))
-  }, [dispatch, editor])
+  }, [dispatch])
 
   const copySelection = useCallback(() => {
-    dispatch(copySelectionAction(editor))
-  }, [dispatch, editor])
+    dispatch(copySelectionAction())
+  }, [dispatch])
 
   const setActiveTool = useCallback((tool: ActiveTool) => {
     dispatch(setActiveToolAction(
-      editor,
       tool,
     ))
-  }, [dispatch, editor])
+  }, [dispatch])
 
   const handlePaste = useCallback(() => {
-    dispatch(pasteClipboardAction(editor, workspace))
-  }, [editor, dispatch, workspace])
+    dispatch(pasteClipboardAction(editor.clipboard, workspace.timeline.ppq))
+  }, [editor.clipboard, dispatch, workspace.timeline.ppq])
 
   const duplicateSelection = useCallback(() => {
-    dispatch(duplicateSelectionAction(editor, workspace))
-  }, [editor, dispatch, workspace])
+    dispatch(duplicateSelectionAction(editor.selection, workspace.timeline.ppq))
+  }, [editor.selection, dispatch, workspace.timeline.ppq])
 
   const deleteSelection = useCallback(() => {
-    dispatch(deleteSelectionAction(editor, workspace))
-  }, [editor, dispatch, workspace])
+    dispatch(deleteSelectionAction(editor.selection))
+  }, [editor.selection, dispatch])
 
   const updateGridDivision = useCallback((grid: GridDivision) => {
     dispatch(setGridDivisionAction(
-      workspace,
       grid,
     ))
-  }, [dispatch, workspace])
+  }, [dispatch])
 
   const getTickFromClientX = useCallback((clientX: number, shouldSnap = true): Tick => {
     if (timelineGridRef.current === null) {
@@ -435,7 +430,6 @@ function ArrangementDebugContent() {
 
     dispatch(completeArrangementDragAction({
       dragState,
-      editor,
       endTick,
       movementX,
       movementY,
@@ -445,7 +439,7 @@ function ArrangementDebugContent() {
     }))
 
     setDragState(undefined)
-  }, [dragState, editor, getTickFromClientX, getTrackIdFromClientY, dispatch, workspace])
+  }, [dragState, getTickFromClientX, getTrackIdFromClientY, dispatch, workspace])
 
   const handleBlockPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, block: Block) => {
     event.stopPropagation()
@@ -454,7 +448,6 @@ function ArrangementDebugContent() {
       block,
       tick: getTickFromClientX(event.clientX),
       tool: editor.activeTool,
-      workspace,
     })
 
     if (toolCommands.length > 0) {
@@ -483,7 +476,7 @@ function ArrangementDebugContent() {
         startClientY: event.clientY,
       })
     }
-  }, [editor.activeTool, editor.selection.selectedBlockIds, getTickFromClientX, dispatch, selectEditorBlock, workspace])
+  }, [editor.activeTool, editor.selection.selectedBlockIds, getTickFromClientX, dispatch, selectEditorBlock])
 
   const handleBlockResizePointerDown = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
@@ -513,7 +506,6 @@ function ArrangementDebugContent() {
       section,
       tick: getTickFromClientX(event.clientX),
       tool: editor.activeTool,
-      workspace,
     })
 
     if (toolCommands.length > 0) {
@@ -537,7 +529,7 @@ function ArrangementDebugContent() {
         section,
       })
     }
-  }, [editor.activeTool, getTickFromClientX, dispatch, selectEditorSection, workspace])
+  }, [editor.activeTool, getTickFromClientX, dispatch, selectEditorSection])
 
   const handleSectionResizePointerDown = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
@@ -564,7 +556,7 @@ function ArrangementDebugContent() {
     event.stopPropagation()
 
     if (editor.activeTool === 'erase') {
-      dispatch(deleteTimelineEventAction(workspace, timelineEvent))
+      dispatch(deleteTimelineEventAction([timelineEvent.id]))
       return
     }
 
@@ -585,20 +577,17 @@ function ArrangementDebugContent() {
         startClientY: event.clientY,
       })
     }
-  }, [editor.activeTool, getTickFromClientX, dispatch, selectTimelineEvent, workspace])
+  }, [editor.activeTool, getTickFromClientX, dispatch, selectTimelineEvent])
 
   const handleBlockCloseFocus = useCallback(() => {
-    dispatch(setFocusedBlockIdAction(
-      editor,
-    ))
-  }, [dispatch, editor])
+    dispatch(setFocusedBlockIdAction())
+  }, [dispatch])
 
   const handleBlockDoubleClick = useCallback((blockId: string) => {
     dispatch(setFocusedBlockIdAction(
-      editor,
       blockId,
     ))
-  }, [dispatch, editor])
+  }, [dispatch])
 
   const handleToolbarZoomIn = useCallback(() => {
     handleZoomBy(1.25)
@@ -616,9 +605,8 @@ function ArrangementDebugContent() {
     dispatch(updateBlockFromInspectorAction({
       block: selectedBlock,
       draft: inspectorDraft,
-      workspace,
     }))
-  }, [inspectorDraft, dispatch, selectedBlock, workspace])
+  }, [inspectorDraft, dispatch, selectedBlock])
 
   const updateSelectedSectionFromInspector = useCallback(() => {
     if (selectedSection === undefined) {
@@ -628,9 +616,8 @@ function ArrangementDebugContent() {
     dispatch(updateSectionFromInspectorAction({
       draft: inspectorDraft,
       section: selectedSection,
-      workspace,
     }))
-  }, [inspectorDraft, dispatch, selectedSection, workspace])
+  }, [inspectorDraft, dispatch, selectedSection])
 
   const updateSelectedTimelineEventFromInspector = useCallback(() => {
     if (selectedTimelineEvent === undefined) {
@@ -640,13 +627,12 @@ function ArrangementDebugContent() {
     dispatch(updateTimelineEventFromInspectorAction({
       draft: inspectorDraft,
       timelineEvent: selectedTimelineEvent,
-      workspace,
     }))
-  }, [inspectorDraft, dispatch, selectedTimelineEvent, workspace])
+  }, [inspectorDraft, dispatch, selectedTimelineEvent])
 
   const unfocusSelection = useCallback(() => {
-    dispatch(unfocusSelectionAction(editor))
-  }, [dispatch, editor])
+    dispatch(unfocusSelectionAction(editor.focusedBlockId))
+  }, [dispatch, editor.focusedBlockId])
 
   useKeyboardShortcuts({
     onCopy: copySelection,

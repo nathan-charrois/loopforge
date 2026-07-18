@@ -1,4 +1,13 @@
 import { addEntity, removeEntity, updateEntity } from '../type'
+import {
+  selectBlock,
+  selectPattern,
+  selectPatternEvent,
+  selectPatternIdForEvent,
+  selectSection,
+  selectTimelineEvent,
+  selectTrack,
+} from './selector'
 import type { Workspace } from './type'
 import {
   type Block,
@@ -6,19 +15,16 @@ import {
   type BlockPlaybackMode,
   getTimelineEventField,
   type GridDivision,
-  type KeyEvent,
-  type MeterEvent,
   type PatternEvent,
+  type PatternEventId,
   type PatternId,
   type Section,
   type SectionId,
-  snapTickToGrid,
   sortPatternEventsByTime,
   sortTimelineEventsByTick,
-  type TempoEvent,
   type Tick,
   type TimelineEvent,
-  type TimelineEventField,
+  type TimelineEventId,
   type TrackId,
 } from '~/domain'
 import type { Pattern } from '~/domain/patterns'
@@ -440,15 +446,27 @@ export function addPatternEvent(
 
 export function deletePatternEvent(
   workspace: Workspace,
-  patternId: PatternId,
-  eventId: string,
+  eventId: PatternEventId,
 ): Workspace {
-  const pattern = requirePatternEvent(workspace, patternId, eventId).pattern
+  const patternId = selectPatternIdForEvent(workspace, eventId)
+
+  if (patternId === undefined) {
+    throw new Error(`Pattern event ${eventId} does not exist.`)
+  }
+
+  const pattern = requirePattern(workspace, patternId)
 
   return updatePattern(workspace, {
     ...pattern,
     events: pattern.events.filter(event => event.id !== eventId),
   } as Pattern)
+}
+
+export function deletePatternEvents(
+  workspace: Workspace,
+  eventIds: readonly PatternEventId[],
+): Workspace {
+  return eventIds.reduce(deletePatternEvent, workspace)
 }
 
 export function updatePatternEvent(
@@ -466,66 +484,71 @@ export function updatePatternEvent(
   } as Pattern)
 }
 
-export function addTempoEvent(workspace: Workspace, event: TempoEvent): Workspace {
-  return addTimelineEvent(workspace, 'tempoEvents', event)
-}
+export function addTimelineEvent(workspace: Workspace, event: TimelineEvent): Workspace {
+  const field = getTimelineEventField(event)
+  const events = workspace.timeline[field]
 
-export function deleteTempoEvent(workspace: Workspace, tick: Tick): Workspace {
-  return deleteTimelineEvent(workspace, 'tempoEvents', tick)
-}
+  if (selectTimelineEvent(workspace, event.id) !== undefined) {
+    throw new Error(`Timeline event ${event.id} already exists.`)
+  }
 
-export function updateTempoEvent(workspace: Workspace, previousTick: Tick, event: TempoEvent): Workspace {
-  return updateTimelineEvent(workspace, 'tempoEvents', previousTick, event)
-}
-
-export function addMeterEvent(workspace: Workspace, event: MeterEvent): Workspace {
-  return addTimelineEvent(workspace, 'meterEvents', {
-    ...event,
-    tick: snapTickToGrid(workspace.timeline, event.tick, 'bar'),
+  return setTimeline(workspace, {
+    ...workspace.timeline,
+    [field]: sortTimelineEventsByTick([
+      ...events.filter(currentEvent => currentEvent.tick !== event.tick),
+      event,
+    ]),
   })
 }
 
-export function deleteMeterEvent(workspace: Workspace, tick: Tick): Workspace {
-  return deleteTimelineEvent(workspace, 'meterEvents', tick)
-}
-
-export function updateMeterEvent(workspace: Workspace, previousTick: Tick, event: MeterEvent): Workspace {
-  return updateTimelineEvent(workspace, 'meterEvents', previousTick, event)
-}
-
-export function addKeyEvent(workspace: Workspace, event: KeyEvent): Workspace {
-  return addTimelineEvent(workspace, 'keyEvents', event)
-}
-
-export function deleteKeyEvent(workspace: Workspace, tick: Tick): Workspace {
-  return deleteTimelineEvent(workspace, 'keyEvents', tick)
-}
-
-export function updateKeyEvent(workspace: Workspace, previousTick: Tick, event: KeyEvent): Workspace {
-  return updateTimelineEvent(workspace, 'keyEvents', previousTick, event)
-}
-
-export function moveTimelineEvent(
+export function deleteTimelineEvent(
   workspace: Workspace,
-  eventId: string,
-  field: TimelineEventField,
-  requestedTick: Tick,
+  eventId: TimelineEventId,
 ): Workspace {
-  const event = workspace.timeline[field].find(currentEvent => currentEvent.id === eventId)
+  const event = selectTimelineEvent(workspace, eventId)
 
   if (event === undefined) {
     throw new Error(`Timeline event ${eventId} does not exist.`)
   }
 
-  return updateTimelineEvent(
-    workspace,
-    getTimelineEventField(event),
-    event.tick,
-    {
-      ...event,
-      tick: snapTickToGrid(workspace.timeline, requestedTick, workspace.timeline.grid),
-    },
-  )
+  const field = getTimelineEventField(event)
+
+  return setTimeline(workspace, {
+    ...workspace.timeline,
+    [field]: workspace.timeline[field].filter(currentEvent => currentEvent.id !== eventId),
+  })
+}
+
+export function deleteTimelineEvents(
+  workspace: Workspace,
+  eventIds: readonly TimelineEventId[],
+): Workspace {
+  return eventIds.reduce(deleteTimelineEvent, workspace)
+}
+
+export function updateTimelineEvent(workspace: Workspace, event: TimelineEvent): Workspace {
+  const current = selectTimelineEvent(workspace, event.id)
+
+  if (current === undefined) {
+    throw new Error(`Timeline event ${event.id} does not exist.`)
+  }
+
+  const currentField = getTimelineEventField(current)
+  const nextField = getTimelineEventField(event)
+
+  if (currentField !== nextField) {
+    throw new Error(`Timeline event ${event.id} cannot change kind.`)
+  }
+
+  return setTimeline(workspace, {
+    ...workspace.timeline,
+    [currentField]: sortTimelineEventsByTick([
+      ...workspace.timeline[currentField].filter(currentEvent => (
+        currentEvent.id !== event.id && currentEvent.tick !== event.tick
+      )),
+      event,
+    ]),
+  })
 }
 
 export function setGridDivision(workspace: Workspace, grid: GridDivision): Workspace {
@@ -548,60 +571,8 @@ function updateBlockField(
   })
 }
 
-function addTimelineEvent<TEvent extends TimelineEvent>(
-  workspace: Workspace,
-  field: TimelineEventField,
-  event: TEvent,
-): Workspace {
-  const events = workspace.timeline[field]
-
-  if (events.some(currentEvent => currentEvent.id === event.id)) {
-    throw new Error(`Timeline event ${event.id} already exists.`)
-  }
-
-  return setTimeline(workspace, {
-    ...workspace.timeline,
-    [field]: sortTimelineEventsByTick([
-      ...events.filter(currentEvent => currentEvent.tick !== event.tick),
-      event,
-    ]),
-  })
-}
-
-function deleteTimelineEvent(
-  workspace: Workspace,
-  field: TimelineEventField,
-  tick: Tick,
-): Workspace {
-  requireTimelineEvent(workspace, field, tick)
-
-  return setTimeline(workspace, {
-    ...workspace.timeline,
-    [field]: workspace.timeline[field].filter(event => event.tick !== tick),
-  })
-}
-
-function updateTimelineEvent<TEvent extends TimelineEvent>(
-  workspace: Workspace,
-  field: TimelineEventField,
-  previousTick: Tick,
-  event: TEvent,
-): Workspace {
-  requireTimelineEvent(workspace, field, previousTick)
-
-  return setTimeline(workspace, {
-    ...workspace.timeline,
-    [field]: sortTimelineEventsByTick([
-      ...workspace.timeline[field].filter(currentEvent => (
-        currentEvent.tick !== previousTick && currentEvent.tick !== event.tick
-      )),
-      event,
-    ]),
-  })
-}
-
 function requireBlock(workspace: Workspace, blockId: BlockId): Block {
-  const block = workspace.arrangement.blocks.find(currentBlock => currentBlock.id === blockId)
+  const block = selectBlock(workspace, blockId)
 
   if (block === undefined) {
     throw new Error(`Block ${blockId} does not exist.`)
@@ -611,7 +582,7 @@ function requireBlock(workspace: Workspace, blockId: BlockId): Block {
 }
 
 function requireSection(workspace: Workspace, sectionId: SectionId): Section {
-  const section = workspace.arrangement.sections.find(currentSection => currentSection.id === sectionId)
+  const section = selectSection(workspace, sectionId)
 
   if (section === undefined) {
     throw new Error(`Section ${sectionId} does not exist.`)
@@ -621,7 +592,7 @@ function requireSection(workspace: Workspace, sectionId: SectionId): Section {
 }
 
 function requireTrack(workspace: Workspace, trackId: TrackId): Track {
-  const track = workspace.tracks.byId[trackId]
+  const track = selectTrack(workspace, trackId)
 
   if (track === undefined) {
     throw new Error(`Track ${trackId} does not exist.`)
@@ -631,7 +602,7 @@ function requireTrack(workspace: Workspace, trackId: TrackId): Track {
 }
 
 function requirePattern(workspace: Workspace, patternId: PatternId): Pattern {
-  const pattern = workspace.patterns.byId[patternId]
+  const pattern = selectPattern(workspace, patternId)
 
   if (pattern === undefined) {
     throw new Error(`Pattern ${patternId} does not exist.`)
@@ -640,32 +611,18 @@ function requirePattern(workspace: Workspace, patternId: PatternId): Pattern {
   return pattern
 }
 
-function requirePatternEvent(workspace: Workspace, patternId: PatternId, eventId: string): {
+function requirePatternEvent(workspace: Workspace, patternId: PatternId, eventId: PatternEventId): {
   event: PatternEvent
   pattern: Pattern
 } {
   const pattern = requirePattern(workspace, patternId)
-  const event = pattern.events.find(currentEvent => currentEvent.id === eventId)
+  const event = selectPatternEvent(workspace, patternId, eventId)
 
   if (event === undefined) {
     throw new Error(`Pattern event ${eventId} does not exist.`)
   }
 
   return { event, pattern }
-}
-
-function requireTimelineEvent(
-  workspace: Workspace,
-  field: TimelineEventField,
-  tick: Tick,
-): TimelineEvent {
-  const event = workspace.timeline[field].find(currentEvent => currentEvent.tick === tick)
-
-  if (event === undefined) {
-    throw new Error(`${field} event at tick ${tick} does not exist.`)
-  }
-
-  return event
 }
 
 function createUniqueId(prefix: string, existingIds: Set<string>): string {
