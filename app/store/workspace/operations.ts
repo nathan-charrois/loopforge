@@ -100,6 +100,19 @@ export function updateTrack(workspace: Workspace, track: Track): Workspace {
   }
 }
 
+export function updateMixChannel(workspace: Workspace, mixChannel: MixChannel): Workspace {
+  requireMixChannel(workspace, mixChannel.id)
+
+  return {
+    ...workspace,
+    mixer: {
+      ...workspace.mixer,
+      channels: updateEntity(workspace.mixer.channels, mixChannel),
+    },
+    project: touchProject(workspace.project),
+  }
+}
+
 export function removeTrack(workspace: Workspace, trackId: string): Workspace {
   const track = requireTrack(workspace, trackId)
   requireMixChannel(workspace, track.mixChannelId)

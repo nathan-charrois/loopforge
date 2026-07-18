@@ -36,6 +36,7 @@ export const WORKSPACE_COMMAND_KINDS = [
   'duplicateTrack',
   'reorderTrack',
   'updateTrack',
+  'updateMixChannel',
   'updateMixer',
   'addPattern',
   'deletePattern',
@@ -52,6 +53,7 @@ export const WORKSPACE_COMMAND_KINDS = [
 export const EDITOR_COMMAND_KINDS = [
   'copySelection',
   'selectBlock',
+  'selectMixChannel',
   'selectSection',
   'selectTimelineEvent',
   'selectTrack',

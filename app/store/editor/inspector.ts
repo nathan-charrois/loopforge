@@ -4,6 +4,7 @@ import {
   isKeyEvent,
   isMeterEvent,
   isTempoEvent,
+  type MixChannel,
   type Section,
   type TimelineEvent,
   type Track,
@@ -21,9 +22,15 @@ export function createInspectorDraft(): InspectorDraft {
     meterDenominator: 4,
     meterNumerator: 4,
     meterTick: 0,
+    mixChannelMuted: false,
+    mixChannelPan: 0,
+    mixChannelSoloed: false,
+    mixChannelVolumeDb: 0,
     sectionName: '',
     tempoBpm: 120,
     tempoTick: 0,
+    trackAccepts: ['chord'],
+    trackColor: '#9b51e0',
     trackName: '',
     trackRole: 'chords',
   }
@@ -32,15 +39,34 @@ export function createInspectorDraft(): InspectorDraft {
 export function updateInspectorDraftFromSelection(
   currentDraft: InspectorDraft,
   selectedTrack?: Track,
+  selectedMixChannel?: MixChannel,
   selectedBlock?: Block,
   selectedSection?: Section,
   selectionTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
   const withTrack = updateInspectorDraftFromTrack(currentDraft, selectedTrack)
-  const withBlock = updateInspectorDraftFromBlock(withTrack, selectedBlock)
+  const withMixChannel = updateInspectorDraftFromMixChannel(withTrack, selectedMixChannel)
+  const withBlock = updateInspectorDraftFromBlock(withMixChannel, selectedBlock)
   const withSection = updateInspectorDraftFromSection(withBlock, selectedSection)
 
   return updateInspectorDraftFromTimelineEvent(withSection, selectionTimelineEvent)
+}
+
+export function updateInspectorDraftFromMixChannel(
+  currentDraft: InspectorDraft,
+  selectedMixChannel?: MixChannel,
+): InspectorDraft {
+  if (selectedMixChannel) {
+    return {
+      ...currentDraft,
+      mixChannelMuted: selectedMixChannel.muted,
+      mixChannelPan: selectedMixChannel.pan,
+      mixChannelSoloed: selectedMixChannel.soloed,
+      mixChannelVolumeDb: selectedMixChannel.volumeDb,
+    }
+  }
+
+  return currentDraft
 }
 
 export function updateInspectorDraftFromTrack(
@@ -50,6 +76,8 @@ export function updateInspectorDraftFromTrack(
   if (selectedTrack) {
     return {
       ...currentDraft,
+      trackAccepts: [...selectedTrack.accepts],
+      trackColor: selectedTrack.color,
       trackName: selectedTrack?.name ?? currentDraft.trackName,
       trackRole: selectedTrack?.role ?? currentDraft.trackRole,
     }

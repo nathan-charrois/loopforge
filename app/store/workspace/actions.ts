@@ -23,6 +23,7 @@ import {
   createSplitBlockCommand,
   createSplitSectionCommand,
   createUpdateBlockCommand,
+  createUpdateMixChannelCommand,
   createUpdateMixerCommand,
   createUpdatePatternCommand,
   createUpdatePatternEventCommand,
@@ -142,6 +143,10 @@ export function updateTrackAction(track: Track): WorkspaceCommand {
 
 export function reorderTrackAction(trackIds: readonly TrackId[]): WorkspaceCommand {
   return createReorderTrackCommand(trackIds)
+}
+
+export function updateMixChannelAction(mixChannel: MixChannel): WorkspaceCommand {
+  return createUpdateMixChannelCommand(mixChannel)
 }
 
 export function updateMixerAction(mixer: Mixer): WorkspaceCommand {

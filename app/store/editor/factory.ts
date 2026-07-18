@@ -18,6 +18,7 @@ import {
 export function createSelectionState(): SelectionState {
   return {
     selectedBlockIds: [],
+    selectedMixChannelIds: [],
     selectedPatternEventIds: [],
     selectedSectionIds: [],
     selectedTimelineEventIds: [],

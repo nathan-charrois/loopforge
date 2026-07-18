@@ -1,6 +1,7 @@
 import {
   createCopySelectionCommand,
   createSelectBlockCommand,
+  createSelectMixChannelCommand,
   createSelectSectionCommand,
   createSelectTimelineEventCommand,
   createSelectTrackCommand,
@@ -43,6 +44,8 @@ import {
   isMeterEvent,
   isTempoEvent,
   type Key,
+  type MixChannel,
+  type MixChannelId,
   type Section,
   type SectionId,
   type Tick,
@@ -71,6 +74,7 @@ import {
   splitBlockAction,
   splitSectionAction,
   updateBlockAction,
+  updateMixChannelAction,
   updateSectionAction,
   updateTimelineEventAction,
   updateTrackAction,
@@ -82,6 +86,13 @@ export function selectBlockAction(
   additive = false,
 ): EditorCommand {
   return createSelectBlockCommand(blockId, additive)
+}
+
+export function selectMixChannelAction(
+  mixChannelId: MixChannelId,
+  additive = false,
+): EditorCommand {
+  return createSelectMixChannelCommand(mixChannelId, additive)
 }
 
 export function selectSectionAction(
@@ -399,8 +410,23 @@ export function updateTrackFromInspectorAction(input: {
 }): Command {
   return updateTrackAction({
     ...input.track,
+    accepts: [...input.draft.trackAccepts],
+    color: input.draft.trackColor,
     name: input.draft.trackName.trim() || input.track.name,
     role: input.draft.trackRole,
+  })
+}
+
+export function updateMixChannelFromInspectorAction(input: {
+  draft: InspectorDraft
+  mixChannel: MixChannel
+}): Command {
+  return updateMixChannelAction({
+    ...input.mixChannel,
+    muted: input.draft.mixChannelMuted,
+    pan: input.draft.mixChannelPan,
+    soloed: input.draft.mixChannelSoloed,
+    volumeDb: input.draft.mixChannelVolumeDb,
   })
 }
 

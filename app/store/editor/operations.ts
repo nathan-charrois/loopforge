@@ -9,6 +9,7 @@ import type {
   SelectionState,
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
+import type { MixChannelId } from '~/domain/mixer'
 import type { TimelineEventId } from '~/domain/timeline'
 import type { TrackId } from '~/domain/tracks'
 import { toggleInArray } from '~/utils/array'
@@ -101,6 +102,35 @@ export function selectBlock(
       ...createSelectionState(),
       selectedBlockIds: [
         blockId,
+      ],
+    },
+  }
+}
+
+export function selectMixChannel(
+  editor: Editor,
+  mixChannelId: MixChannelId,
+  additive = false,
+): Editor {
+  if (additive) {
+    return {
+      ...editor,
+      selection: {
+        ...editor.selection,
+        selectedMixChannelIds: toggleInArray(
+          editor.selection.selectedMixChannelIds,
+          mixChannelId,
+        ),
+      },
+    }
+  }
+
+  return {
+    ...editor,
+    selection: {
+      ...createSelectionState(),
+      selectedMixChannelIds: [
+        mixChannelId,
       ],
     },
   }

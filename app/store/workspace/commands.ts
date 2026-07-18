@@ -23,6 +23,7 @@ import {
   splitBlock,
   splitSection,
   updateBlock,
+  updateMixChannel,
   updateMixer,
   updatePattern,
   updatePatternEvent,
@@ -166,6 +167,10 @@ export function applyWorkspaceCommand(
     }
     case 'reorderTrack':
       return reorderTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
+    case 'updateMixChannel': {
+      const mixChannel = getPayloadObject<MixChannel>(payload, 'mixChannel')
+      return mixChannel === undefined ? workspace : updateMixChannel(workspace, mixChannel)
+    }
     case 'updateMixer': {
       const mixer = getPayloadObject<Mixer>(payload, 'mixer')
       return mixer === undefined ? workspace : updateMixer(workspace, mixer)
@@ -335,6 +340,12 @@ export function createUpdateTrackCommand(track: Track): WorkspaceCommand {
 
 export function createReorderTrackCommand(trackIds: readonly TrackId[]): WorkspaceCommand {
   return createWorkspaceCommandRecord('reorderTrack', 'Reorder tracks', { trackIds: [...trackIds] })
+}
+
+export function createUpdateMixChannelCommand(mixChannel: MixChannel): WorkspaceCommand {
+  return createWorkspaceCommandRecord('updateMixChannel', 'Update mix channel', {
+    mixChannel: toJsonValue(mixChannel),
+  })
 }
 
 export function createUpdateMixerCommand(mixer: Mixer): WorkspaceCommand {

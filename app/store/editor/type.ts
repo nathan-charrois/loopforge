@@ -6,8 +6,10 @@ import type {
   SectionId,
 } from '~/domain/arrangement'
 import type { ChordSymbol, Key } from '~/domain/harmony'
+import type { MixChannelId } from '~/domain/mixer'
 import type { Tick } from '~/domain/musicPrimitives'
 import type { PatternEventId } from '~/domain/patternEvents'
+import type { PatternKind } from '~/domain/patterns'
 import type { TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
 import type { TrackId, TrackRole } from '~/domain/tracks'
 
@@ -32,6 +34,7 @@ export type InspectorPanel = typeof INSPECTOR_PANELS[number]
 
 export type SelectionState = {
   selectedBlockIds: BlockId[]
+  selectedMixChannelIds: MixChannelId[]
   selectedPatternEventIds: PatternEventId[]
   selectedTrackIds: TrackId[]
   selectedSectionIds: SectionId[]
@@ -150,7 +153,13 @@ export type InspectorDraft = TimelineEventDraft & {
   blockMuted: boolean
   blockName: string
   blockPlaybackMode: BlockPlaybackMode
+  mixChannelMuted: boolean
+  mixChannelPan: number
+  mixChannelSoloed: boolean
+  mixChannelVolumeDb: number
   sectionName: string
+  trackAccepts: PatternKind[]
+  trackColor: string
   trackName: string
   trackRole: TrackRole
 }
