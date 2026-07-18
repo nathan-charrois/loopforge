@@ -54,6 +54,7 @@ export const EDITOR_COMMAND_KINDS = [
   'selectBlock',
   'selectSection',
   'selectTimelineEvent',
+  'selectTrack',
   'setActiveTool',
   'setClipboard',
   'setFocusedBlockId',

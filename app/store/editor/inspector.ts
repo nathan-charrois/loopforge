@@ -6,6 +6,7 @@ import {
   isTempoEvent,
   type Section,
   type TimelineEvent,
+  type Track,
 } from '~/domain'
 
 export function createInspectorDraft(): InspectorDraft {
@@ -23,19 +24,38 @@ export function createInspectorDraft(): InspectorDraft {
     sectionName: '',
     tempoBpm: 120,
     tempoTick: 0,
+    trackName: '',
+    trackRole: 'chords',
   }
 }
 
 export function updateInspectorDraftFromSelection(
   currentDraft: InspectorDraft,
+  selectedTrack?: Track,
   selectedBlock?: Block,
   selectedSection?: Section,
   selectionTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
-  const withBlock = updateInspectorDraftFromBlock(currentDraft, selectedBlock)
+  const withTrack = updateInspectorDraftFromTrack(currentDraft, selectedTrack)
+  const withBlock = updateInspectorDraftFromBlock(withTrack, selectedBlock)
   const withSection = updateInspectorDraftFromSection(withBlock, selectedSection)
 
   return updateInspectorDraftFromTimelineEvent(withSection, selectionTimelineEvent)
+}
+
+export function updateInspectorDraftFromTrack(
+  currentDraft: InspectorDraft,
+  selectedTrack?: Track,
+): InspectorDraft {
+  if (selectedTrack) {
+    return {
+      ...currentDraft,
+      trackName: selectedTrack?.name ?? currentDraft.trackName,
+      trackRole: selectedTrack?.role ?? currentDraft.trackRole,
+    }
+  }
+
+  return currentDraft
 }
 
 export function updateInspectorDraftFromBlock(

@@ -3,6 +3,7 @@ import {
   createSelectBlockCommand,
   createSelectSectionCommand,
   createSelectTimelineEventCommand,
+  createSelectTrackCommand,
   createSetActiveToolCommand,
   createSetClipboardCommand,
   createSetFocusedBlockIdCommand,
@@ -47,6 +48,7 @@ import {
   type Tick,
   type TimelineEvent,
   type TimelineEventId,
+  type Track,
   type TrackId,
 } from '~/domain'
 import type { Command, EditorCommand } from '~/store/session'
@@ -71,6 +73,7 @@ import {
   updateBlockAction,
   updateSectionAction,
   updateTimelineEventAction,
+  updateTrackAction,
   type Workspace,
 } from '~/store/workspace'
 
@@ -93,6 +96,13 @@ export function selectTimelineEventAction(
   additive = false,
 ): EditorCommand {
   return createSelectTimelineEventCommand(timelineEventId, additive)
+}
+
+export function selectTrackAction(
+  trackId: TrackId,
+  additive = false,
+): EditorCommand {
+  return createSelectTrackCommand(trackId, additive)
 }
 
 export function copySelectionAction(): EditorCommand {
@@ -380,6 +390,17 @@ export function updateSectionFromInspectorAction(input: {
   return updateSectionAction({
     ...input.section,
     name: input.draft.sectionName.trim() || input.section.name,
+  })
+}
+
+export function updateTrackFromInspectorAction(input: {
+  draft: InspectorDraft
+  track: Track
+}): Command {
+  return updateTrackAction({
+    ...input.track,
+    name: input.draft.trackName.trim() || input.track.name,
+    role: input.draft.trackRole,
   })
 }
 

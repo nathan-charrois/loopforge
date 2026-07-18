@@ -1,5 +1,6 @@
 import {
   memo,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
@@ -80,6 +81,9 @@ import {
   type TimelineEventId,
   type TimeSignatureDenominator,
   type Track,
+  TRACK_ROLES,
+  type TrackId,
+  type TrackRole,
 } from '~/domain'
 import { useDrag } from '~/hooks/useDrag'
 import {
@@ -106,9 +110,11 @@ import {
   selectFirstSelectedBlock,
   selectFirstSelectedSection,
   selectFirstSelectedTimelineEvent,
+  selectFirstSelectedTrack,
   type SelectionState,
   selectSectionAction,
   selectTimelineEventAction,
+  selectTrackAction,
   setActiveToolAction,
   setFocusedBlockIdAction,
   tickToX,
@@ -117,6 +123,7 @@ import {
   updateInspectorDraftFromSelection,
   updateSectionFromInspectorAction,
   updateTimelineEventFromInspectorAction,
+  updateTrackFromInspectorAction,
   type ViewportState,
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
@@ -215,6 +222,7 @@ function ArrangementDebugContent() {
   const selectedBlock = useMemo(() => selectFirstSelectedBlock(editor, workspace), [editor, workspace])
   const selectedSection = useMemo(() => selectFirstSelectedSection(editor, workspace), [editor, workspace])
   const selectedTimelineEvent = useMemo(() => selectFirstSelectedTimelineEvent(editor, workspace), [editor, workspace])
+  const selectedTrack = useMemo(() => selectFirstSelectedTrack(editor, workspace), [editor, workspace])
 
   const timelineEndTick = useMemo(
     () => selectWorkspaceEndTick(workspace) + TIMELINE_PADDING_TICKS,
@@ -239,11 +247,12 @@ function ArrangementDebugContent() {
   useEffect(() => {
     setInspectorDraft(currentDraft => updateInspectorDraftFromSelection(
       currentDraft,
+      selectedTrack,
       selectedBlock,
       selectedSection,
       selectedTimelineEvent,
     ))
-  }, [selectedBlock, selectedSection, selectedTimelineEvent])
+  }, [selectedBlock, selectedSection, selectedTimelineEvent, selectedTrack])
 
   const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const commands = applyTimelineEventToolAction(
@@ -385,6 +394,15 @@ function ArrangementDebugContent() {
     }
   }, [dispatch, editor.activeTool, startDrag])
 
+  const handleTimelineLabelPointerDown = useCallback((
+    event: ReactMouseEvent<HTMLDivElement>,
+    trackId: TrackId,
+  ) => {
+    event.stopPropagation()
+
+    dispatch(selectTrackAction(trackId, event.shiftKey))
+  }, [dispatch])
+
   const copySelection = useCallback(() => {
     dispatch(copySelectionAction())
   }, [dispatch])
@@ -464,6 +482,17 @@ function ArrangementDebugContent() {
     }))
   }, [inspectorDraft, dispatch, selectedTimelineEvent])
 
+  const updateSelectedTrackFromInspector = useCallback(() => {
+    if (selectedTrack === undefined) {
+      return
+    }
+
+    dispatch(updateTrackFromInspectorAction({
+      draft: inspectorDraft,
+      track: selectedTrack,
+    }))
+  }, [dispatch, inspectorDraft, selectedTrack])
+
   const unfocusSelection = useCallback(() => {
     dispatch(unfocusSelectionAction(editor.focusedBlockId))
   }, [dispatch, editor.focusedBlockId])
@@ -522,9 +551,11 @@ function ArrangementDebugContent() {
             >
               <TimelineLabelColumn
                 focusedBlockId={editor.focusedBlockId}
+                selectedTrackIds={editor.selection.selectedTrackIds}
                 tracks={tracks}
                 viewport={viewport}
                 workspace={workspace}
+                onClickTrackLabel={handleTimelineLabelPointerDown}
               />
               <Box
                 ref={scrollRef}
@@ -604,6 +635,7 @@ function ArrangementDebugContent() {
             selectedBlock={selectedBlock}
             selectedSection={selectedSection}
             selectedTimelineEvent={selectedTimelineEvent}
+            selectedTrack={selectedTrack}
             selection={editor.selection}
             setDraft={setInspectorDraft}
             workspace={workspace}
@@ -612,6 +644,7 @@ function ArrangementDebugContent() {
             onUpdateBlock={updateSelectedBlockFromInspector}
             onUpdateSection={updateSelectedSectionFromInspector}
             onUpdateTimelineEvent={updateSelectedTimelineEventFromInspector}
+            onUpdateTrack={updateSelectedTrackFromInspector}
           />
         </SimpleGrid>
       </Stack>
@@ -732,11 +765,15 @@ const Toolbar = memo(function Toolbar({
 
 const TimelineLabelColumn = memo(function TimelineLabelColumn({
   focusedBlockId,
+  onClickTrackLabel,
+  selectedTrackIds,
   tracks,
   viewport,
   workspace,
 }: {
   focusedBlockId?: string
+  onClickTrackLabel: (event: ReactMouseEvent<HTMLDivElement>, trackId: TrackId) => void
+  selectedTrackIds: TrackId[]
   tracks: Track[]
   viewport: ViewportState
   workspace: Workspace
@@ -762,9 +799,11 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
       {tracks.map(track => (
         <TimelineTrackLabel
           key={track.id}
+          selected={selectedTrackIds.includes(track.id)}
           track={track}
           viewport={viewport}
           workspace={workspace}
+          onClick={event => onClickTrackLabel(event, track.id)}
         />
       ))}
     </Box>
@@ -772,10 +811,14 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
 })
 
 const TimelineTrackLabel = memo(function TimelineTrackLabel({
+  onClick,
+  selected,
   track,
   viewport,
   workspace,
 }: {
+  onClick: (event: ReactMouseEvent<HTMLDivElement>) => void
+  selected: boolean
   track: Track
   viewport: ViewportState
   workspace: Workspace
@@ -786,7 +829,11 @@ const TimelineTrackLabel = memo(function TimelineTrackLabel({
   )
 
   return (
-    <StaticTimelineLabel height={viewport.laneHeight}>
+    <StaticTimelineLabel
+      height={viewport.laneHeight}
+      selected={selected}
+      onClick={onClick}
+    >
       <Stack gap={1}>
         <Text fw={700} size="sm" truncate>{track.name}</Text>
         <Group gap={4}>
@@ -802,17 +849,24 @@ const TimelineTrackLabel = memo(function TimelineTrackLabel({
 const StaticTimelineLabel = memo(function StaticTimelineLabel({
   children,
   height,
+  onClick,
   opacity = 1,
+  selected = false,
 }: {
   children: ReactNode
   height: number
+  onClick?: (event: ReactMouseEvent<HTMLDivElement>) => void
   opacity?: number
+  selected?: boolean
 }) {
   return (
     <Box
+      onClick={onClick}
       style={{
         alignItems: 'center',
+        background: selected ? 'var(--mantine-color-blue-0)' : undefined,
         borderBottom: '1px solid var(--mantine-color-gray-3)',
+        cursor: onClick === undefined ? undefined : 'pointer',
         display: 'flex',
         height,
         opacity,
@@ -1346,10 +1400,12 @@ const InspectorPanel = memo(function InspectorPanel({
   onUpdateBlock,
   onUpdateSection,
   onUpdateTimelineEvent,
+  onUpdateTrack,
   patterns,
   selectedBlock,
   selectedSection,
   selectedTimelineEvent,
+  selectedTrack,
   selection,
   setDraft,
   workspace,
@@ -1361,10 +1417,12 @@ const InspectorPanel = memo(function InspectorPanel({
   onUpdateBlock: () => void
   onUpdateSection: () => void
   onUpdateTimelineEvent: () => void
+  onUpdateTrack: () => void
   patterns: ReturnType<typeof selectPatterns>
   selectedBlock?: Block
   selectedSection?: Section
   selectedTimelineEvent?: TimelineEvent
+  selectedTrack?: Track
   selection: SelectionState
   setDraft: (updater: (draft: InspectorDraft) => InspectorDraft) => void
   workspace: Workspace
@@ -1378,11 +1436,36 @@ const InspectorPanel = memo(function InspectorPanel({
           <Badge color="gray" variant="light">
             {selection.selectedBlockIds.length
               + selection.selectedSectionIds.length
-              + selection.selectedTimelineEventIds.length}
+              + selection.selectedTimelineEventIds.length
+              + selection.selectedTrackIds.length}
             {' '}
             selected
           </Badge>
         </Group>
+
+        {selectedTrack !== undefined && (
+          <Stack gap="sm">
+            <Text fw={700} size="sm">Track</Text>
+            <TextInput
+              label="Name"
+              size="xs"
+              value={draft.trackName}
+              onChange={event => setDraft(currentDraft => ({ ...currentDraft, trackName: event.currentTarget.value }))}
+            />
+            <Select
+              allowDeselect={false}
+              data={TRACK_ROLES.map(value => ({ label: value, value }))}
+              label="Role"
+              size="xs"
+              value={draft.trackRole}
+              onChange={value => setDraft(currentDraft => ({
+                ...currentDraft,
+                trackRole: (value ?? currentDraft.trackRole) as TrackRole,
+              }))}
+            />
+            <Button size="xs" onClick={onUpdateTrack}>Apply Track</Button>
+          </Stack>
+        )}
 
         {selectedBlock !== undefined && (
           <Stack gap="sm">
@@ -1391,11 +1474,7 @@ const InspectorPanel = memo(function InspectorPanel({
               label="Name"
               size="xs"
               value={draft.blockName}
-              onChange={(event) => {
-                const { value } = event.currentTarget
-
-                setDraft(currentDraft => ({ ...currentDraft, blockName: value }))
-              }}
+              onChange={event => setDraft(currentDraft => ({ ...currentDraft, blockName: event.currentTarget.value }))}
             />
             <ColorInput
               label="Color"

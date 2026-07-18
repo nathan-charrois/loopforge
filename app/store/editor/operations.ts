@@ -10,6 +10,7 @@ import type {
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
 import type { TimelineEventId } from '~/domain/timeline'
+import type { TrackId } from '~/domain/tracks'
 import { toggleInArray } from '~/utils/array'
 
 export function setActiveTool(
@@ -158,6 +159,35 @@ export function selectTimelineEvent(
       ...createSelectionState(),
       selectedTimelineEventIds: [
         timelineEventId,
+      ],
+    },
+  }
+}
+
+export function selectTrack(
+  editor: Editor,
+  trackId: TrackId,
+  additive = false,
+): Editor {
+  if (additive) {
+    return {
+      ...editor,
+      selection: {
+        ...editor.selection,
+        selectedTrackIds: toggleInArray(
+          editor.selection.selectedTrackIds,
+          trackId,
+        ),
+      },
+    }
+  }
+
+  return {
+    ...editor,
+    selection: {
+      ...createSelectionState(),
+      selectedTrackIds: [
+        trackId,
       ],
     },
   }

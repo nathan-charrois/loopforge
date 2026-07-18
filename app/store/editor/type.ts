@@ -9,7 +9,7 @@ import type { ChordSymbol, Key } from '~/domain/harmony'
 import type { Tick } from '~/domain/musicPrimitives'
 import type { PatternEventId } from '~/domain/patternEvents'
 import type { TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
-import type { TrackId } from '~/domain/tracks'
+import type { TrackId, TrackRole } from '~/domain/tracks'
 
 export const ACTIVE_TOOLS = [
   'select',
@@ -151,6 +151,8 @@ export type InspectorDraft = TimelineEventDraft & {
   blockName: string
   blockPlaybackMode: BlockPlaybackMode
   sectionName: string
+  trackName: string
+  trackRole: TrackRole
 }
 
 export type Editor = {

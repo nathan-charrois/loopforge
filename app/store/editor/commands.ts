@@ -3,6 +3,7 @@ import {
   selectBlock,
   selectSection,
   selectTimelineEvent,
+  selectTrack,
   setActiveTool,
   setClipboard,
   setFocusedBlockId,
@@ -17,7 +18,7 @@ import type {
   InspectorState,
   SelectionState,
 } from './type'
-import type { BlockId, SectionId, TimelineEventId } from '~/domain'
+import type { BlockId, SectionId, TimelineEventId, TrackId } from '~/domain'
 import type {
   CommandPayload,
   EditorCommand,
@@ -53,6 +54,12 @@ export function applyEditorCommand(
       return timelineEventId === undefined
         ? editor
         : selectTimelineEvent(editor, timelineEventId, getPayloadBoolean(payload, 'additive') ?? false)
+    }
+    case 'selectTrack': {
+      const trackId = getPayloadString(payload, 'trackId')
+      return trackId === undefined
+        ? editor
+        : selectTrack(editor, trackId, getPayloadBoolean(payload, 'additive') ?? false)
     }
     case 'setActiveTool': {
       const activeTool = getPayloadString(payload, 'activeTool') as ActiveTool | undefined
@@ -105,6 +112,10 @@ export function createSelectTimelineEventCommand(
     additive,
     timelineEventId,
   })
+}
+
+export function createSelectTrackCommand(trackId: TrackId, additive: boolean): EditorCommand {
+  return createEditorCommandRecord('selectTrack', 'Select track', { additive, trackId })
 }
 
 export function createSetActiveToolCommand(tool: ActiveTool): EditorCommand {
