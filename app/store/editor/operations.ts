@@ -1,6 +1,5 @@
 import { copySelectionToClipboard } from './clipboard'
 import { createSelectionState } from './factory'
-import { snapTimelineRange } from './snap'
 import type {
   ActiveTool,
   ClipboardState,
@@ -10,13 +9,7 @@ import type {
   SelectionState,
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
-import type { Tick } from '~/domain/musicPrimitives'
 import type { TimelineEventId } from '~/domain/timeline'
-import {
-  selectBlocksInRange,
-  selectSectionsInRange,
-  type Workspace,
-} from '~/store/workspace'
 import { toggleInArray } from '~/utils/array'
 
 export function setActiveTool(
@@ -168,27 +161,6 @@ export function selectTimelineEvent(
       ],
     },
   }
-}
-
-export function selectTimelineRange(
-  editor: Editor,
-  workspace: Workspace,
-  startTick: Tick,
-  endTick: Tick,
-): Editor {
-  const range = snapTimelineRange(workspace.timeline, startTick, endTick)
-  const bounds = {
-    endTick: range.startTick + range.lengthTicks,
-    startTick: range.startTick,
-  }
-
-  return setSelection(editor, {
-    ...createSelectionState(),
-    selectedBlockIds:
-      selectBlocksInRange(workspace, bounds).map(block => block.id),
-    selectedSectionIds:
-      selectSectionsInRange(workspace, bounds).map(section => section.id),
-  })
 }
 
 export function setInspectorPanel(

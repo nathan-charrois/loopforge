@@ -3,7 +3,6 @@ import {
   selectBlock,
   selectSection,
   selectTimelineEvent,
-  selectTimelineRange,
   setActiveTool,
   setClipboard,
   setFocusedBlockId,
@@ -18,20 +17,18 @@ import type {
   InspectorState,
   SelectionState,
 } from './type'
-import type { BlockId, SectionId, Tick, TimelineEventId } from '~/domain'
+import type { BlockId, SectionId, TimelineEventId } from '~/domain'
 import type {
   CommandPayload,
   EditorCommand,
   EditorCommandKind,
   JsonValue,
 } from '~/store/session/command'
-import type { Workspace } from '~/store/workspace/type'
 
 let editorCommandSequence = 1
 
 export function applyEditorCommand(
   editor: Editor,
-  workspace: Workspace,
   command: EditorCommand,
 ): Editor {
   const { payload } = command
@@ -56,13 +53,6 @@ export function applyEditorCommand(
       return timelineEventId === undefined
         ? editor
         : selectTimelineEvent(editor, timelineEventId, getPayloadBoolean(payload, 'additive') ?? false)
-    }
-    case 'selectTimelineRange': {
-      const startTick = getPayloadNumber(payload, 'startTick')
-      const endTick = getPayloadNumber(payload, 'endTick')
-      return startTick === undefined || endTick === undefined
-        ? editor
-        : selectTimelineRange(editor, workspace, startTick, endTick)
     }
     case 'setActiveTool': {
       const activeTool = getPayloadString(payload, 'activeTool') as ActiveTool | undefined
@@ -115,10 +105,6 @@ export function createSelectTimelineEventCommand(
     additive,
     timelineEventId,
   })
-}
-
-export function createSelectTimelineRangeCommand(startTick: Tick, endTick: Tick): EditorCommand {
-  return createEditorCommandRecord('selectTimelineRange', 'Select timeline range', { endTick, startTick })
 }
 
 export function createSetActiveToolCommand(tool: ActiveTool): EditorCommand {
@@ -184,11 +170,6 @@ function getPayloadObject<TValue>(payload: CommandPayload, key: string): TValue 
 function getPayloadString(payload: CommandPayload, key: string): string | undefined {
   const value = payload[key]
   return typeof value === 'string' ? value : undefined
-}
-
-function getPayloadNumber(payload: CommandPayload, key: string): number | undefined {
-  const value = payload[key]
-  return typeof value === 'number' ? value : undefined
 }
 
 function getPayloadBoolean(payload: CommandPayload, key: string): boolean | undefined {

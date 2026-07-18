@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import { type MetaArgs } from 'react-router'
@@ -82,6 +81,12 @@ import {
   type TimeSignatureDenominator,
   type Track,
 } from '~/domain'
+import { useDrag } from '~/hooks/useDrag'
+import {
+  useSectionLaneOverlay,
+  useTimelineEventOverlay,
+  useTrackLaneOverlay,
+} from '~/hooks/useDragOverlay'
 import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
 import { useViewport } from '~/hooks/useViewport'
 import {
@@ -90,18 +95,11 @@ import {
   applyBlockToolAction,
   applySectionToolAction,
   applyTimelineEventToolAction,
-  completeArrangementDragAction,
   copySelectionAction,
   createInspectorDraft,
   deleteSelectionAction,
   type DragState,
   duplicateSelectionAction,
-  getBlockDragPreviews,
-  getDragStartClientX,
-  getDragStartClientY,
-  getInitialDrawEndTick,
-  getSectionDragPreviews,
-  getTimelineEventDragPreview,
   type InspectorDraft,
   pasteClipboardAction,
   selectBlockAction,
@@ -113,7 +111,6 @@ import {
   selectTimelineEventAction,
   setActiveToolAction,
   setFocusedBlockIdAction,
-  snapTimelineTick,
   tickToX,
   unfocusSelectionAction,
   updateBlockFromInspectorAction,
@@ -121,7 +118,6 @@ import {
   updateSectionFromInspectorAction,
   updateTimelineEventFromInspectorAction,
   type ViewportState,
-  xToTick,
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
 import {
@@ -142,10 +138,9 @@ const TRACK_LABEL_WIDTH = 168
 const TIMELINE_PADDING_TICKS = 7680
 const MIN_BLOCK_WIDTH = 18
 const MIN_SECTION_WIDTH = 18
-const MIN_PREVIEW_WIDTH = 6
+const MIN_OVERLAY_WIDTH = 6
 const BLOCK_TOP = 14
 const TIMELINE_MARKER_TOP = 10
-const POINTER_DRAG_THRESHOLD = 4
 const HANDLE_WIDTH = 8
 const ROOT_OPTIONS = Array.from({ length: 12 }, (_, value) => ({
   label: `${value}`,
@@ -181,9 +176,6 @@ export default function Arrangement() {
 }
 
 function ArrangementDebugContent() {
-  const timelineGridRef = useRef<HTMLDivElement>(null)
-  const trackRowsRef = useRef<HTMLDivElement>(null)
-
   const {
     canRedo,
     canUndo,
@@ -197,9 +189,22 @@ function ArrangementDebugContent() {
 
   const { viewport, scrollRef, handleViewportWheel, handleZoomBy } = useViewport()
 
-  const [inspectorDraft, setInspectorDraft] = useState<InspectorDraft>(() => createInspectorDraft())
+  const {
+    cancelDrag,
+    finishDrag,
+    startDrag,
+    dragState,
+    updateDrag,
+    timelineRef,
+    trackRowsRef,
+    getPointerTick,
+  } = useDrag({
+    dispatch,
+    viewport,
+    workspace,
+  })
 
-  const [dragState, setDragState] = useState<DragState | undefined>(undefined)
+  const [inspectorDraft, setInspectorDraft] = useState<InspectorDraft>(() => createInspectorDraft())
 
   const [hoveredBlockId, setHoveredBlockId] = useState<string | undefined>(undefined)
   const [hoveredTimelineEventId, setHoveredTimelineEventId] = useState<string | undefined>(undefined)
@@ -239,26 +244,145 @@ function ArrangementDebugContent() {
     ))
   }, [selectedBlock, selectedSection, selectedTimelineEvent])
 
-  const selectEditorBlock = useCallback((blockId: string, additive: boolean) => {
-    dispatch(selectBlockAction(
-      blockId,
-      additive,
-    ))
-  }, [dispatch])
+  const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const commands = applyTimelineEventToolAction(
+      workspace,
+      editor.activeTool,
+      getPointerTick(event.clientX),
+    )
 
-  const selectEditorSection = useCallback((sectionId: string, additive: boolean) => {
-    dispatch(selectSectionAction(
-      sectionId,
-      additive,
-    ))
-  }, [dispatch])
+    if (commands.length > 0) {
+      dispatch(commands)
+    }
+  }, [dispatch, editor.activeTool, getPointerTick, workspace])
 
-  const selectTimelineEvent = useCallback((timelineEventId: string, additive: boolean) => {
-    dispatch(selectTimelineEventAction(
-      timelineEventId,
-      additive,
-    ))
-  }, [dispatch])
+  const handleSectionLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    if (editor.activeTool === 'drawSection') {
+      startDrag(event, { kind: 'drawSection' })
+      return
+    }
+
+    if (editor.activeTool === 'select') {
+      startDrag(event, { kind: 'selectRange', row: 0 })
+    }
+  }, [editor.activeTool, startDrag])
+
+  const handleTrackLanePointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    trackId: string,
+  ) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    if (editor.activeTool === 'drawBlock') {
+      startDrag(event, { kind: 'drawBlock', trackId })
+      return
+    }
+
+    if (editor.activeTool === 'select') {
+      startDrag(event, {
+        kind: 'selectRange',
+        row: workspace.tracks.allIds.indexOf(trackId) + 1,
+      })
+    }
+  }, [editor.activeTool, startDrag, workspace.tracks.allIds])
+
+  const handleBlockPointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    block: Block,
+  ) => {
+    event.stopPropagation()
+
+    const commands = applyBlockToolAction({
+      block,
+      tick: getPointerTick(event.clientX),
+      tool: editor.activeTool,
+    })
+
+    if (commands.length > 0) {
+      dispatch(commands)
+      return
+    }
+
+    dispatch(selectBlockAction(block.id, event.shiftKey))
+
+    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
+      startDrag(event, {
+        blockIds: editor.selection.selectedBlockIds.includes(block.id)
+          ? editor.selection.selectedBlockIds
+          : [block.id],
+        kind: 'moveBlock',
+        trackId: block.trackId,
+      })
+    }
+  }, [dispatch, editor.activeTool, editor.selection.selectedBlockIds, getPointerTick, startDrag])
+
+  const handleBlockResizePointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    block: Block,
+    edge: 'left' | 'right',
+  ) => {
+    event.stopPropagation()
+    dispatch(selectBlockAction(block.id, event.shiftKey))
+    startDrag(event, { block, edge, kind: 'resizeBlock' })
+  }, [dispatch, startDrag])
+
+  const handleSectionPointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    section: Section,
+  ) => {
+    event.stopPropagation()
+
+    const commands = applySectionToolAction({
+      section,
+      tick: getPointerTick(event.clientX),
+      tool: editor.activeTool,
+    })
+
+    if (commands.length > 0) {
+      dispatch(commands)
+      return
+    }
+
+    dispatch(selectSectionAction(section.id, event.shiftKey))
+
+    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
+      startDrag(event, { kind: 'moveSection', section })
+    }
+  }, [dispatch, editor.activeTool, getPointerTick, startDrag])
+
+  const handleSectionResizePointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    section: Section,
+    edge: 'left' | 'right',
+  ) => {
+    event.stopPropagation()
+    dispatch(selectSectionAction(section.id, event.shiftKey))
+    startDrag(event, { edge, kind: 'resizeSection', section })
+  }, [dispatch, startDrag])
+
+  const handleTimelineEventPointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    timelineEvent: TimelineEvent,
+  ) => {
+    event.stopPropagation()
+
+    if (editor.activeTool === 'erase') {
+      dispatch(deleteTimelineEventAction([timelineEvent.id]))
+      return
+    }
+
+    dispatch(selectTimelineEventAction(timelineEvent.id, event.shiftKey))
+
+    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
+      startDrag(event, { event: timelineEvent, kind: 'moveTimelineEvent' })
+    }
+  }, [dispatch, editor.activeTool, startDrag])
 
   const copySelection = useCallback(() => {
     dispatch(copySelectionAction())
@@ -287,297 +411,6 @@ function ArrangementDebugContent() {
       grid,
     ))
   }, [dispatch])
-
-  const getTickFromClientX = useCallback((clientX: number, shouldSnap = true): Tick => {
-    if (timelineGridRef.current === null) {
-      return 0
-    }
-
-    const rect = timelineGridRef.current.getBoundingClientRect()
-    const rawTick = xToTick(viewport.pixelsPerTick, Math.max(0, clientX - rect.left))
-
-    return shouldSnap
-      ? snapTimelineTick(workspace.timeline, rawTick)
-      : rawTick
-  }, [viewport.pixelsPerTick, workspace.timeline])
-
-  const getTrackIdFromClientY = useCallback((clientY: number): string | undefined => {
-    if (trackRowsRef.current === null) {
-      return undefined
-    }
-
-    const rect = trackRowsRef.current.getBoundingClientRect()
-    const trackIndex = Math.floor((clientY - rect.top) / viewport.laneHeight)
-
-    return tracks[trackIndex]?.id
-  }, [tracks, viewport.laneHeight])
-
-  const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const tick = getTickFromClientX(event.clientX)
-
-    const toolCommands = applyTimelineEventToolAction(
-      workspace,
-      editor.activeTool,
-      tick,
-    )
-
-    if (toolCommands.length > 0) {
-      dispatch(toolCommands)
-      return
-    }
-  }, [editor.activeTool, getTickFromClientX, dispatch, workspace])
-
-  const handleSectionLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const tick = getTickFromClientX(event.clientX)
-
-    if (editor.activeTool === 'drawSection') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: getInitialDrawEndTick(workspace.timeline, tick),
-        kind: 'drawSection',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-      })
-      return
-    }
-
-    if (editor.activeTool === 'select') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: tick,
-        kind: 'marquee',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-      })
-    }
-  }, [editor.activeTool, getTickFromClientX, workspace.timeline])
-
-  const handleTrackLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, trackId: string) => {
-    if (event.button !== 0) {
-      return
-    }
-
-    const tick = getTickFromClientX(event.clientX)
-
-    if (editor.activeTool === 'drawBlock') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: getInitialDrawEndTick(workspace.timeline, tick),
-        kind: 'drawBlock',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-        trackId,
-      })
-      return
-    }
-
-    if (editor.activeTool === 'select') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      setDragState({
-        currentTick: tick,
-        kind: 'marquee',
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startTick: tick,
-      })
-    }
-  }, [editor.activeTool, getTickFromClientX, workspace.timeline])
-
-  const handleTimelinePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragState === undefined || dragState.pointerId !== event.pointerId) {
-      return
-    }
-
-    if (
-      dragState.kind === 'drawBlock'
-      || dragState.kind === 'drawSection'
-      || dragState.kind === 'marquee'
-      || dragState.kind === 'moveBlock'
-      || dragState.kind === 'resizeBlock'
-      || dragState.kind === 'moveSection'
-      || dragState.kind === 'resizeSection'
-      || dragState.kind === 'moveTimelineEvent'
-    ) {
-      setDragState({
-        ...dragState,
-        currentTick: getTickFromClientX(event.clientX),
-        ...(dragState.kind === 'moveBlock'
-          ? { currentTrackId: getTrackIdFromClientY(event.clientY) }
-          : {}),
-      })
-    }
-  }, [dragState, getTickFromClientX, getTrackIdFromClientY])
-
-  const handleTimelinePointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragState === undefined || dragState.pointerId !== event.pointerId) {
-      return
-    }
-
-    const endTick = getTickFromClientX(event.clientX)
-    const movementX = Math.abs(event.clientX - getDragStartClientX(dragState))
-    const movementY = Math.abs(event.clientY - getDragStartClientY(dragState))
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-
-    dispatch(completeArrangementDragAction({
-      dragState,
-      endTick,
-      movementX,
-      movementY,
-      targetTrackId: getTrackIdFromClientY(event.clientY),
-      threshold: POINTER_DRAG_THRESHOLD,
-      workspace,
-    }))
-
-    setDragState(undefined)
-  }, [dragState, getTickFromClientX, getTrackIdFromClientY, dispatch, workspace])
-
-  const handleBlockPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, block: Block) => {
-    event.stopPropagation()
-
-    const toolCommands = applyBlockToolAction({
-      block,
-      tick: getTickFromClientX(event.clientX),
-      tool: editor.activeTool,
-    })
-
-    if (toolCommands.length > 0) {
-      dispatch(toolCommands)
-      return
-    }
-
-    selectEditorBlock(block.id, event.shiftKey)
-
-    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
-      const pointerTick = getTickFromClientX(event.clientX)
-      const selectedBlockIds = editor.selection.selectedBlockIds.includes(block.id)
-        ? editor.selection.selectedBlockIds
-        : [block.id]
-
-      event.currentTarget.setPointerCapture(event.pointerId)
-
-      setDragState({
-        kind: 'moveBlock',
-        blockIds: selectedBlockIds,
-        currentTick: pointerTick,
-        startTick: pointerTick,
-        currentTrackId: block.trackId,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-      })
-    }
-  }, [editor.activeTool, editor.selection.selectedBlockIds, getTickFromClientX, dispatch, selectEditorBlock])
-
-  const handleBlockResizePointerDown = useCallback((
-    event: ReactPointerEvent<HTMLDivElement>,
-    block: Block,
-    edge: 'left' | 'right',
-  ) => {
-    event.stopPropagation()
-
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    selectEditorBlock(block.id, event.shiftKey)
-
-    setDragState({
-      kind: 'resizeBlock',
-      currentTick: getTickFromClientX(event.clientX),
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      block,
-      edge,
-    })
-  }, [getTickFromClientX, selectEditorBlock])
-
-  const handleSectionPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, section: Section) => {
-    event.stopPropagation()
-
-    const toolCommands = applySectionToolAction({
-      section,
-      tick: getTickFromClientX(event.clientX),
-      tool: editor.activeTool,
-    })
-
-    if (toolCommands.length > 0) {
-      dispatch(toolCommands)
-      return
-    }
-
-    selectEditorSection(section.id, event.shiftKey)
-
-    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
-      const pointerTick = getTickFromClientX(event.clientX)
-
-      event.currentTarget.setPointerCapture(event.pointerId)
-
-      setDragState({
-        kind: 'moveSection',
-        currentTick: pointerTick,
-        startTick: pointerTick,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        section,
-      })
-    }
-  }, [editor.activeTool, getTickFromClientX, dispatch, selectEditorSection])
-
-  const handleSectionResizePointerDown = useCallback((
-    event: ReactPointerEvent<HTMLDivElement>,
-    section: Section,
-    edge: 'left' | 'right',
-  ) => {
-    event.stopPropagation()
-
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    selectEditorSection(section.id, event.shiftKey)
-
-    setDragState({
-      kind: 'resizeSection',
-      currentTick: getTickFromClientX(event.clientX),
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      edge,
-      section,
-    })
-  }, [getTickFromClientX, selectEditorSection])
-
-  const handleTimelineEventPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEvent) => {
-    event.stopPropagation()
-
-    if (editor.activeTool === 'erase') {
-      dispatch(deleteTimelineEventAction([timelineEvent.id]))
-      return
-    }
-
-    selectTimelineEvent(timelineEvent.id, event.shiftKey)
-
-    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
-      const pointerTick = getTickFromClientX(event.clientX)
-
-      event.currentTarget.setPointerCapture(event.pointerId)
-
-      setDragState({
-        kind: 'moveTimelineEvent',
-        event: timelineEvent,
-        currentTick: pointerTick,
-        startTick: pointerTick,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-      })
-    }
-  }, [editor.activeTool, getTickFromClientX, dispatch, selectTimelineEvent])
 
   const handleBlockCloseFocus = useCallback(() => {
     dispatch(setFocusedBlockIdAction())
@@ -693,9 +526,9 @@ function ArrangementDebugContent() {
               />
               <Box
                 ref={scrollRef}
-                onPointerCancel={handleTimelinePointerEnd}
-                onPointerMove={handleTimelinePointerMove}
-                onPointerUp={handleTimelinePointerEnd}
+                onPointerCancel={cancelDrag}
+                onPointerMove={updateDrag}
+                onPointerUp={finishDrag}
                 onWheel={handleViewportWheel}
                 style={{
                   minWidth: 0,
@@ -705,7 +538,7 @@ function ArrangementDebugContent() {
                 }}
               >
                 <Box
-                  ref={timelineGridRef}
+                  ref={timelineRef}
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -713,7 +546,7 @@ function ArrangementDebugContent() {
                   }}
                 />
                 <TimelineRuler
-                  dragState={dragState}
+                  drag={dragState}
                   hoveredTimelineEventId={hoveredTimelineEventId}
                   selectedTimelineEventIds={editor.selection.selectedTimelineEventIds}
                   timelineWidth={timelineWidth}
@@ -725,7 +558,7 @@ function ArrangementDebugContent() {
                   onRulerPointerDown={handleRulerPointerDown}
                 />
                 <SectionLane
-                  dragState={dragState}
+                  drag={dragState}
                   focusedBlockId={editor.focusedBlockId}
                   marks={rulerMarks}
                   selectedSectionIds={editor.selection.selectedSectionIds}
@@ -741,7 +574,7 @@ function ArrangementDebugContent() {
                   {tracks.map(track => (
                     <TrackLane
                       key={track.id}
-                      dragState={dragState}
+                      drag={dragState}
                       focusedBlockId={editor.focusedBlockId}
                       hoveredBlockId={hoveredBlockId}
                       marks={rulerMarks}
@@ -964,7 +797,7 @@ const StaticTimelineLabel = memo(function StaticTimelineLabel({
 })
 
 const TimelineRuler = memo(function TimelineRuler({
-  dragState,
+  drag,
   hoveredTimelineEventId,
   marks,
   onMarkerPointerDown,
@@ -975,7 +808,7 @@ const TimelineRuler = memo(function TimelineRuler({
   viewport,
   workspace,
 }: {
-  dragState?: DragState
+  drag?: DragState
   hoveredTimelineEventId?: TimelineEventId
   marks: RulerMark[]
   onMarkerPointerDown: (event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEvent) => void
@@ -987,7 +820,7 @@ const TimelineRuler = memo(function TimelineRuler({
   workspace: Workspace
 }) {
   const timelineEvents = selectTimelineEvents(workspace)
-  const timelineEventDragPreview = getTimelineEventDragPreview(dragState)
+  const timelineEventPlaceholder = useTimelineEventOverlay(drag)
 
   return (
     <Box
@@ -1036,16 +869,16 @@ const TimelineRuler = memo(function TimelineRuler({
           />
         )
       })}
-      {timelineEventDragPreview !== undefined && (
+      {timelineEventPlaceholder !== undefined && (
         <TimelineEventMarker
-          color={getTimelineEventMarkerColor(timelineEventDragPreview)}
-          icon={getTimelineEventMarkerIcon(timelineEventDragPreview)}
-          isPreview
+          color={getTimelineEventMarkerColor(timelineEventPlaceholder)}
+          icon={getTimelineEventMarkerIcon(timelineEventPlaceholder)}
+          isPlaceholder
           isHovered={false}
           isSelected={false}
-          label={getTimelineEventMarkerLabel(timelineEventDragPreview)}
-          left={tickToX(viewport.pixelsPerTick, timelineEventDragPreview.tick)}
-          top={getTimelineEventMarkerTop(timelineEventDragPreview)}
+          label={getTimelineEventMarkerLabel(timelineEventPlaceholder)}
+          left={tickToX(viewport.pixelsPerTick, timelineEventPlaceholder.tick)}
+          top={getTimelineEventMarkerTop(timelineEventPlaceholder)}
         />
       )}
     </Box>
@@ -1057,7 +890,7 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
   icon,
   isHovered,
   isSelected,
-  isPreview = false,
+  isPlaceholder = false,
   label,
   left,
   top,
@@ -1068,7 +901,7 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
   color: string
   icon: typeof TimeSetting01Icon
   isHovered: boolean
-  isPreview?: boolean
+  isPlaceholder?: boolean
   isSelected: boolean
   label: string
   left: number
@@ -1089,12 +922,12 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
         height: 26,
         left: Math.max(-2, left - 3),
         minWidth: 42,
-        opacity: isPreview ? 0.52 : 1,
+        opacity: isPlaceholder ? 0.52 : 1,
         padding: 3,
-        pointerEvents: isPreview ? 'none' : undefined,
+        pointerEvents: isPlaceholder ? 'none' : undefined,
         position: 'absolute',
         top: Math.max(0, top - 3),
-        zIndex: isSelected ? 8 : isPreview ? 7 : 5,
+        zIndex: isSelected ? 8 : isPlaceholder ? 7 : 5,
         userSelect: 'none',
       }}
     >
@@ -1102,7 +935,7 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
         style={{
           alignItems: 'center',
           background: `var(--mantine-color-${color}-0)`,
-          border: `1px ${isPreview ? 'dashed' : 'solid'} var(--mantine-color-${color}-5)`,
+          border: `1px ${isPlaceholder ? 'dashed' : 'solid'} var(--mantine-color-${color}-5)`,
           borderRadius: 4,
           boxShadow: isSelected
             ? '0 0 0 2px var(--mantine-color-yellow-5)'
@@ -1153,7 +986,7 @@ const TimelineGridLines = memo(function TimelineGridLines({
 })
 
 const SectionLane = memo(function SectionLane({
-  dragState,
+  drag,
   focusedBlockId,
   marks,
   onEmptyDoubleClick,
@@ -1165,7 +998,7 @@ const SectionLane = memo(function SectionLane({
   viewport,
   workspace,
 }: {
-  dragState?: DragState
+  drag?: DragState
   focusedBlockId?: string
   marks: RulerMark[]
   onEmptyDoubleClick: () => void
@@ -1177,7 +1010,11 @@ const SectionLane = memo(function SectionLane({
   viewport: ViewportState
   workspace: Workspace
 }) {
-  const sectionDragPreviews = getSectionDragPreviews(dragState)
+  const {
+    drawRange,
+    sectionPlaceholders,
+    selectionRange,
+  } = useSectionLaneOverlay(drag)
 
   return (
     <Box
@@ -1221,17 +1058,25 @@ const SectionLane = memo(function SectionLane({
           <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, section, 'right')} />
         </Box>
       ))}
-      {dragState?.kind === 'drawSection' && (
-        <DragPreview
+      {drawRange !== undefined && (
+        <TickRangeOverlay
           color="gray"
-          startTick={dragState.startTick}
-          endTick={dragState.currentTick}
+          startTick={drawRange.startTick}
+          endTick={drawRange.endTick}
           viewport={viewport}
         />
       )}
-      {sectionDragPreviews.map(section => (
-        <RangePlaceholder
-          key={`section-preview:${section.id}`}
+      {selectionRange !== undefined && (
+        <TickRangeOverlay
+          color="yellow"
+          startTick={selectionRange.startTick}
+          endTick={selectionRange.endTick}
+          viewport={viewport}
+        />
+      )}
+      {sectionPlaceholders.map(section => (
+        <EntityPlaceholder
+          key={`section-placeholder:${section.id}`}
           color="yellow"
           height={28}
           label={section.name}
@@ -1246,7 +1091,7 @@ const SectionLane = memo(function SectionLane({
 })
 
 const TrackLane = memo(function TrackLane({
-  dragState,
+  drag,
   focusedBlockId,
   hoveredBlockId,
   marks,
@@ -1262,7 +1107,7 @@ const TrackLane = memo(function TrackLane({
   viewport,
   workspace,
 }: {
-  dragState?: DragState
+  drag?: DragState
   focusedBlockId?: string
   hoveredBlockId?: string
   marks: RulerMark[]
@@ -1283,11 +1128,11 @@ const TrackLane = memo(function TrackLane({
     [workspace, track.id],
   )
 
-  const blockDragPreviews = useMemo(
-    () => getBlockDragPreviews(workspace, dragState)
-      .filter(block => block.trackId === track.id),
-    [workspace, track.id, dragState],
-  )
+  const {
+    blockPlaceholders,
+    drawRange,
+    selectionRange,
+  } = useTrackLaneOverlay(drag, workspace, track.id)
 
   return (
     <Box
@@ -1318,25 +1163,25 @@ const TrackLane = memo(function TrackLane({
           onSetHoveredBlock={onSetHoveredBlock}
         />
       ))}
-      {dragState?.kind === 'drawBlock' && dragState.trackId === track.id && (
-        <DragPreview
+      {drawRange !== undefined && (
+        <TickRangeOverlay
           color="blue"
-          startTick={dragState.startTick}
-          endTick={dragState.currentTick}
+          startTick={drawRange.startTick}
+          endTick={drawRange.endTick}
           viewport={viewport}
         />
       )}
-      {dragState?.kind === 'marquee' && (
-        <DragPreview
+      {selectionRange !== undefined && (
+        <TickRangeOverlay
           color="yellow"
-          startTick={dragState.startTick}
-          endTick={dragState.currentTick}
+          startTick={selectionRange.startTick}
+          endTick={selectionRange.endTick}
           viewport={viewport}
         />
       )}
-      {blockDragPreviews.map(block => (
-        <RangePlaceholder
-          key={`block-preview:${block.id}:${block.trackId}`}
+      {blockPlaceholders.map(block => (
+        <EntityPlaceholder
+          key={`block-placeholder:${block.id}:${block.trackId}`}
           color="yellow"
           height={42}
           label={block.name}
@@ -1763,7 +1608,7 @@ function ResizeHandle({
   )
 }
 
-function DragPreview({
+function TickRangeOverlay({
   color,
   endTick,
   startTick,
@@ -1789,14 +1634,14 @@ function DragPreview({
         pointerEvents: 'none',
         position: 'absolute',
         top: 8,
-        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
+        width: Math.max(MIN_OVERLAY_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
         zIndex: 8,
       }}
     />
   )
 }
 
-function RangePlaceholder({
+function EntityPlaceholder({
   color,
   height,
   label,
@@ -1830,7 +1675,7 @@ function RangePlaceholder({
         pointerEvents: 'none',
         position: 'absolute',
         top,
-        width: Math.max(MIN_PREVIEW_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
+        width: Math.max(MIN_OVERLAY_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
         zIndex: 9,
       }}
     >

@@ -519,8 +519,6 @@ function createEditorDebugCommandPayload(
       return editor.selection.selectedTimelineEventIds[0] === undefined
         ? {}
         : { additive: false, timelineEventId: editor.selection.selectedTimelineEventIds[0] }
-    case 'selectTimelineRange':
-      return { endTick: 0, startTick: 0 }
     case 'setActiveTool':
       return { activeTool: editor.activeTool }
     case 'setClipboard':

@@ -52,7 +52,6 @@ export const EDITOR_COMMAND_KINDS = [
   'selectBlock',
   'selectSection',
   'selectTimelineEvent',
-  'selectTimelineRange',
   'setActiveTool',
   'setClipboard',
   'setFocusedBlockId',
@@ -135,7 +134,7 @@ function applyCommand(
   if (command.target === 'editor') {
     return {
       ...session,
-      editor: applyEditorCommand(session.editor, session.workspace, command),
+      editor: applyEditorCommand(session.editor, command),
     }
   }
 

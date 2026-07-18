@@ -3,7 +3,6 @@ import {
   createSelectBlockCommand,
   createSelectSectionCommand,
   createSelectTimelineEventCommand,
-  createSelectTimelineRangeCommand,
   createSetActiveToolCommand,
   createSetClipboardCommand,
   createSetFocusedBlockIdCommand,
@@ -15,6 +14,7 @@ import {
   createArrangementBlockDraft,
   createArrangementSectionDraft,
   createInspectorState,
+  createRangeSelectionState,
   createSelectionState,
 } from './factory'
 import { snapToMinimumTimelineRange } from './snap'
@@ -222,7 +222,7 @@ export function applySectionToolAction(input: {
   return []
 }
 
-export function completeArrangementDragAction(input: {
+export function completeDragAction(input: {
   dragState: DragState
   endTick: Tick
   movementX: number
@@ -274,9 +274,15 @@ export function completeArrangementDragAction(input: {
     ]
   }
 
-  if (dragState.kind === 'marquee') {
+  if (dragState.kind === 'selectRange') {
     return isPointerDrag(movementX, movementY, threshold)
-      ? [createSelectTimelineRangeCommand(dragState.startTick, endTick)]
+      ? [createSetSelectionCommand(createRangeSelectionState(
+          workspace,
+          dragState.startTick,
+          endTick,
+          dragState.startRow,
+          dragState.currentRow,
+        ), 'Select range')]
       : [createSetSelectionCommand(createSelectionState(), 'Clear selection')]
   }
 

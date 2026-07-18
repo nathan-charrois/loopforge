@@ -61,39 +61,41 @@ export type ViewportState = {
 
 export type DragState
   = | {
+    currentTick: Tick
     kind: 'drawBlock'
     pointerId: number
-    startTick: Tick
-    currentTick: Tick
-    trackId: TrackId
     startClientX: number
     startClientY: number
+    startTick: Tick
+    trackId: TrackId
   }
   | {
+    currentTick: Tick
     kind: 'drawSection'
     pointerId: number
-    startTick: Tick
-    currentTick: Tick
     startClientX: number
     startClientY: number
+    startTick: Tick
   }
   | {
-    kind: 'marquee'
-    pointerId: number
-    startTick: Tick
+    currentRow: number
     currentTick: Tick
+    kind: 'selectRange'
+    pointerId: number
     startClientX: number
     startClientY: number
+    startRow: number
+    startTick: Tick
   }
   | {
     blockIds: BlockId[]
+    currentTick: Tick
+    currentTrackId?: TrackId
     kind: 'moveBlock'
     pointerId: number
     startClientX: number
     startClientY: number
     startTick: Tick
-    currentTick: Tick
-    currentTrackId?: TrackId
   }
   | {
     block: Block
@@ -102,14 +104,16 @@ export type DragState
     kind: 'resizeBlock'
     pointerId: number
     startClientX: number
+    startClientY: number
   }
   | {
+    currentTick: Tick
     kind: 'moveSection'
     pointerId: number
     section: Section
     startClientX: number
+    startClientY: number
     startTick: Tick
-    currentTick: Tick
   }
   | {
     currentTick: Tick
@@ -118,6 +122,7 @@ export type DragState
     pointerId: number
     section: Section
     startClientX: number
+    startClientY: number
   }
   | {
     currentTick: Tick

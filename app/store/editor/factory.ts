@@ -1,3 +1,4 @@
+import { snapTimelineRange } from './snap'
 import type { ClipboardState, Editor, InspectorState, SelectionState, ViewportState } from './type'
 import {
   type Block,
@@ -8,7 +9,11 @@ import {
   type Tick,
   type TrackId,
 } from '~/domain'
-import { type Workspace } from '~/store/workspace'
+import {
+  selectBlocksInRange,
+  selectSectionsInRange,
+  type Workspace,
+} from '~/store/workspace'
 
 export function createSelectionState(): SelectionState {
   return {
@@ -17,6 +22,37 @@ export function createSelectionState(): SelectionState {
     selectedSectionIds: [],
     selectedTimelineEventIds: [],
     selectedTrackIds: [],
+  }
+}
+
+export function createRangeSelectionState(
+  workspace: Workspace,
+  startTick: Tick,
+  endTick: Tick,
+  startRow: number,
+  currentRow: number,
+): SelectionState {
+  const range = snapTimelineRange(workspace.timeline, startTick, endTick)
+  const bounds = {
+    endTick: range.startTick + range.lengthTicks,
+    startTick: range.startTick,
+  }
+  const firstRow = Math.max(0, Math.min(startRow, currentRow))
+  const lastRow = Math.min(workspace.tracks.allIds.length, Math.max(startRow, currentRow))
+  const trackIds = new Set(workspace.tracks.allIds.slice(
+    Math.max(0, firstRow - 1),
+    lastRow,
+  ))
+
+  return {
+    ...createSelectionState(),
+    selectedBlockIds:
+      selectBlocksInRange(workspace, bounds)
+        .filter(block => trackIds.has(block.trackId))
+        .map(block => block.id),
+    selectedSectionIds: firstRow === 0
+      ? selectSectionsInRange(workspace, bounds).map(section => section.id)
+      : [],
   }
 }
 
