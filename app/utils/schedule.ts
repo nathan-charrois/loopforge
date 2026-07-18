@@ -6,7 +6,7 @@ import {
   type ChordPlaybackRecipe,
   type ChordPlaybackRecipeHeldStep,
   type ChordPlaybackRecipeStep,
-  type DrumKitPiece,
+  type DrumPiece,
   type DurationTicks,
   getBlockEndTick,
   getChordPlaybackRecipe,
@@ -83,7 +83,7 @@ export type DrumPlaybackTrigger = {
   id: string
   kind: 'drum'
   startTick: Tick
-  kitPiece: DrumKitPiece
+  piece: DrumPiece
   velocity: Velocity
   source: PlaybackTriggerSource
 }
@@ -778,7 +778,7 @@ function createDrumPlaybackTrigger(
   return {
     kind: 'drum',
     id: `${scheduledEvent.id}:drum`,
-    kitPiece: event.kitPiece,
+    piece: event.piece,
     source: createPlaybackTriggerSource(scheduledEvent),
     startTick: scheduledEvent.startTick,
     velocity: event.velocity,

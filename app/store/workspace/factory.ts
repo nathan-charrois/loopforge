@@ -4,6 +4,7 @@ import { selectTracks } from './selector'
 import type { Workspace } from './type'
 import { type Block, createBlock, createDefaultArrangement, createSection } from '~/domain/arrangement'
 import { createChordSymbol, createDefaultKey } from '~/domain/harmony'
+import { type Instrument } from '~/domain/instrument'
 import { createMixChannel, createMixer } from '~/domain/mixer'
 import type { PitchClass } from '~/domain/musicPrimitives'
 import { createAutomationEvent, createChordEvent, createDrumHitEvent, createNoteEvent } from '~/domain/patternEvents'
@@ -30,6 +31,7 @@ export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
     project: input.project ?? createProject(),
     timeline: input.timeline ?? createDefaultTimeline(),
     tracks,
+    instruments: normalizeEntityStore(input.instruments, createEmptyEntityStore<Instrument>()),
   }
 }
 
@@ -138,7 +140,7 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
       events: createSeedPatternEvents(kind, 960, {
         chordQuality: index % 2 === 0 ? 'minor' : 'major',
         chordRoot: (index % 12) as PitchClass,
-        drumPiece: index % 2 === 0 ? 'kick' : 'hat',
+        drumPiece: index % 2 === 0 ? 'kick' : 'openHat',
         notePitch: 48 + (index % 24),
       }),
       id: `stress_pattern_${index + 1}`,
@@ -358,25 +360,25 @@ export function createInitialWorkspace(): Workspace {
         events: [
           createDrumHitEvent({
             id: 'debug_event_drum_1',
-            kitPiece: 'kick',
+            piece: 'kick',
             timeTick: 0,
             velocity: 118,
           }),
           createDrumHitEvent({
             id: 'debug_event_drum_2',
-            kitPiece: 'hat',
+            piece: 'closedHat',
             timeTick: PPQ / 2,
             velocity: 72,
           }),
           createDrumHitEvent({
             id: 'debug_event_drum_3',
-            kitPiece: 'snare',
+            piece: 'snare',
             timeTick: PPQ,
             velocity: 104,
           }),
           createDrumHitEvent({
             id: 'debug_event_drum_4',
-            kitPiece: 'hat',
+            piece: 'openHat',
             timeTick: PPQ + (PPQ / 2),
             velocity: 76,
           }),

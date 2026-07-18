@@ -1,4 +1,5 @@
 import { type ChordQuality, createChordSymbol } from '../harmony'
+import type { DrumPiece } from '../instrument'
 import { createPositiveDurationTicks, type DurationTicks, type PitchClass } from '../musicPrimitives'
 import {
   createAutomationEvent,
@@ -70,7 +71,7 @@ export function createSeedPatternEvents(
   options: {
     chordQuality: ChordQuality
     chordRoot: PitchClass
-    drumPiece: string
+    drumPiece: DrumPiece
     notePitch: number
   },
 ): PatternEvent[] {
@@ -114,13 +115,13 @@ export function createSeedPatternEvents(
       return [
         createDrumHitEvent({
           id: 'event_drum_1',
-          kitPiece: options.drumPiece,
+          piece: options.drumPiece,
           timeTick: 0,
           velocity: 112,
         }),
         createDrumHitEvent({
           id: 'event_drum_2',
-          kitPiece: 'snare',
+          piece: 'snare',
           timeTick: halfLengthTicks,
           velocity: 98,
         }),

@@ -46,6 +46,8 @@ import {
   createSection,
   createSeedPatternEvents,
   createTrack,
+  DRUM_PIECES,
+  type DrumPiece,
   formatChordSymbol,
   formatDurationAsBars,
   formatTickAsBars,
@@ -176,7 +178,7 @@ export default function Play() {
   const [chordRoot, setChordRoot] = useState('0')
   const [chordQuality, setChordQuality] = useState<ChordQuality>('minor')
   const [notePitch, setNotePitch] = useState('60')
-  const [drumPiece, setDrumPiece] = useState('kick')
+  const [drumPiece, setDrumPiece] = useState<DrumPiece>('kick')
 
   const [selectedTrackId, setSelectedTrackId] = useState('track_chords')
   const [selectedPatternId, setSelectedPatternId] = useState('')
@@ -659,7 +661,7 @@ export default function Play() {
                   <SelectField label="Chord root" value={chordRoot} data={PITCH_CLASS_OPTIONS} onChange={setChordRoot} />
                   <SelectField label="Chord quality" value={chordQuality} data={CHORD_QUALITIES} onChange={setChordQuality} />
                   <Field label="Note pitch" value={notePitch} onChange={setNotePitch} />
-                  <Field label="Drum piece" value={drumPiece} onChange={setDrumPiece} />
+                  <SelectField label="Drum piece" value={drumPiece} data={Object.values(DRUM_PIECES)} onChange={setDrumPiece} />
                 </SimpleGrid>
                 <Button onClick={handleAddPattern}>Add Pattern</Button>
               </Stack>
@@ -1397,7 +1399,7 @@ function getPatternEventSummary(pattern: Pattern): string {
     }
 
     if (event.kind === 'drumHit') {
-      return event.kitPiece
+      return event.piece
     }
 
     return event.parameter

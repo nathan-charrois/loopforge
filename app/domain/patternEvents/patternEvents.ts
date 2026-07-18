@@ -1,4 +1,5 @@
 import type { ChordSymbol } from '../harmony'
+import type { DrumPiece } from '../instrument'
 import {
   type DurationTicks,
   type MidiNote,
@@ -9,7 +10,6 @@ import type { ChordPlayback } from '../playback'
 import type { ChordVoicing } from '../voicing'
 
 export type PatternEventId = string
-export type DrumKitPiece = string
 export type AutomationValue = boolean | number | string
 
 export type BasePatternEvent = {
@@ -35,7 +35,7 @@ export type NoteEvent = BasePatternEvent & {
 
 export type DrumHitEvent = BasePatternEvent & {
   kind: 'drumHit'
-  kitPiece: DrumKitPiece
+  piece: DrumPiece
   velocity: Velocity
 }
 

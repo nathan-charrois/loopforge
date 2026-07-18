@@ -1737,7 +1737,7 @@ const InspectorPanel = memo(function InspectorPanel({
               items={[
                 ['ID', selectedTrack.id],
                 ['Mix channel ID', selectedTrack.mixChannelId],
-                ['Instrument sound ID', selectedTrack.instrumentSoundId],
+                ['Instrument sound ID', selectedTrack.instrumentId],
               ]}
             />
             <TextInput

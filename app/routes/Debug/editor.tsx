@@ -192,19 +192,19 @@ const MOCK_PATTERNS = [
     events: [
       createDrumHitEvent({
         id: 'mock_event_drums_drop_1',
-        kitPiece: 'kick',
+        piece: 'kick',
         timeTick: 0,
         velocity: 112,
       }),
       createDrumHitEvent({
         id: 'mock_event_drums_drop_2',
-        kitPiece: 'snare',
+        piece: 'snare',
         timeTick: 480,
         velocity: 104,
       }),
       createDrumHitEvent({
         id: 'mock_event_drums_drop_3',
-        kitPiece: 'hat',
+        piece: 'closedHat',
         timeTick: 720,
         velocity: 78,
       }),
@@ -835,7 +835,7 @@ function formatPatternEventLabel(patternEvent: PatternEvent): string {
     case 'chord':
       return 'Chord'
     case 'drumHit':
-      return patternEvent.kitPiece
+      return patternEvent.piece
     case 'note':
       return `N${patternEvent.pitch}`
   }

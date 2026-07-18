@@ -4,7 +4,7 @@ import { TRACK_ROLES } from './constants'
 
 export type TrackId = string
 export type TrackRole = typeof TRACK_ROLES[number]
-export type InstrumentSoundId = string
+export type InstrumentId = string
 
 export type Track = {
   id: TrackId
@@ -12,8 +12,8 @@ export type Track = {
   role: TrackRole
   accepts: PatternKind[]
   mixChannelId: MixChannelId
+  instrumentId: InstrumentId
   color: string
-  instrumentSoundId: InstrumentSoundId
 }
 
 export function canTrackAcceptPatternKind(track: Track, patternKind: PatternKind): boolean {

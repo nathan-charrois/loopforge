@@ -1,5 +1,6 @@
+import type { InstrumentId } from '../instrument'
 import type { PatternKind } from '../patterns'
-import type { InstrumentSoundId, TrackRole } from './index'
+import type { TrackRole } from './tracks'
 
 export const TRACK_ROLES = ['chords', 'bass', 'melody', 'drums'] as const
 
@@ -15,6 +16,6 @@ export const DEFAULT_SOUND_BY_ROLE = {
   chords: 'keys.default',
   drums: 'drums.default',
   melody: 'lead.default',
-} as const satisfies Record<TrackRole, InstrumentSoundId>
+} as const satisfies Record<TrackRole, InstrumentId>
 
 export const DEFAULT_TRACK_COLOR = '#eee9df'

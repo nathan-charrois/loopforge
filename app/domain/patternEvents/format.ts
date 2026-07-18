@@ -11,7 +11,7 @@ export function formatPatternEvent(event: PatternEvent): string {
   }
 
   if (event.kind === 'drumHit') {
-    return event.kitPiece
+    return event.piece
   }
 
   return `${event.parameter}: ${event.value}`
