@@ -1,5 +1,5 @@
+export * from './actions'
 export * from './clipboard'
-export * from './commands'
 export * from './drag'
 export * from './factory'
 export * from './inspector'

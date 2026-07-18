@@ -1,982 +1,545 @@
 import {
-  addBlock as addWorkspaceBlock,
-  addPattern as addWorkspacePattern,
-  addSection as addWorkspaceSection,
-  addTrack as addWorkspaceTrack,
-  removeBlock as removeWorkspaceBlock,
-  removePattern as removeWorkspacePattern,
-  removeSection as removeWorkspaceSection,
-  removeTrack as removeWorkspaceTrack,
-  setTimeline as setWorkspaceTimeline,
-  updateBlock as updateWorkspaceBlock,
-  updatePattern as updateWorkspacePattern,
-  updateSection as updateWorkspaceSection,
-  updateTrack as updateWorkspaceTrack,
+  addBlock,
+  addKeyEvent,
+  addMeterEvent,
+  addPattern,
+  addPatternEvent,
+  addSection,
+  addTempoEvent,
+  addTrack,
+  assignBlockPattern,
+  deleteBlocks,
+  deleteKeyEvent,
+  deleteMeterEvent,
+  deletePatternEvent,
+  deleteSections,
+  deleteTempoEvent,
+  duplicateBlocks,
+  duplicateSections,
+  moveBlock,
+  moveBlockToTrack,
+  moveSection,
+  moveTimelineEvent,
+  removePattern,
+  removeTrack,
+  renameBlock,
+  renameSection,
+  reorderTracks,
+  resizeBlock,
+  resizeSection,
+  setBlockColor,
+  setBlockMuted,
+  setBlockPlaybackMode,
+  setGridDivision,
+  splitBlock,
+  splitSection,
+  updateKeyEvent,
+  updateMeterEvent,
+  updatePattern,
+  updatePatternEvent,
+  updateTempoEvent,
+  updateTrack,
 } from './operations'
 import type { Workspace } from './type'
-import {
-  type Block,
-  type BlockId,
-  type BlockPlaybackMode,
-  getTimelineEventField,
-  type GridDivision,
-  type KeyEvent,
-  type MeterEvent,
-  type Pattern,
-  type PatternEvent,
-  type PatternId,
-  type Section,
-  type SectionId,
-  snapTickToGrid,
-  sortPatternEventsByTime,
-  sortTimelineEventsByTick,
-  type TempoEvent,
-  type Tick,
-  type Timeline,
-  type TimelineEvent,
-  type TimelineEventField,
-  type Track,
-  type TrackId,
+import type {
+  Block,
+  BlockId,
+  BlockPlaybackMode,
+  GridDivision,
+  KeyEvent,
+  MeterEvent,
+  Pattern,
+  PatternEvent,
+  PatternId,
+  Section,
+  SectionId,
+  TempoEvent,
+  Tick,
+  TimelineEventField,
+  Track,
+  TrackId,
 } from '~/domain'
-import { touchProject } from '~/domain/project'
-import {
-  type Command,
-  type CommandPayload,
-  type JsonValue,
-  type WorkspaceCommand,
-  type WorkspaceCommandKind,
+import type {
+  CommandPayload,
+  JsonValue,
+  WorkspaceCommand,
+  WorkspaceCommandKind,
 } from '~/store/session/command'
 
-let commandSequence = 1
+let workspaceCommandSequence = 1
 
 export function applyWorkspaceCommand(
   workspace: Workspace,
   command: WorkspaceCommand,
-  useInverse = false,
 ): Workspace {
-  const payload = useInverse ? command.inverse : command.payload
-
-  if (payload === undefined) {
-    return workspace
-  }
-
-  return applyCommandPayload(workspace, command.kind, payload)
-}
-
-export function addBlockCommand(block: Block): Command {
-  return createWorkspaceCommand('addBlock', `Add block ${block.name}`, {
-    blocks: [toJsonValue(block)],
-  }, {
-    blockIds: [block.id],
-  })
-}
-
-export function deleteBlockCommand(workspace: Workspace, blockIds: readonly BlockId[]): Command {
-  const blocks = workspace.arrangement.blocks.filter(block => blockIds.includes(block.id))
-
-  return createWorkspaceCommand('deleteBlock', `Delete ${blocks.length} block${blocks.length === 1 ? '' : 's'}`, {
-    blockIds: blocks.map(block => block.id),
-  }, {
-    blocks: blocks.map(toJsonValue),
-  })
-}
-
-export function duplicateBlockCommand(
-  workspace: Workspace,
-  blockIds: readonly BlockId[],
-  offsetTicks = 480,
-): Command {
-  const existingIds = new Set(workspace.arrangement.blocks.map(block => block.id))
-  const blocks = workspace.arrangement.blocks
-    .filter(block => blockIds.includes(block.id))
-    .map((block, index) => {
-      const id = createUniqueId(`${block.id}_copy`, existingIds)
-      existingIds.add(id)
-
-      return {
-        ...block,
-        id,
-        name: `${block.name} Copy`,
-        startTick: Math.max(0, block.startTick + offsetTicks + (index * 120)),
-      }
-    })
-
-  return createWorkspaceCommand('duplicateBlock', `Duplicate ${blocks.length} block${blocks.length === 1 ? '' : 's'}`, {
-    blocks: blocks.map(toJsonValue),
-  }, {
-    blockIds: blocks.map(block => block.id),
-  })
-}
-
-export function moveBlockCommand(
-  workspace: Workspace,
-  blockId: BlockId,
-  startTick: Tick,
-  trackId?: TrackId,
-): Command {
-  const block = requireBlock(workspace, blockId)
-  const nextBlock: Block = {
-    ...block,
-    startTick: Math.max(0, Math.round(startTick)),
-    trackId: trackId ?? block.trackId,
-  }
-
-  return updateBlockSnapshotCommand('moveBlock', `Move block ${block.name}`, block, nextBlock)
-}
-
-export function resizeBlockCommand(
-  workspace: Workspace,
-  blockId: BlockId,
-  startTick: Tick,
-  lengthTicks: number,
-): Command {
-  const block = requireBlock(workspace, blockId)
-  const nextBlock: Block = {
-    ...block,
-    lengthTicks: Math.max(1, Math.round(lengthTicks)),
-    startTick: Math.max(0, Math.round(startTick)),
-  }
-
-  return updateBlockSnapshotCommand('resizeBlock', `Resize block ${block.name}`, block, nextBlock)
-}
-
-export function splitBlockCommand(workspace: Workspace, blockId: BlockId, splitTick: Tick): Command {
-  const block = requireBlock(workspace, blockId)
-  const blockEndTick = block.startTick + block.lengthTicks
-  const targetTick = Math.max(block.startTick + 1, Math.min(blockEndTick - 1, Math.round(splitTick)))
-  const rightBlockId = createUniqueId(`${block.id}_split`, new Set(workspace.arrangement.blocks.map(currentBlock => currentBlock.id)))
-  const leftBlock: Block = {
-    ...block,
-    lengthTicks: targetTick - block.startTick,
-  }
-  const rightBlock: Block = {
-    ...block,
-    id: rightBlockId,
-    lengthTicks: blockEndTick - targetTick,
-    name: `${block.name} Split`,
-    startTick: targetTick,
-  }
-
-  return createWorkspaceCommand('splitBlock', `Split block ${block.name}`, {
-    leftBlock: toJsonValue(leftBlock),
-    rightBlock: toJsonValue(rightBlock),
-  }, {
-    block: toJsonValue(block),
-    blockIds: [rightBlock.id],
-  })
-}
-
-export function renameBlockCommand(workspace: Workspace, blockId: BlockId, name: string): Command {
-  const block = requireBlock(workspace, blockId)
-
-  return updateBlockSnapshotCommand('renameBlock', `Rename block ${block.name}`, block, {
-    ...block,
-    name: name.trim() || block.name,
-  })
-}
-
-export function setBlockMutedCommand(workspace: Workspace, blockId: BlockId, muted: boolean): Command {
-  const block = requireBlock(workspace, blockId)
-
-  return updateBlockSnapshotCommand('setBlockMuted', `${muted ? 'Mute' : 'Unmute'} block ${block.name}`, block, {
-    ...block,
-    muted,
-  })
-}
-
-export function setBlockColorCommand(workspace: Workspace, blockId: BlockId, color: string): Command {
-  const block = requireBlock(workspace, blockId)
-
-  return updateBlockSnapshotCommand('setBlockColor', `Set block color ${block.name}`, block, {
-    ...block,
-    color,
-  })
-}
-
-export function setBlockPlaybackModeCommand(
-  workspace: Workspace,
-  blockId: BlockId,
-  playbackMode: BlockPlaybackMode,
-): Command {
-  const block = requireBlock(workspace, blockId)
-
-  return updateBlockSnapshotCommand('setBlockPlaybackMode', `Set block playback ${block.name}`, block, {
-    ...block,
-    playbackMode,
-  })
-}
-
-export function assignBlockPatternCommand(
-  workspace: Workspace,
-  blockId: BlockId,
-  patternId: PatternId,
-): Command {
-  const block = requireBlock(workspace, blockId)
-
-  return updateBlockSnapshotCommand('assignBlockPattern', `Assign pattern ${block.name}`, block, {
-    ...block,
-    patternId,
-  })
-}
-
-export function moveBlockToTrackCommand(workspace: Workspace, blockId: BlockId, trackId: TrackId): Command {
-  const block = requireBlock(workspace, blockId)
-
-  return updateBlockSnapshotCommand('moveBlockToTrack', `Move block to track ${block.name}`, block, {
-    ...block,
-    trackId,
-  })
-}
-
-export function addSectionCommand(section: Section): Command {
-  return createWorkspaceCommand('addSection', `Add section ${section.name}`, {
-    sections: [toJsonValue(section)],
-  }, {
-    sectionIds: [section.id],
-  })
-}
-
-export function deleteSectionCommand(workspace: Workspace, sectionIds: readonly SectionId[]): Command {
-  const sections = workspace.arrangement.sections.filter(section => sectionIds.includes(section.id))
-
-  return createWorkspaceCommand('deleteSection', `Delete ${sections.length} section${sections.length === 1 ? '' : 's'}`, {
-    sectionIds: sections.map(section => section.id),
-  }, {
-    sections: sections.map(toJsonValue),
-  })
-}
-
-export function duplicateSectionCommand(
-  workspace: Workspace,
-  sectionIds: readonly SectionId[],
-  offsetTicks = 480,
-): Command {
-  const existingIds = new Set(workspace.arrangement.sections.map(section => section.id))
-  const sections = workspace.arrangement.sections
-    .filter(section => sectionIds.includes(section.id))
-    .map((section, index) => {
-      const id = createUniqueId(`${section.id}_copy`, existingIds)
-      existingIds.add(id)
-
-      return {
-        ...section,
-        id,
-        name: `${section.name} Copy`,
-        startTick: Math.max(0, section.startTick + offsetTicks + (index * 120)),
-      }
-    })
-
-  return createWorkspaceCommand('duplicateSection', `Duplicate ${sections.length} section${sections.length === 1 ? '' : 's'}`, {
-    sections: sections.map(toJsonValue),
-  }, {
-    sectionIds: sections.map(section => section.id),
-  })
-}
-
-export function moveSectionCommand(workspace: Workspace, sectionId: SectionId, startTick: Tick): Command {
-  const section = requireSection(workspace, sectionId)
-
-  return updateSectionSnapshotCommand('moveSection', `Move section ${section.name}`, section, {
-    ...section,
-    startTick: Math.max(0, Math.round(startTick)),
-  })
-}
-
-export function resizeSectionCommand(
-  workspace: Workspace,
-  sectionId: SectionId,
-  startTick: Tick,
-  lengthTicks: number,
-): Command {
-  const section = requireSection(workspace, sectionId)
-
-  return updateSectionSnapshotCommand('resizeSection', `Resize section ${section.name}`, section, {
-    ...section,
-    lengthTicks: Math.max(1, Math.round(lengthTicks)),
-    startTick: Math.max(0, Math.round(startTick)),
-  })
-}
-
-export function splitSectionCommand(workspace: Workspace, sectionId: SectionId, splitTick: Tick): Command {
-  const section = requireSection(workspace, sectionId)
-  const sectionEndTick = section.startTick + section.lengthTicks
-  const targetTick = Math.max(section.startTick + 1, Math.min(sectionEndTick - 1, Math.round(splitTick)))
-  const rightSectionId = createUniqueId(`${section.id}_split`, new Set(workspace.arrangement.sections.map(currentSection => currentSection.id)))
-  const leftSection: Section = {
-    ...section,
-    lengthTicks: targetTick - section.startTick,
-  }
-  const rightSection: Section = {
-    ...section,
-    id: rightSectionId,
-    lengthTicks: sectionEndTick - targetTick,
-    name: `${section.name} Split`,
-    startTick: targetTick,
-  }
-
-  return createWorkspaceCommand('splitSection', `Split section ${section.name}`, {
-    leftSection: toJsonValue(leftSection),
-    rightSection: toJsonValue(rightSection),
-  }, {
-    section: toJsonValue(section),
-    sectionIds: [rightSection.id],
-  })
-}
-
-export function renameSectionCommand(workspace: Workspace, sectionId: SectionId, name: string): Command {
-  const section = requireSection(workspace, sectionId)
-
-  return updateSectionSnapshotCommand('renameSection', `Rename section ${section.name}`, section, {
-    ...section,
-    name: name.trim() || section.name,
-  })
-}
-
-export function addTempoEventCommand(workspace: Workspace, event: TempoEvent): Command {
-  return createTimelineEventCommand(
-    workspace.timeline,
-    'addTempoEvent',
-    `Add tempo ${event.bpm}`,
-    'tempoEvents',
-    event,
-  )
-}
-
-export function deleteTempoEventCommand(workspace: Workspace, tick: Tick): Command {
-  return deleteTimelineEventCommand(
-    workspace.timeline,
-    'deleteTempoEvent',
-    'Delete tempo event',
-    'tempoEvents',
-    tick,
-  )
-}
-
-export function updateTempoEventCommand(workspace: Workspace, tick: Tick, event: TempoEvent): Command {
-  return updateTimelineEventSnapshotCommand(
-    workspace.timeline,
-    'updateTempoEvent',
-    `Update tempo ${event.bpm}`,
-    'tempoEvents',
-    tick,
-    event,
-  )
-}
-
-export function addMeterEventCommand(workspace: Workspace, event: MeterEvent): Command {
-  return createTimelineEventCommand(
-    workspace.timeline,
-    'addMeterEvent',
-    `Add meter ${event.timeSignature.numerator}/${event.timeSignature.denominator}`,
-    'meterEvents',
-    {
-      ...event,
-      tick: snapTickToGrid(workspace.timeline, event.tick, 'bar'),
-    },
-  )
-}
-
-export function deleteMeterEventCommand(workspace: Workspace, tick: Tick): Command {
-  return deleteTimelineEventCommand(
-    workspace.timeline,
-    'deleteMeterEvent',
-    'Delete meter event',
-    'meterEvents',
-    tick,
-  )
-}
-
-export function updateMeterEventCommand(workspace: Workspace, tick: Tick, event: MeterEvent): Command {
-  return updateTimelineEventSnapshotCommand(
-    workspace.timeline,
-    'updateMeterEvent',
-    `Update meter ${event.timeSignature.numerator}/${event.timeSignature.denominator}`,
-    'meterEvents',
-    tick,
-    event,
-  )
-}
-
-export function addKeyEventCommand(workspace: Workspace, event: KeyEvent): Command {
-  return createTimelineEventCommand(
-    workspace.timeline,
-    'addKeyEvent',
-    'Add key event',
-    'keyEvents',
-    event,
-  )
-}
-
-export function deleteKeyEventCommand(workspace: Workspace, tick: Tick): Command {
-  return deleteTimelineEventCommand(
-    workspace.timeline,
-    'deleteKeyEvent',
-    'Delete key event',
-    'keyEvents',
-    tick,
-  )
-}
-
-export function updateKeyEventCommand(workspace: Workspace, tick: Tick, event: KeyEvent): Command {
-  return updateTimelineEventSnapshotCommand(
-    workspace.timeline,
-    'updateKeyEvent',
-    'Update key event',
-    'keyEvents',
-    tick,
-    event,
-  )
-}
-
-export function moveTimelineEventCommand(workspace: Workspace, event: TimelineEvent, tick: Tick): Command {
-  const nextTick = snapTickToGrid(
-    workspace.timeline,
-    tick,
-    workspace.timeline.grid,
-  )
-
-  return updateTimelineEventSnapshotCommand(
-    workspace.timeline,
-    'moveTimelineEvent',
-    'Move timeline event',
-    getTimelineEventField(event),
-    event.tick,
-    {
-      ...event,
-      tick: nextTick,
-    },
-  )
-}
-
-export function setGridDivisionCommand(workspace: Workspace, grid: GridDivision): Command {
-  return createWorkspaceCommand('setGridDivision', `Set grid ${grid}`, {
-    grid,
-  }, {
-    grid: workspace.timeline.grid,
-  })
-}
-
-export function addTrackCommand(track: Track): Command {
-  return createWorkspaceCommand('addTrack', `Add track ${track.name}`, {
-    track: toJsonValue(track),
-  }, {
-    trackId: track.id,
-  })
-}
-
-export function deleteTrackCommand(workspace: Workspace, trackId: TrackId): Command {
-  const track = workspace.tracks.byId[trackId]
-
-  if (track === undefined) {
-    throw new Error(`Track ${trackId} does not exist.`)
-  }
-
-  return createWorkspaceCommand('deleteTrack', `Delete track ${track.name}`, {
-    trackId,
-  }, {
-    track: toJsonValue(track),
-  })
-}
-
-export function updateTrackCommand(kind: WorkspaceCommandKind, label: string, previousTrack: Track, nextTrack: Track): Command {
-  return createWorkspaceCommand(kind, label, {
-    track: toJsonValue(nextTrack),
-  }, {
-    track: toJsonValue(previousTrack),
-  })
-}
-
-export function addPatternCommand(pattern: Pattern): Command {
-  return createWorkspaceCommand('addPattern', `Add pattern ${pattern.name}`, {
-    pattern: toJsonValue(pattern),
-  }, {
-    patternId: pattern.id,
-  })
-}
-
-export function deletePatternCommand(workspace: Workspace, patternId: PatternId): Command {
-  const pattern = workspace.patterns.byId[patternId]
-
-  if (pattern === undefined) {
-    throw new Error(`Pattern ${patternId} does not exist.`)
-  }
-
-  return createWorkspaceCommand('deletePattern', `Delete pattern ${pattern.name}`, {
-    patternId,
-  }, {
-    pattern: toJsonValue(pattern),
-  })
-}
-
-export function updatePatternCommand(kind: WorkspaceCommandKind, label: string, previousPattern: Pattern, nextPattern: Pattern): Command {
-  return createWorkspaceCommand(kind, label, {
-    pattern: toJsonValue(nextPattern),
-  }, {
-    pattern: toJsonValue(previousPattern),
-  })
-}
-
-export function addPatternEventCommand(patternId: PatternId, event: PatternEvent): Command {
-  return createWorkspaceCommand('addPatternEvent', `Add ${event.kind} event`, {
-    event: toJsonValue(event),
-    patternId,
-  }, {
-    eventId: event.id,
-    patternId,
-  })
-}
-
-export function deletePatternEventCommand(
-  workspace: Workspace,
-  patternId: PatternId,
-  eventId: string,
-): Command {
-  const pattern = requirePattern(workspace, patternId)
-  const event = pattern.events.find(currentEvent => currentEvent.id === eventId)
-
-  if (event === undefined) {
-    throw new Error(`Pattern event ${eventId} does not exist.`)
-  }
-
-  return createWorkspaceCommand('deletePatternEvent', `Delete ${event.kind} event`, {
-    eventId,
-    patternId,
-  }, {
-    event: toJsonValue(event),
-    patternId,
-  })
-}
-
-export function updatePatternEventCommand(
-  kind: WorkspaceCommandKind,
-  patternId: PatternId,
-  previousEvent: PatternEvent,
-  nextEvent: PatternEvent,
-): Command {
-  return createWorkspaceCommand(kind, `Update ${nextEvent.kind} event`, {
-    event: toJsonValue(nextEvent),
-    patternId,
-  }, {
-    event: toJsonValue(previousEvent),
-    patternId,
-  })
-}
-
-export function updateBlockSnapshotCommand(
-  kind: WorkspaceCommandKind,
-  label: string,
-  previousBlock: Block,
-  nextBlock: Block,
-): Command {
-  return createWorkspaceCommand(kind, label, {
-    block: toJsonValue(nextBlock),
-  }, {
-    block: toJsonValue(previousBlock),
-  })
-}
-
-function updateSectionSnapshotCommand(
-  kind: WorkspaceCommandKind,
-  label: string,
-  previousSection: Section,
-  nextSection: Section,
-): Command {
-  return createWorkspaceCommand(kind, label, {
-    section: toJsonValue(nextSection),
-  }, {
-    section: toJsonValue(previousSection),
-  })
-}
-
-function createTimelineEventCommand<TEvent extends { tick: Tick }>(
-  timeline: Timeline,
-  kind: WorkspaceCommandKind,
-  label: string,
-  field: TimelineEventField,
-  event: TEvent,
-): Command {
-  return createWorkspaceCommand(kind, label, {
-    event: toJsonValue(event),
-  }, {
-    previousEvent: toJsonValue(timeline[field].find(currentEvent => currentEvent.tick === event.tick) ?? null),
-    tick: event.tick,
-  })
-}
-
-function deleteTimelineEventCommand<TEvent extends { tick: Tick }>(
-  timeline: Timeline,
-  kind: WorkspaceCommandKind,
-  label: string,
-  field: TimelineEventField,
-  tick: Tick,
-): Command {
-  const event = requireTimelineEvent(timeline[field] as unknown as TEvent[], tick, field)
-
-  return createWorkspaceCommand(kind, label, {
-    tick,
-  }, {
-    event: toJsonValue(event),
-  })
-}
-
-function updateTimelineEventSnapshotCommand<TEvent extends { tick: Tick }>(
-  timeline: Timeline,
-  kind: WorkspaceCommandKind,
-  label: string,
-  field: TimelineEventField,
-  previousTick: Tick,
-  event: TEvent,
-): Command {
-  const previousEvent = requireTimelineEvent(timeline[field] as unknown as TEvent[], previousTick, field)
-
-  return createWorkspaceCommand(kind, label, {
-    event: toJsonValue(event),
-    field,
-    previousTick,
-  }, {
-    event: toJsonValue(previousEvent),
-    field,
-    previousTick: event.tick,
-  })
-}
-
-function applyCommandPayload(workspace: Workspace, kind: WorkspaceCommandKind, payload: CommandPayload): Workspace {
-  switch (kind) {
-    case 'addBlock':
+  const { payload } = command
+
+  switch (command.kind) {
+    case 'addBlock': {
+      const block = getPayloadObject<Block>(payload, 'block')
+      return block === undefined ? workspace : addBlock(workspace, block)
+    }
     case 'deleteBlock':
+      return deleteBlocks(workspace, getPayloadStringArray(payload, 'blockIds'))
     case 'duplicateBlock':
-    case 'moveBlock':
-    case 'resizeBlock':
-    case 'renameBlock':
-    case 'setBlockMuted':
-    case 'setBlockColor':
-    case 'setBlockPlaybackMode':
-    case 'assignBlockPattern':
-    case 'moveBlockToTrack':
-      return applyBlockPayload(workspace, payload)
-    case 'splitBlock':
-      return applySplitBlockPayload(workspace, payload)
-    case 'addSection':
+      return duplicateBlocks(
+        workspace,
+        getPayloadStringArray(payload, 'blockIds'),
+        getPayloadNumber(payload, 'offsetTicks') ?? workspace.timeline.ppq,
+      )
+    case 'moveBlock': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const startTick = getPayloadNumber(payload, 'startTick')
+
+      return blockId === undefined || startTick === undefined
+        ? workspace
+        : moveBlock(workspace, blockId, startTick, getPayloadString(payload, 'trackId'))
+    }
+    case 'resizeBlock': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const startTick = getPayloadNumber(payload, 'startTick')
+      const lengthTicks = getPayloadNumber(payload, 'lengthTicks')
+
+      return blockId === undefined || startTick === undefined || lengthTicks === undefined
+        ? workspace
+        : resizeBlock(workspace, blockId, startTick, lengthTicks)
+    }
+    case 'splitBlock': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const splitTick = getPayloadNumber(payload, 'splitTick')
+
+      return blockId === undefined || splitTick === undefined
+        ? workspace
+        : splitBlock(workspace, blockId, splitTick)
+    }
+    case 'renameBlock': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const name = getPayloadString(payload, 'name')
+      return blockId === undefined || name === undefined ? workspace : renameBlock(workspace, blockId, name)
+    }
+    case 'setBlockMuted': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const muted = getPayloadBoolean(payload, 'muted')
+      return blockId === undefined || muted === undefined ? workspace : setBlockMuted(workspace, blockId, muted)
+    }
+    case 'setBlockColor': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const color = getPayloadString(payload, 'color')
+      return blockId === undefined || color === undefined ? workspace : setBlockColor(workspace, blockId, color)
+    }
+    case 'setBlockPlaybackMode': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const playbackMode = getPayloadString(payload, 'playbackMode') as BlockPlaybackMode | undefined
+      return blockId === undefined || playbackMode === undefined
+        ? workspace
+        : setBlockPlaybackMode(workspace, blockId, playbackMode)
+    }
+    case 'assignBlockPattern': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const patternId = getPayloadString(payload, 'patternId')
+      return blockId === undefined || patternId === undefined
+        ? workspace
+        : assignBlockPattern(workspace, blockId, patternId)
+    }
+    case 'moveBlockToTrack': {
+      const blockId = getPayloadString(payload, 'blockId')
+      const trackId = getPayloadString(payload, 'trackId')
+      return blockId === undefined || trackId === undefined
+        ? workspace
+        : moveBlockToTrack(workspace, blockId, trackId)
+    }
+    case 'addSection': {
+      const section = getPayloadObject<Section>(payload, 'section')
+      return section === undefined ? workspace : addSection(workspace, section)
+    }
     case 'deleteSection':
+      return deleteSections(workspace, getPayloadStringArray(payload, 'sectionIds'))
     case 'duplicateSection':
-    case 'moveSection':
-    case 'resizeSection':
-    case 'renameSection':
-      return applySectionPayload(workspace, payload)
-    case 'splitSection':
-      return applySplitSectionPayload(workspace, payload)
-    case 'addTrack':
-    case 'deleteTrack':
+      return duplicateSections(
+        workspace,
+        getPayloadStringArray(payload, 'sectionIds'),
+        getPayloadNumber(payload, 'offsetTicks') ?? workspace.timeline.ppq,
+      )
+    case 'moveSection': {
+      const sectionId = getPayloadString(payload, 'sectionId')
+      const startTick = getPayloadNumber(payload, 'startTick')
+      return sectionId === undefined || startTick === undefined
+        ? workspace
+        : moveSection(workspace, sectionId, startTick)
+    }
+    case 'resizeSection': {
+      const sectionId = getPayloadString(payload, 'sectionId')
+      const startTick = getPayloadNumber(payload, 'startTick')
+      const lengthTicks = getPayloadNumber(payload, 'lengthTicks')
+      return sectionId === undefined || startTick === undefined || lengthTicks === undefined
+        ? workspace
+        : resizeSection(workspace, sectionId, startTick, lengthTicks)
+    }
+    case 'splitSection': {
+      const sectionId = getPayloadString(payload, 'sectionId')
+      const splitTick = getPayloadNumber(payload, 'splitTick')
+      return sectionId === undefined || splitTick === undefined
+        ? workspace
+        : splitSection(workspace, sectionId, splitTick)
+    }
+    case 'renameSection': {
+      const sectionId = getPayloadString(payload, 'sectionId')
+      const name = getPayloadString(payload, 'name')
+      return sectionId === undefined || name === undefined
+        ? workspace
+        : renameSection(workspace, sectionId, name)
+    }
+    case 'addTrack': {
+      const track = getPayloadObject<Track>(payload, 'track')
+      return track === undefined ? workspace : addTrack(workspace, track)
+    }
+    case 'deleteTrack': {
+      const trackId = getPayloadString(payload, 'trackId')
+      return trackId === undefined ? workspace : removeTrack(workspace, trackId)
+    }
     case 'renameTrack':
     case 'setTrackMuted':
     case 'setTrackSoloed':
     case 'setTrackVolume':
     case 'setTrackColor':
-    case 'setTrackInstrument':
-      return applyTrackPayload(workspace, payload)
+    case 'setTrackInstrument': {
+      const track = getPayloadObject<Track>(payload, 'track')
+      return track === undefined ? workspace : updateTrack(workspace, track)
+    }
     case 'reorderTrack':
-      return applyTrackOrderPayload(workspace, payload)
+      return reorderTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
     case 'addPattern':
-    case 'deletePattern':
-    case 'duplicatePattern':
-    case 'renamePattern':
-      return applyPatternPayload(workspace, payload)
+    case 'duplicatePattern': {
+      const pattern = getPayloadObject<Pattern>(payload, 'pattern')
+      return pattern === undefined ? workspace : addPattern(workspace, pattern)
+    }
+    case 'deletePattern': {
+      const patternId = getPayloadString(payload, 'patternId')
+      return patternId === undefined ? workspace : removePattern(workspace, patternId)
+    }
+    case 'renamePattern': {
+      const pattern = getPayloadObject<Pattern>(payload, 'pattern')
+      return pattern === undefined ? workspace : updatePattern(workspace, pattern)
+    }
     case 'addPatternEvent':
-    case 'deletePatternEvent':
-    case 'duplicatePatternEvent':
+    case 'duplicatePatternEvent': {
+      const patternId = getPayloadString(payload, 'patternId')
+      const event = getPayloadObject<PatternEvent>(payload, 'event')
+      return patternId === undefined || event === undefined
+        ? workspace
+        : addPatternEvent(workspace, patternId, event)
+    }
+    case 'deletePatternEvent': {
+      const patternId = getPayloadString(payload, 'patternId')
+      const eventId = getPayloadString(payload, 'eventId')
+      return patternId === undefined || eventId === undefined
+        ? workspace
+        : deletePatternEvent(workspace, patternId, eventId)
+    }
     case 'movePatternEvent':
     case 'resizePatternEvent':
-    case 'updatePatternEvent':
-      return applyPatternEventPayload(workspace, payload)
-    case 'addTempoEvent':
-    case 'deleteTempoEvent':
-    case 'updateTempoEvent':
-      return applyTimelineEventPayload(workspace, payload, 'tempoEvents')
-    case 'addMeterEvent':
-    case 'deleteMeterEvent':
-    case 'updateMeterEvent':
-      return applyTimelineEventPayload(workspace, payload, 'meterEvents')
-    case 'addKeyEvent':
-    case 'deleteKeyEvent':
-    case 'updateKeyEvent':
-      return applyTimelineEventPayload(workspace, payload, 'keyEvents')
-    case 'moveTimelineEvent':
-      return applyTimelineEventPayload(
-        workspace,
-        payload,
-        getPayloadString(payload, 'field') as TimelineEventField,
-      )
-    case 'setGridDivision':
-      return setWorkspaceTimeline(workspace, {
-        ...workspace.timeline,
-        grid: getPayloadString(payload, 'grid') as GridDivision,
-      })
-    case 'renameEntity':
-      return workspace
-  }
-}
-
-function applyBlockPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  let nextWorkspace = workspace
-
-  for (const blockId of getPayloadStringArray(payload, 'blockIds')) {
-    nextWorkspace = removeWorkspaceBlock(nextWorkspace, blockId)
-  }
-
-  for (const block of getPayloadArray<Block>(payload, 'blocks')) {
-    nextWorkspace = upsertBlock(nextWorkspace, block)
-  }
-
-  const block = getPayloadObject<Block>(payload, 'block')
-
-  if (block !== undefined) {
-    nextWorkspace = upsertBlock(nextWorkspace, block)
-  }
-
-  return nextWorkspace
-}
-
-function applySplitBlockPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  const leftBlock = getPayloadObject<Block>(payload, 'leftBlock')
-  const rightBlock = getPayloadObject<Block>(payload, 'rightBlock')
-
-  if (leftBlock !== undefined && rightBlock !== undefined) {
-    return upsertBlock(upsertBlock(workspace, leftBlock), rightBlock)
-  }
-
-  return applyBlockPayload(workspace, payload)
-}
-
-function applySectionPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  let nextWorkspace = workspace
-
-  for (const sectionId of getPayloadStringArray(payload, 'sectionIds')) {
-    nextWorkspace = removeWorkspaceSection(nextWorkspace, sectionId)
-  }
-
-  for (const section of getPayloadArray<Section>(payload, 'sections')) {
-    nextWorkspace = upsertSection(nextWorkspace, section)
-  }
-
-  const section = getPayloadObject<Section>(payload, 'section')
-
-  if (section !== undefined) {
-    nextWorkspace = upsertSection(nextWorkspace, section)
-  }
-
-  return nextWorkspace
-}
-
-function applySplitSectionPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  const leftSection = getPayloadObject<Section>(payload, 'leftSection')
-  const rightSection = getPayloadObject<Section>(payload, 'rightSection')
-
-  if (leftSection !== undefined && rightSection !== undefined) {
-    return upsertSection(upsertSection(workspace, leftSection), rightSection)
-  }
-
-  return applySectionPayload(workspace, payload)
-}
-
-function applyTrackPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  const trackId = getPayloadString(payload, 'trackId')
-
-  if (trackId !== undefined) {
-    return removeWorkspaceTrack(workspace, trackId)
-  }
-
-  const track = getPayloadObject<Track>(payload, 'track')
-
-  return track === undefined ? workspace : upsertTrack(workspace, track)
-}
-
-function applyTrackOrderPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  const trackIds = getPayloadStringArray(payload, 'trackIds')
-
-  if (trackIds.length === 0) {
-    return workspace
-  }
-
-  const knownIds = new Set(workspace.tracks.allIds)
-  const orderedIds = trackIds.filter(trackId => knownIds.has(trackId))
-  const remainingIds = workspace.tracks.allIds.filter(trackId => !orderedIds.includes(trackId))
-
-  return {
-    ...workspace,
-    project: touchProject(workspace.project),
-    tracks: {
-      ...workspace.tracks,
-      allIds: [...orderedIds, ...remainingIds],
-    },
-  }
-}
-
-function applyPatternPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  const patternId = getPayloadString(payload, 'patternId')
-
-  if (patternId !== undefined) {
-    return removeWorkspacePattern(workspace, patternId)
-  }
-
-  const pattern = getPayloadObject<Pattern>(payload, 'pattern')
-
-  return pattern === undefined ? workspace : upsertPattern(workspace, pattern)
-}
-
-function applyPatternEventPayload(workspace: Workspace, payload: CommandPayload): Workspace {
-  const patternId = getPayloadString(payload, 'patternId')
-
-  if (patternId === undefined) {
-    return workspace
-  }
-
-  const pattern = workspace.patterns.byId[patternId]
-
-  if (pattern === undefined) {
-    return workspace
-  }
-
-  const eventId = getPayloadString(payload, 'eventId')
-  const event = getPayloadObject<PatternEvent>(payload, 'event')
-  const events = eventId === undefined
-    ? pattern.events
-    : pattern.events.filter(currentEvent => currentEvent.id !== eventId)
-  const nextEvents = event === undefined
-    ? events
-    : sortPatternEventsByTime([
-        ...events.filter(currentEvent => currentEvent.id !== event.id),
-        event,
-      ])
-
-  return updateWorkspacePattern(workspace, {
-    ...pattern,
-    events: nextEvents,
-  } as Pattern)
-}
-
-function applyTimelineEventPayload(
-  workspace: Workspace,
-  payload: CommandPayload,
-  field: TimelineEventField,
-): Workspace {
-  const tick = getPayloadNumber(payload, 'tick')
-  const previousTick = getPayloadNumber(payload, 'previousTick')
-  const event = getPayloadObject<TimelineEvent>(payload, 'event')
-  const previousEvent = getPayloadObject<TimelineEvent | null>(payload, 'previousEvent')
-
-  let events: TimelineEvent[] = [...workspace.timeline[field]]
-
-  if (tick !== undefined) {
-    events = events.filter(currentEvent => currentEvent.tick !== tick)
-  }
-
-  if (previousTick !== undefined) {
-    events = events.filter(currentEvent => currentEvent.tick !== previousTick)
-  }
-
-  if (previousEvent !== undefined) {
-    if (previousEvent !== null) {
-      events = upsertTimelineEvent(events, previousEvent)
+    case 'updatePatternEvent': {
+      const patternId = getPayloadString(payload, 'patternId')
+      const event = getPayloadObject<PatternEvent>(payload, 'event')
+      return patternId === undefined || event === undefined
+        ? workspace
+        : updatePatternEvent(workspace, patternId, event)
+    }
+    case 'addTempoEvent': {
+      const event = getPayloadObject<TempoEvent>(payload, 'event')
+      return event === undefined ? workspace : addTempoEvent(workspace, event)
+    }
+    case 'deleteTempoEvent': {
+      const tick = getPayloadNumber(payload, 'tick')
+      return tick === undefined ? workspace : deleteTempoEvent(workspace, tick)
+    }
+    case 'updateTempoEvent': {
+      const previousTick = getPayloadNumber(payload, 'previousTick')
+      const event = getPayloadObject<TempoEvent>(payload, 'event')
+      return previousTick === undefined || event === undefined
+        ? workspace
+        : updateTempoEvent(workspace, previousTick, event)
+    }
+    case 'addMeterEvent': {
+      const event = getPayloadObject<MeterEvent>(payload, 'event')
+      return event === undefined ? workspace : addMeterEvent(workspace, event)
+    }
+    case 'deleteMeterEvent': {
+      const tick = getPayloadNumber(payload, 'tick')
+      return tick === undefined ? workspace : deleteMeterEvent(workspace, tick)
+    }
+    case 'updateMeterEvent': {
+      const previousTick = getPayloadNumber(payload, 'previousTick')
+      const event = getPayloadObject<MeterEvent>(payload, 'event')
+      return previousTick === undefined || event === undefined
+        ? workspace
+        : updateMeterEvent(workspace, previousTick, event)
+    }
+    case 'addKeyEvent': {
+      const event = getPayloadObject<KeyEvent>(payload, 'event')
+      return event === undefined ? workspace : addKeyEvent(workspace, event)
+    }
+    case 'deleteKeyEvent': {
+      const tick = getPayloadNumber(payload, 'tick')
+      return tick === undefined ? workspace : deleteKeyEvent(workspace, tick)
+    }
+    case 'updateKeyEvent': {
+      const previousTick = getPayloadNumber(payload, 'previousTick')
+      const event = getPayloadObject<KeyEvent>(payload, 'event')
+      return previousTick === undefined || event === undefined
+        ? workspace
+        : updateKeyEvent(workspace, previousTick, event)
+    }
+    case 'moveTimelineEvent': {
+      const eventId = getPayloadString(payload, 'eventId')
+      const field = getPayloadString(payload, 'field') as TimelineEventField | undefined
+      const tick = getPayloadNumber(payload, 'tick')
+      return eventId === undefined || field === undefined || tick === undefined
+        ? workspace
+        : moveTimelineEvent(workspace, eventId, field, tick)
+    }
+    case 'setGridDivision': {
+      const grid = getPayloadString(payload, 'grid') as GridDivision | undefined
+      return grid === undefined ? workspace : setGridDivision(workspace, grid)
     }
   }
-  else if (event !== undefined) {
-    events = upsertTimelineEvent(events, event)
-  }
+}
 
-  return setWorkspaceTimeline(workspace, {
-    ...workspace.timeline,
-    [field]: sortTimelineEventsByTick(events),
+export function createAddBlockCommand(block: Block): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addBlock', `Add block ${block.name}`, { block: toJsonValue(block) })
+}
+
+export function createDeleteBlockCommand(blockIds: readonly BlockId[], label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteBlock', label, { blockIds: [...blockIds] })
+}
+
+export function createDuplicateBlockCommand(
+  blockIds: readonly BlockId[],
+  offsetTicks: number,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('duplicateBlock', label, { blockIds: [...blockIds], offsetTicks })
+}
+
+export function createMoveBlockCommand(
+  blockId: BlockId,
+  startTick: Tick,
+  trackId: TrackId | undefined,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('moveBlock', label, {
+    blockId,
+    startTick,
+    ...(trackId === undefined ? {} : { trackId }),
   })
 }
 
-function upsertBlock(workspace: Workspace, block: Block): Workspace {
-  return workspace.arrangement.blocks.some(currentBlock => currentBlock.id === block.id)
-    ? updateWorkspaceBlock(workspace, block)
-    : addWorkspaceBlock(workspace, block)
-}
-
-function upsertSection(workspace: Workspace, section: Section): Workspace {
-  return workspace.arrangement.sections.some(currentSection => currentSection.id === section.id)
-    ? updateWorkspaceSection(workspace, section)
-    : addWorkspaceSection(workspace, section)
-}
-
-function upsertTrack(workspace: Workspace, track: Track): Workspace {
-  return workspace.tracks.allIds.includes(track.id)
-    ? updateWorkspaceTrack(workspace, track)
-    : addWorkspaceTrack(workspace, track)
-}
-
-function upsertPattern(workspace: Workspace, pattern: Pattern): Workspace {
-  return workspace.patterns.allIds.includes(pattern.id)
-    ? updateWorkspacePattern(workspace, pattern)
-    : addWorkspacePattern(workspace, pattern)
-}
-
-function upsertTimelineEvent<TEvent extends TimelineEvent>(events: TEvent[], event: TEvent): TEvent[] {
-  return [
-    ...events.filter(currentEvent => currentEvent.tick !== event.tick),
-    event,
-  ]
-}
-
-function requireBlock(workspace: Workspace, blockId: BlockId): Block {
-  const block = workspace.arrangement.blocks.find(currentBlock => currentBlock.id === blockId)
-
-  if (block === undefined) {
-    throw new Error(`Block ${blockId} does not exist.`)
-  }
-
-  return block
-}
-
-function requireSection(workspace: Workspace, sectionId: SectionId): Section {
-  const section = workspace.arrangement.sections.find(currentSection => currentSection.id === sectionId)
-
-  if (section === undefined) {
-    throw new Error(`Section ${sectionId} does not exist.`)
-  }
-
-  return section
-}
-
-function requirePattern(workspace: Workspace, patternId: PatternId): Pattern {
-  const pattern = workspace.patterns.byId[patternId]
-
-  if (pattern === undefined) {
-    throw new Error(`Pattern ${patternId} does not exist.`)
-  }
-
-  return pattern
-}
-
-function requireTimelineEvent<TEvent extends { tick: Tick }>(
-  events: readonly TEvent[],
-  tick: Tick,
+export function createResizeBlockCommand(
+  blockId: BlockId,
+  startTick: Tick,
+  lengthTicks: number,
   label: string,
-): TEvent {
-  const event = events.find(currentEvent => currentEvent.tick === tick)
-
-  if (event === undefined) {
-    throw new Error(`${label} event at tick ${tick} does not exist.`)
-  }
-
-  return event
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('resizeBlock', label, { blockId, lengthTicks, startTick })
 }
 
-function createWorkspaceCommand(
+export function createSplitBlockCommand(blockId: BlockId, splitTick: Tick, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('splitBlock', label, { blockId, splitTick })
+}
+
+export function createRenameBlockCommand(blockId: BlockId, name: string, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('renameBlock', label, { blockId, name })
+}
+
+export function createSetBlockMutedCommand(blockId: BlockId, muted: boolean, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('setBlockMuted', label, { blockId, muted })
+}
+
+export function createSetBlockColorCommand(blockId: BlockId, color: string, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('setBlockColor', label, { blockId, color })
+}
+
+export function createSetBlockPlaybackModeCommand(
+  blockId: BlockId,
+  playbackMode: BlockPlaybackMode,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('setBlockPlaybackMode', label, { blockId, playbackMode })
+}
+
+export function createAssignBlockPatternCommand(
+  blockId: BlockId,
+  patternId: PatternId,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('assignBlockPattern', label, { blockId, patternId })
+}
+
+export function createMoveBlockToTrackCommand(
+  blockId: BlockId,
+  trackId: TrackId,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('moveBlockToTrack', label, { blockId, trackId })
+}
+
+export function createAddSectionCommand(section: Section): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addSection', `Add section ${section.name}`, { section: toJsonValue(section) })
+}
+
+export function createDeleteSectionCommand(sectionIds: readonly SectionId[], label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteSection', label, { sectionIds: [...sectionIds] })
+}
+
+export function createDuplicateSectionCommand(
+  sectionIds: readonly SectionId[],
+  offsetTicks: number,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('duplicateSection', label, { offsetTicks, sectionIds: [...sectionIds] })
+}
+
+export function createMoveSectionCommand(sectionId: SectionId, startTick: Tick, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('moveSection', label, { sectionId, startTick })
+}
+
+export function createResizeSectionCommand(
+  sectionId: SectionId,
+  startTick: Tick,
+  lengthTicks: number,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('resizeSection', label, { lengthTicks, sectionId, startTick })
+}
+
+export function createSplitSectionCommand(sectionId: SectionId, splitTick: Tick, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('splitSection', label, { sectionId, splitTick })
+}
+
+export function createRenameSectionCommand(sectionId: SectionId, name: string, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('renameSection', label, { name, sectionId })
+}
+
+export function createAddTempoEventCommand(event: TempoEvent): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addTempoEvent', `Add tempo ${event.bpm}`, { event: toJsonValue(event) })
+}
+
+export function createDeleteTempoEventCommand(tick: Tick): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteTempoEvent', 'Delete tempo event', { tick })
+}
+
+export function createUpdateTempoEventCommand(previousTick: Tick, event: TempoEvent): WorkspaceCommand {
+  return createWorkspaceCommandRecord('updateTempoEvent', `Update tempo ${event.bpm}`, {
+    event: toJsonValue(event),
+    previousTick,
+  })
+}
+
+export function createAddMeterEventCommand(event: MeterEvent): WorkspaceCommand {
+  return createWorkspaceCommandRecord(
+    'addMeterEvent',
+    `Add meter ${event.timeSignature.numerator}/${event.timeSignature.denominator}`,
+    { event: toJsonValue(event) },
+  )
+}
+
+export function createDeleteMeterEventCommand(tick: Tick): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteMeterEvent', 'Delete meter event', { tick })
+}
+
+export function createUpdateMeterEventCommand(previousTick: Tick, event: MeterEvent): WorkspaceCommand {
+  return createWorkspaceCommandRecord(
+    'updateMeterEvent',
+    `Update meter ${event.timeSignature.numerator}/${event.timeSignature.denominator}`,
+    { event: toJsonValue(event), previousTick },
+  )
+}
+
+export function createAddKeyEventCommand(event: KeyEvent): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addKeyEvent', 'Add key event', { event: toJsonValue(event) })
+}
+
+export function createDeleteKeyEventCommand(tick: Tick): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteKeyEvent', 'Delete key event', { tick })
+}
+
+export function createUpdateKeyEventCommand(previousTick: Tick, event: KeyEvent): WorkspaceCommand {
+  return createWorkspaceCommandRecord('updateKeyEvent', 'Update key event', {
+    event: toJsonValue(event),
+    previousTick,
+  })
+}
+
+export function createMoveTimelineEventCommand(
+  eventId: string,
+  field: TimelineEventField,
+  tick: Tick,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('moveTimelineEvent', 'Move timeline event', { eventId, field, tick })
+}
+
+export function createSetGridDivisionCommand(grid: GridDivision): WorkspaceCommand {
+  return createWorkspaceCommandRecord('setGridDivision', `Set grid ${grid}`, { grid })
+}
+
+export function createAddTrackCommand(track: Track): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addTrack', `Add track ${track.name}`, { track: toJsonValue(track) })
+}
+
+export function createDeleteTrackCommand(trackId: TrackId, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteTrack', label, { trackId })
+}
+
+export function createUpdateTrackCommand(
+  kind: WorkspaceCommandKind,
+  label: string,
+  track: Track,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord(kind, label, { track: toJsonValue(track) })
+}
+
+export function createAddPatternCommand(pattern: Pattern): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addPattern', `Add pattern ${pattern.name}`, { pattern: toJsonValue(pattern) })
+}
+
+export function createDeletePatternCommand(patternId: PatternId, label: string): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deletePattern', label, { patternId })
+}
+
+export function createUpdatePatternCommand(
+  kind: WorkspaceCommandKind,
+  label: string,
+  pattern: Pattern,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord(kind, label, { pattern: toJsonValue(pattern) })
+}
+
+export function createAddPatternEventCommand(patternId: PatternId, event: PatternEvent): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addPatternEvent', `Add ${event.kind} event`, {
+    event: toJsonValue(event),
+    patternId,
+  })
+}
+
+export function createDeletePatternEventCommand(
+  patternId: PatternId,
+  eventId: string,
+  label: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deletePatternEvent', label, { eventId, patternId })
+}
+
+function createWorkspaceCommandRecord(
   kind: WorkspaceCommandKind,
   label: string,
   payload: CommandPayload,
-  inverse?: CommandPayload,
-): Command {
-  const sequence = commandSequence
-  commandSequence += 1
+): WorkspaceCommand {
+  const sequence = workspaceCommandSequence
+  workspaceCommandSequence += 1
 
   return {
     createdAt: new Date().toISOString(),
-    id: `editor_command_${sequence}`,
-    inverse,
+    id: `workspace_command_${sequence}`,
     kind,
     label,
     payload,
@@ -984,52 +547,37 @@ function createWorkspaceCommand(
   }
 }
 
-function createUniqueId(prefix: string, existingIds: Set<string>): string {
-  if (!existingIds.has(prefix)) {
-    return prefix
-  }
-
-  let index = 2
-  let id = `${prefix}_${index}`
-
-  while (existingIds.has(id)) {
-    index += 1
-    id = `${prefix}_${index}`
-  }
-
-  return id
-}
-
 function getPayloadObject<TValue>(payload: CommandPayload, key: string): TValue | undefined {
   const value = payload[key]
 
-  if (typeof value !== 'object' || Array.isArray(value)) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return undefined
   }
 
   return value as TValue
 }
 
-function getPayloadArray<TValue>(payload: CommandPayload, key: string): TValue[] {
+function getPayloadStringArray(payload: CommandPayload, key: string): string[] {
   const value = payload[key]
 
-  return Array.isArray(value) ? value as TValue[] : []
+  return Array.isArray(value)
+    ? value.filter(item => typeof item === 'string')
+    : []
 }
 
 function getPayloadString(payload: CommandPayload, key: string): string | undefined {
   const value = payload[key]
-
   return typeof value === 'string' ? value : undefined
 }
 
 function getPayloadNumber(payload: CommandPayload, key: string): number | undefined {
   const value = payload[key]
-
   return typeof value === 'number' ? value : undefined
 }
 
-function getPayloadStringArray(payload: CommandPayload, key: string): string[] {
-  return getPayloadArray<string>(payload, key).filter(value => typeof value === 'string')
+function getPayloadBoolean(payload: CommandPayload, key: string): boolean | undefined {
+  const value = payload[key]
+  return typeof value === 'boolean' ? value : undefined
 }
 
 function toJsonValue<TValue>(value: TValue): JsonValue {

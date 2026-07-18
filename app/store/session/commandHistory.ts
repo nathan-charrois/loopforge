@@ -1,57 +1,75 @@
-import type { Command } from './command'
+import type { Editor } from '../editor/type'
+import type { Workspace } from '../workspace/type'
+import type { EditorCommand, WorkspaceCommand } from './command'
 
-export type CommandHistory = {
-  redoStack: Command[]
-  undoStack: Command[]
+export type EditorHistoryEntry = {
+  after: Editor
+  before: Editor
+  command: EditorCommand
+  target: 'editor'
 }
 
-export function pushHistoryCommand(
+export type WorkspaceHistoryEntry = {
+  after: Workspace
+  before: Workspace
+  command: WorkspaceCommand
+  target: 'workspace'
+}
+
+export type CommandHistoryEntry = EditorHistoryEntry | WorkspaceHistoryEntry
+
+export type CommandHistory = {
+  redoStack: CommandHistoryEntry[]
+  undoStack: CommandHistoryEntry[]
+}
+
+export function pushHistoryEntry(
   history: CommandHistory,
-  command: Command,
+  entry: CommandHistoryEntry,
 ) {
   return {
-    command,
+    entry,
     history: {
       redoStack: [],
-      undoStack: [...history.undoStack, command],
+      undoStack: [...history.undoStack, entry],
     },
   }
 }
 
-export function undoHistoryCommand(history: CommandHistory): {
-  command?: Command
+export function undoHistoryEntry(history: CommandHistory): {
+  entry?: CommandHistoryEntry
   history: CommandHistory
 } {
-  const command = history.undoStack.at(-1)
+  const entry = history.undoStack.at(-1)
 
-  if (command === undefined) {
+  if (entry === undefined) {
     return { history }
   }
 
   return {
-    command,
+    entry,
     history: {
-      redoStack: [...history.redoStack, command],
+      redoStack: [...history.redoStack, entry],
       undoStack: history.undoStack.slice(0, -1),
     },
   }
 }
 
-export function redoHistoryCommand(history: CommandHistory): {
-  command?: Command
+export function redoHistoryEntry(history: CommandHistory): {
+  entry?: CommandHistoryEntry
   history: CommandHistory
 } {
-  const command = history.redoStack.at(-1)
+  const entry = history.redoStack.at(-1)
 
-  if (command === undefined) {
+  if (entry === undefined) {
     return { history }
   }
 
   return {
-    command,
+    entry,
     history: {
       redoStack: history.redoStack.slice(0, -1),
-      undoStack: [...history.undoStack, command],
+      undoStack: [...history.undoStack, entry],
     },
   }
 }

@@ -1,4 +1,6 @@
-import { createInspectorState, createSelectionState } from './factory'
+import { copySelectionToClipboard } from './clipboard'
+import { createSelectionState } from './factory'
+import { snapTimelineRange } from './snap'
 import type {
   ActiveTool,
   ClipboardState,
@@ -8,9 +10,13 @@ import type {
   SelectionState,
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
-import type { PatternEventId } from '~/domain/patternEvents'
+import type { Tick } from '~/domain/musicPrimitives'
 import type { TimelineEventId } from '~/domain/timeline'
-import type { TrackId } from '~/domain/tracks'
+import {
+  selectBlocksInRange,
+  selectSectionsInRange,
+  type Workspace,
+} from '~/store/workspace'
 import { toggleInArray } from '~/utils/array'
 
 export function setActiveTool(
@@ -43,6 +49,10 @@ export function setClipboard(
   }
 }
 
+export function copySelection(editor: Editor): Editor {
+  return setClipboard(editor, copySelectionToClipboard(editor))
+}
+
 export function setHoveredChord(
   editor: Editor,
   hoveredChord: Editor['hoveredChord'],
@@ -73,16 +83,7 @@ export function setSelection(
   }
 }
 
-export function removeSelection(
-  editor: Editor,
-): Editor {
-  return {
-    ...editor,
-    selection: createSelectionState(),
-  }
-}
-
-export function addBlockToSelection(
+export function selectBlock(
   editor: Editor,
   blockId: BlockId,
   additive = false,
@@ -111,7 +112,7 @@ export function addBlockToSelection(
   }
 }
 
-export function addSectionToSelection(
+export function selectSection(
   editor: Editor,
   sectionId: SectionId,
   additive = false,
@@ -140,67 +141,7 @@ export function addSectionToSelection(
   }
 }
 
-export function addPatternEventToSelection(
-  editor: Editor,
-  patternEventId: PatternEventId,
-  additive = false,
-  focusedBlockId?: BlockId,
-): Editor {
-  if (additive) {
-    return {
-      ...editor,
-      selection: {
-        ...editor.selection,
-        selectedPatternEventIds: toggleInArray(
-          editor.selection.selectedPatternEventIds,
-          patternEventId,
-        ),
-      },
-    }
-  }
-
-  return {
-    ...editor,
-    selection: {
-      ...createSelectionState(),
-      selectedBlockIds: focusedBlockId ? [focusedBlockId] : [],
-      selectedPatternEventIds: [
-        patternEventId,
-      ],
-    },
-  }
-}
-
-export function addTrackToSelection(
-  editor: Editor,
-  trackId: TrackId,
-  additive = false,
-): Editor {
-  if (additive) {
-    return {
-      ...editor,
-      selection: {
-        ...editor.selection,
-        selectedTrackIds: toggleInArray(
-          editor.selection.selectedTrackIds,
-          trackId,
-        ),
-      },
-    }
-  }
-
-  return {
-    ...editor,
-    selection: {
-      ...createSelectionState(),
-      selectedTrackIds: [
-        trackId,
-      ],
-    },
-  }
-}
-
-export function addTimelineEventToSelection(
+export function selectTimelineEvent(
   editor: Editor,
   timelineEventId: TimelineEventId,
   additive = false,
@@ -229,6 +170,27 @@ export function addTimelineEventToSelection(
   }
 }
 
+export function selectTimelineRange(
+  editor: Editor,
+  workspace: Workspace,
+  startTick: Tick,
+  endTick: Tick,
+): Editor {
+  const range = snapTimelineRange(workspace.timeline, startTick, endTick)
+  const bounds = {
+    endTick: range.startTick + range.lengthTicks,
+    startTick: range.startTick,
+  }
+
+  return setSelection(editor, {
+    ...createSelectionState(),
+    selectedBlockIds:
+      selectBlocksInRange(workspace, bounds).map(block => block.id),
+    selectedSectionIds:
+      selectSectionsInRange(workspace, bounds).map(section => section.id),
+  })
+}
+
 export function setInspectorPanel(
   editor: Editor,
   panel: InspectorPanel,
@@ -239,14 +201,5 @@ export function setInspectorPanel(
       open: true,
       panel,
     },
-  }
-}
-
-export function setInspectorClose(
-  editor: Editor,
-): Editor {
-  return {
-    ...editor,
-    inspector: createInspectorState(),
   }
 }

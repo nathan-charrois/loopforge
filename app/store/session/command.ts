@@ -1,6 +1,11 @@
 import { applyEditorCommand } from '../editor/commands'
 import { applyWorkspaceCommand } from '../workspace/commands'
-import { pushHistoryCommand, redoHistoryCommand, undoHistoryCommand } from './commandHistory'
+import {
+  type CommandHistoryEntry,
+  pushHistoryEntry,
+  redoHistoryEntry,
+  undoHistoryEntry,
+} from './commandHistory'
 import type { Session } from './type'
 
 export type JsonPrimitive = string | number | boolean | null
@@ -61,10 +66,14 @@ export const WORKSPACE_COMMAND_KINDS = [
   'updateKeyEvent',
   'moveTimelineEvent',
   'setGridDivision',
-  'renameEntity',
 ] as const
 
 export const EDITOR_COMMAND_KINDS = [
+  'copySelection',
+  'selectBlock',
+  'selectSection',
+  'selectTimelineEvent',
+  'selectTimelineRange',
   'setActiveTool',
   'setClipboard',
   'setFocusedBlockId',
@@ -89,7 +98,6 @@ type BaseCommand<Target extends CommandTarget, Kind extends CommandKind> = {
   label: string
   createdAt: string
   payload: CommandPayload
-  inverse?: CommandPayload
 }
 
 export type EditorCommand = BaseCommand<'editor', EditorCommandKind>
@@ -101,14 +109,12 @@ export function executeCommand(
   session: Session,
   command: Command,
 ): Session {
-  const result = pushHistoryCommand(session.commandHistory, command)
-
-  if (result.command === undefined) {
-    return session
-  }
+  const appliedSession = applyCommand(session, command)
+  const entry = createHistoryEntry(session, appliedSession, command)
+  const result = pushHistoryEntry(session.commandHistory, entry)
 
   return {
-    ...applyCommand(session, command),
+    ...appliedSession,
     commandHistory: result.history,
   }
 }
@@ -116,14 +122,14 @@ export function executeCommand(
 export function undoCommand(
   session: Session,
 ): Session {
-  const result = undoHistoryCommand(session.commandHistory)
+  const result = undoHistoryEntry(session.commandHistory)
 
-  if (result.command === undefined) {
+  if (result.entry === undefined) {
     return session
   }
 
   return {
-    ...applyCommand(session, result.command, true),
+    ...restoreHistoryEntry(session, result.entry, 'before'),
     commandHistory: result.history,
   }
 }
@@ -131,14 +137,14 @@ export function undoCommand(
 export function redoCommand(
   session: Session,
 ): Session {
-  const result = redoHistoryCommand(session.commandHistory)
+  const result = redoHistoryEntry(session.commandHistory)
 
-  if (result.command === undefined) {
+  if (result.entry === undefined) {
     return session
   }
 
   return {
-    ...applyCommand(session, result.command),
+    ...restoreHistoryEntry(session, result.entry, 'after'),
     commandHistory: result.history,
   }
 }
@@ -146,17 +152,56 @@ export function redoCommand(
 function applyCommand(
   session: Session,
   command: Command,
-  useInverse = false,
 ): Session {
   if (command.target === 'editor') {
     return {
       ...session,
-      editor: applyEditorCommand(session.editor, command, useInverse),
+      editor: applyEditorCommand(session.editor, session.workspace, command),
     }
   }
 
   return {
     ...session,
-    workspace: applyWorkspaceCommand(session.workspace, command, useInverse),
+    workspace: applyWorkspaceCommand(session.workspace, command),
+  }
+}
+
+function createHistoryEntry(
+  before: Session,
+  after: Session,
+  command: Command,
+): CommandHistoryEntry {
+  if (command.target === 'editor') {
+    return {
+      after: after.editor,
+      before: before.editor,
+      command,
+      target: 'editor',
+    }
+  }
+
+  return {
+    after: after.workspace,
+    before: before.workspace,
+    command,
+    target: 'workspace',
+  }
+}
+
+function restoreHistoryEntry(
+  session: Session,
+  entry: CommandHistoryEntry,
+  field: 'after' | 'before',
+): Session {
+  if (entry.target === 'editor') {
+    return {
+      ...session,
+      editor: entry[field],
+    }
+  }
+
+  return {
+    ...session,
+    workspace: entry[field],
   }
 }

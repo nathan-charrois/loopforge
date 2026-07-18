@@ -1,4 +1,4 @@
-export * from './commands'
+export * from './actions'
 export * from './factory'
 export * from './operations'
 export * from './selector'

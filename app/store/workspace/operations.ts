@@ -1,6 +1,26 @@
 import { addEntity, removeEntity, updateEntity } from '../type'
 import type { Workspace } from './type'
-import type { Block, Section } from '~/domain/arrangement'
+import {
+  type Block,
+  type BlockId,
+  type BlockPlaybackMode,
+  getTimelineEventField,
+  type GridDivision,
+  type KeyEvent,
+  type MeterEvent,
+  type PatternEvent,
+  type PatternId,
+  type Section,
+  type SectionId,
+  snapTickToGrid,
+  sortPatternEventsByTime,
+  sortTimelineEventsByTick,
+  type TempoEvent,
+  type Tick,
+  type TimelineEvent,
+  type TimelineEventField,
+  type TrackId,
+} from '~/domain'
 import type { Pattern } from '~/domain/patterns'
 import { touchProject } from '~/domain/project'
 import type { Timeline } from '~/domain/timeline'
@@ -15,6 +35,10 @@ export function setTimeline(workspace: Workspace, timeline: Timeline): Workspace
 }
 
 export function addTrack(workspace: Workspace, track: Track): Workspace {
+  if (workspace.tracks.byId[track.id] !== undefined) {
+    throw new Error(`Track ${track.id} already exists.`)
+  }
+
   return {
     ...workspace,
     project: touchProject(workspace.project),
@@ -23,6 +47,8 @@ export function addTrack(workspace: Workspace, track: Track): Workspace {
 }
 
 export function updateTrack(workspace: Workspace, track: Track): Workspace {
+  requireTrack(workspace, track.id)
+
   return {
     ...workspace,
     project: touchProject(workspace.project),
@@ -31,6 +57,8 @@ export function updateTrack(workspace: Workspace, track: Track): Workspace {
 }
 
 export function removeTrack(workspace: Workspace, trackId: string): Workspace {
+  requireTrack(workspace, trackId)
+
   return {
     ...workspace,
     project: touchProject(workspace.project),
@@ -39,6 +67,10 @@ export function removeTrack(workspace: Workspace, trackId: string): Workspace {
 }
 
 export function addPattern(workspace: Workspace, pattern: Pattern): Workspace {
+  if (workspace.patterns.byId[pattern.id] !== undefined) {
+    throw new Error(`Pattern ${pattern.id} already exists.`)
+  }
+
   return {
     ...workspace,
     project: touchProject(workspace.project),
@@ -47,6 +79,8 @@ export function addPattern(workspace: Workspace, pattern: Pattern): Workspace {
 }
 
 export function updatePattern(workspace: Workspace, pattern: Pattern): Workspace {
+  requirePattern(workspace, pattern.id)
+
   return {
     ...workspace,
     project: touchProject(workspace.project),
@@ -55,6 +89,8 @@ export function updatePattern(workspace: Workspace, pattern: Pattern): Workspace
 }
 
 export function removePattern(workspace: Workspace, patternId: string): Workspace {
+  requirePattern(workspace, patternId)
+
   return {
     ...workspace,
     project: touchProject(workspace.project),
@@ -63,6 +99,10 @@ export function removePattern(workspace: Workspace, patternId: string): Workspac
 }
 
 export function addSection(workspace: Workspace, section: Section): Workspace {
+  if (workspace.arrangement.sections.some(currentSection => currentSection.id === section.id)) {
+    throw new Error(`Section ${section.id} already exists.`)
+  }
+
   return {
     ...workspace,
     arrangement: {
@@ -74,6 +114,8 @@ export function addSection(workspace: Workspace, section: Section): Workspace {
 }
 
 export function updateSection(workspace: Workspace, section: Section): Workspace {
+  requireSection(workspace, section.id)
+
   return {
     ...workspace,
     arrangement: {
@@ -87,6 +129,8 @@ export function updateSection(workspace: Workspace, section: Section): Workspace
 }
 
 export function removeSection(workspace: Workspace, sectionId: string): Workspace {
+  requireSection(workspace, sectionId)
+
   return {
     ...workspace,
     arrangement: {
@@ -98,6 +142,10 @@ export function removeSection(workspace: Workspace, sectionId: string): Workspac
 }
 
 export function addBlock(workspace: Workspace, block: Block): Workspace {
+  if (workspace.arrangement.blocks.some(currentBlock => currentBlock.id === block.id)) {
+    throw new Error(`Block ${block.id} already exists.`)
+  }
+
   return {
     ...workspace,
     arrangement: {
@@ -109,6 +157,8 @@ export function addBlock(workspace: Workspace, block: Block): Workspace {
 }
 
 export function updateBlock(workspace: Workspace, block: Block): Workspace {
+  requireBlock(workspace, block.id)
+
   return {
     ...workspace,
     arrangement: {
@@ -122,6 +172,8 @@ export function updateBlock(workspace: Workspace, block: Block): Workspace {
 }
 
 export function removeBlock(workspace: Workspace, blockId: string): Workspace {
+  requireBlock(workspace, blockId)
+
   return {
     ...workspace,
     arrangement: {
@@ -130,4 +182,504 @@ export function removeBlock(workspace: Workspace, blockId: string): Workspace {
     },
     project: touchProject(workspace.project),
   }
+}
+
+export function deleteBlocks(workspace: Workspace, blockIds: readonly BlockId[]): Workspace {
+  return blockIds.reduce(removeBlock, workspace)
+}
+
+export function duplicateBlocks(
+  workspace: Workspace,
+  blockIds: readonly BlockId[],
+  offsetTicks: number,
+): Workspace {
+  const existingIds = new Set(workspace.arrangement.blocks.map(block => block.id))
+
+  return blockIds.reduce((nextWorkspace, blockId, index) => {
+    const block = requireBlock(workspace, blockId)
+    const id = createUniqueId(`${block.id}_copy`, existingIds)
+    existingIds.add(id)
+
+    return addBlock(nextWorkspace, {
+      ...block,
+      id,
+      name: `${block.name} Copy`,
+      startTick: Math.max(0, block.startTick + offsetTicks + (index * 120)),
+    })
+  }, workspace)
+}
+
+export function moveBlock(
+  workspace: Workspace,
+  blockId: BlockId,
+  startTick: Tick,
+  trackId?: TrackId,
+): Workspace {
+  const block = requireBlock(workspace, blockId)
+
+  if (trackId !== undefined) {
+    requireTrack(workspace, trackId)
+  }
+
+  return updateBlock(workspace, {
+    ...block,
+    startTick: Math.max(0, Math.round(startTick)),
+    trackId: trackId ?? block.trackId,
+  })
+}
+
+export function resizeBlock(
+  workspace: Workspace,
+  blockId: BlockId,
+  startTick: Tick,
+  lengthTicks: number,
+): Workspace {
+  const block = requireBlock(workspace, blockId)
+
+  return updateBlock(workspace, {
+    ...block,
+    lengthTicks: Math.max(1, Math.round(lengthTicks)),
+    startTick: Math.max(0, Math.round(startTick)),
+  })
+}
+
+export function splitBlock(
+  workspace: Workspace,
+  blockId: BlockId,
+  requestedSplitTick: Tick,
+): Workspace {
+  const block = requireBlock(workspace, blockId)
+  const blockEndTick = block.startTick + block.lengthTicks
+  const splitTick = Math.max(
+    block.startTick + 1,
+    Math.min(blockEndTick - 1, Math.round(requestedSplitTick)),
+  )
+  const rightBlockId = createUniqueId(
+    `${block.id}_split`,
+    new Set(workspace.arrangement.blocks.map(currentBlock => currentBlock.id)),
+  )
+  const leftBlock: Block = {
+    ...block,
+    lengthTicks: splitTick - block.startTick,
+  }
+  const rightBlock: Block = {
+    ...block,
+    id: rightBlockId,
+    lengthTicks: blockEndTick - splitTick,
+    name: `${block.name} Split`,
+    startTick: splitTick,
+  }
+
+  return addBlock(updateBlock(workspace, leftBlock), rightBlock)
+}
+
+export function renameBlock(workspace: Workspace, blockId: BlockId, name: string): Workspace {
+  const block = requireBlock(workspace, blockId)
+
+  return updateBlock(workspace, {
+    ...block,
+    name: name.trim() || block.name,
+  })
+}
+
+export function setBlockMuted(workspace: Workspace, blockId: BlockId, muted: boolean): Workspace {
+  return updateBlockField(workspace, blockId, { muted })
+}
+
+export function setBlockColor(workspace: Workspace, blockId: BlockId, color: string): Workspace {
+  return updateBlockField(workspace, blockId, { color })
+}
+
+export function setBlockPlaybackMode(
+  workspace: Workspace,
+  blockId: BlockId,
+  playbackMode: BlockPlaybackMode,
+): Workspace {
+  return updateBlockField(workspace, blockId, { playbackMode })
+}
+
+export function assignBlockPattern(
+  workspace: Workspace,
+  blockId: BlockId,
+  patternId: PatternId,
+): Workspace {
+  requirePattern(workspace, patternId)
+
+  return updateBlockField(workspace, blockId, { patternId })
+}
+
+export function moveBlockToTrack(
+  workspace: Workspace,
+  blockId: BlockId,
+  trackId: TrackId,
+): Workspace {
+  requireTrack(workspace, trackId)
+
+  return updateBlockField(workspace, blockId, { trackId })
+}
+
+export function deleteSections(workspace: Workspace, sectionIds: readonly SectionId[]): Workspace {
+  return sectionIds.reduce(removeSection, workspace)
+}
+
+export function duplicateSections(
+  workspace: Workspace,
+  sectionIds: readonly SectionId[],
+  offsetTicks: number,
+): Workspace {
+  const existingIds = new Set(workspace.arrangement.sections.map(section => section.id))
+
+  return sectionIds.reduce((nextWorkspace, sectionId, index) => {
+    const section = requireSection(workspace, sectionId)
+    const id = createUniqueId(`${section.id}_copy`, existingIds)
+    existingIds.add(id)
+
+    return addSection(nextWorkspace, {
+      ...section,
+      id,
+      name: `${section.name} Copy`,
+      startTick: Math.max(0, section.startTick + offsetTicks + (index * 120)),
+    })
+  }, workspace)
+}
+
+export function moveSection(workspace: Workspace, sectionId: SectionId, startTick: Tick): Workspace {
+  const section = requireSection(workspace, sectionId)
+
+  return updateSection(workspace, {
+    ...section,
+    startTick: Math.max(0, Math.round(startTick)),
+  })
+}
+
+export function resizeSection(
+  workspace: Workspace,
+  sectionId: SectionId,
+  startTick: Tick,
+  lengthTicks: number,
+): Workspace {
+  const section = requireSection(workspace, sectionId)
+
+  return updateSection(workspace, {
+    ...section,
+    lengthTicks: Math.max(1, Math.round(lengthTicks)),
+    startTick: Math.max(0, Math.round(startTick)),
+  })
+}
+
+export function splitSection(
+  workspace: Workspace,
+  sectionId: SectionId,
+  requestedSplitTick: Tick,
+): Workspace {
+  const section = requireSection(workspace, sectionId)
+  const sectionEndTick = section.startTick + section.lengthTicks
+  const splitTick = Math.max(
+    section.startTick + 1,
+    Math.min(sectionEndTick - 1, Math.round(requestedSplitTick)),
+  )
+  const rightSectionId = createUniqueId(
+    `${section.id}_split`,
+    new Set(workspace.arrangement.sections.map(currentSection => currentSection.id)),
+  )
+  const leftSection: Section = {
+    ...section,
+    lengthTicks: splitTick - section.startTick,
+  }
+  const rightSection: Section = {
+    ...section,
+    id: rightSectionId,
+    lengthTicks: sectionEndTick - splitTick,
+    name: `${section.name} Split`,
+    startTick: splitTick,
+  }
+
+  return addSection(updateSection(workspace, leftSection), rightSection)
+}
+
+export function renameSection(workspace: Workspace, sectionId: SectionId, name: string): Workspace {
+  const section = requireSection(workspace, sectionId)
+
+  return updateSection(workspace, {
+    ...section,
+    name: name.trim() || section.name,
+  })
+}
+
+export function reorderTracks(workspace: Workspace, trackIds: readonly TrackId[]): Workspace {
+  const knownIds = new Set(workspace.tracks.allIds)
+  const orderedIds = trackIds.filter(trackId => knownIds.has(trackId))
+  const remainingIds = workspace.tracks.allIds.filter(trackId => !orderedIds.includes(trackId))
+
+  return {
+    ...workspace,
+    project: touchProject(workspace.project),
+    tracks: {
+      ...workspace.tracks,
+      allIds: [...orderedIds, ...remainingIds],
+    },
+  }
+}
+
+export function addPatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  event: PatternEvent,
+): Workspace {
+  const pattern = requirePattern(workspace, patternId)
+
+  if (pattern.events.some(currentEvent => currentEvent.id === event.id)) {
+    throw new Error(`Pattern event ${event.id} already exists.`)
+  }
+
+  return updatePattern(workspace, {
+    ...pattern,
+    events: sortPatternEventsByTime([...pattern.events, event]),
+  } as Pattern)
+}
+
+export function deletePatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  eventId: string,
+): Workspace {
+  const pattern = requirePatternEvent(workspace, patternId, eventId).pattern
+
+  return updatePattern(workspace, {
+    ...pattern,
+    events: pattern.events.filter(event => event.id !== eventId),
+  } as Pattern)
+}
+
+export function updatePatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  event: PatternEvent,
+): Workspace {
+  const pattern = requirePatternEvent(workspace, patternId, event.id).pattern
+
+  return updatePattern(workspace, {
+    ...pattern,
+    events: sortPatternEventsByTime(pattern.events.map(currentEvent => (
+      currentEvent.id === event.id ? event : currentEvent
+    ))),
+  } as Pattern)
+}
+
+export function addTempoEvent(workspace: Workspace, event: TempoEvent): Workspace {
+  return addTimelineEvent(workspace, 'tempoEvents', event)
+}
+
+export function deleteTempoEvent(workspace: Workspace, tick: Tick): Workspace {
+  return deleteTimelineEvent(workspace, 'tempoEvents', tick)
+}
+
+export function updateTempoEvent(workspace: Workspace, previousTick: Tick, event: TempoEvent): Workspace {
+  return updateTimelineEvent(workspace, 'tempoEvents', previousTick, event)
+}
+
+export function addMeterEvent(workspace: Workspace, event: MeterEvent): Workspace {
+  return addTimelineEvent(workspace, 'meterEvents', {
+    ...event,
+    tick: snapTickToGrid(workspace.timeline, event.tick, 'bar'),
+  })
+}
+
+export function deleteMeterEvent(workspace: Workspace, tick: Tick): Workspace {
+  return deleteTimelineEvent(workspace, 'meterEvents', tick)
+}
+
+export function updateMeterEvent(workspace: Workspace, previousTick: Tick, event: MeterEvent): Workspace {
+  return updateTimelineEvent(workspace, 'meterEvents', previousTick, event)
+}
+
+export function addKeyEvent(workspace: Workspace, event: KeyEvent): Workspace {
+  return addTimelineEvent(workspace, 'keyEvents', event)
+}
+
+export function deleteKeyEvent(workspace: Workspace, tick: Tick): Workspace {
+  return deleteTimelineEvent(workspace, 'keyEvents', tick)
+}
+
+export function updateKeyEvent(workspace: Workspace, previousTick: Tick, event: KeyEvent): Workspace {
+  return updateTimelineEvent(workspace, 'keyEvents', previousTick, event)
+}
+
+export function moveTimelineEvent(
+  workspace: Workspace,
+  eventId: string,
+  field: TimelineEventField,
+  requestedTick: Tick,
+): Workspace {
+  const event = workspace.timeline[field].find(currentEvent => currentEvent.id === eventId)
+
+  if (event === undefined) {
+    throw new Error(`Timeline event ${eventId} does not exist.`)
+  }
+
+  return updateTimelineEvent(
+    workspace,
+    getTimelineEventField(event),
+    event.tick,
+    {
+      ...event,
+      tick: snapTickToGrid(workspace.timeline, requestedTick, workspace.timeline.grid),
+    },
+  )
+}
+
+export function setGridDivision(workspace: Workspace, grid: GridDivision): Workspace {
+  return setTimeline(workspace, {
+    ...workspace.timeline,
+    grid,
+  })
+}
+
+function updateBlockField(
+  workspace: Workspace,
+  blockId: BlockId,
+  fields: Partial<Block>,
+): Workspace {
+  const block = requireBlock(workspace, blockId)
+
+  return updateBlock(workspace, {
+    ...block,
+    ...fields,
+  })
+}
+
+function addTimelineEvent<TEvent extends TimelineEvent>(
+  workspace: Workspace,
+  field: TimelineEventField,
+  event: TEvent,
+): Workspace {
+  const events = workspace.timeline[field]
+
+  if (events.some(currentEvent => currentEvent.id === event.id)) {
+    throw new Error(`Timeline event ${event.id} already exists.`)
+  }
+
+  return setTimeline(workspace, {
+    ...workspace.timeline,
+    [field]: sortTimelineEventsByTick([
+      ...events.filter(currentEvent => currentEvent.tick !== event.tick),
+      event,
+    ]),
+  })
+}
+
+function deleteTimelineEvent(
+  workspace: Workspace,
+  field: TimelineEventField,
+  tick: Tick,
+): Workspace {
+  requireTimelineEvent(workspace, field, tick)
+
+  return setTimeline(workspace, {
+    ...workspace.timeline,
+    [field]: workspace.timeline[field].filter(event => event.tick !== tick),
+  })
+}
+
+function updateTimelineEvent<TEvent extends TimelineEvent>(
+  workspace: Workspace,
+  field: TimelineEventField,
+  previousTick: Tick,
+  event: TEvent,
+): Workspace {
+  requireTimelineEvent(workspace, field, previousTick)
+
+  return setTimeline(workspace, {
+    ...workspace.timeline,
+    [field]: sortTimelineEventsByTick([
+      ...workspace.timeline[field].filter(currentEvent => (
+        currentEvent.tick !== previousTick && currentEvent.tick !== event.tick
+      )),
+      event,
+    ]),
+  })
+}
+
+function requireBlock(workspace: Workspace, blockId: BlockId): Block {
+  const block = workspace.arrangement.blocks.find(currentBlock => currentBlock.id === blockId)
+
+  if (block === undefined) {
+    throw new Error(`Block ${blockId} does not exist.`)
+  }
+
+  return block
+}
+
+function requireSection(workspace: Workspace, sectionId: SectionId): Section {
+  const section = workspace.arrangement.sections.find(currentSection => currentSection.id === sectionId)
+
+  if (section === undefined) {
+    throw new Error(`Section ${sectionId} does not exist.`)
+  }
+
+  return section
+}
+
+function requireTrack(workspace: Workspace, trackId: TrackId): Track {
+  const track = workspace.tracks.byId[trackId]
+
+  if (track === undefined) {
+    throw new Error(`Track ${trackId} does not exist.`)
+  }
+
+  return track
+}
+
+function requirePattern(workspace: Workspace, patternId: PatternId): Pattern {
+  const pattern = workspace.patterns.byId[patternId]
+
+  if (pattern === undefined) {
+    throw new Error(`Pattern ${patternId} does not exist.`)
+  }
+
+  return pattern
+}
+
+function requirePatternEvent(workspace: Workspace, patternId: PatternId, eventId: string): {
+  event: PatternEvent
+  pattern: Pattern
+} {
+  const pattern = requirePattern(workspace, patternId)
+  const event = pattern.events.find(currentEvent => currentEvent.id === eventId)
+
+  if (event === undefined) {
+    throw new Error(`Pattern event ${eventId} does not exist.`)
+  }
+
+  return { event, pattern }
+}
+
+function requireTimelineEvent(
+  workspace: Workspace,
+  field: TimelineEventField,
+  tick: Tick,
+): TimelineEvent {
+  const event = workspace.timeline[field].find(currentEvent => currentEvent.tick === tick)
+
+  if (event === undefined) {
+    throw new Error(`${field} event at tick ${tick} does not exist.`)
+  }
+
+  return event
+}
+
+function createUniqueId(prefix: string, existingIds: Set<string>): string {
+  if (!existingIds.has(prefix)) {
+    return prefix
+  }
+
+  let index = 2
+  let id = `${prefix}_${index}`
+
+  while (existingIds.has(id)) {
+    index += 1
+    id = `${prefix}_${index}`
+  }
+
+  return id
 }

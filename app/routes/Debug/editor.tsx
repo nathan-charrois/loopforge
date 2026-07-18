@@ -38,13 +38,14 @@ import {
   type ActiveTool,
   type Editor,
   INSPECTOR_PANELS,
-  setEditorActiveToolCommand,
-  setEditorInspectorPanelCommand,
-  setEditorSelectionCommand,
+  setActiveToolAction,
+  setInspectorPanelAction,
+  setSelectionAction,
 } from '~/store/editor'
 import {
   type Command,
   COMMAND_KINDS,
+  type CommandHistoryEntry,
   type CommandKind,
   type CommandPayload,
   EDITOR_COMMAND_KINDS,
@@ -243,12 +244,12 @@ function EditorDebugContent() {
   const [commandSequence, setCommandSequence] = useState(1)
 
   function setActiveTool(tool: ActiveTool) {
-    dispatch(setEditorActiveToolCommand(editor, tool))
+    dispatch(setActiveToolAction(editor, tool))
   }
 
   function setInspectorPanel(panel: Editor['inspector']['panel']) {
     if (panel !== undefined) {
-      dispatch(setEditorInspectorPanelCommand(editor, panel))
+      dispatch(setInspectorPanelAction(editor, panel))
     }
   }
 
@@ -277,7 +278,7 @@ function EditorDebugContent() {
     payload?: CommandPayload
   }) {
     if (editor.activeTool === 'select') {
-      dispatch(setEditorSelectionCommand(
+      dispatch(setSelectionAction(
         editor,
         selectOnly(editor.selection, field, id),
       ))
@@ -286,7 +287,7 @@ function EditorDebugContent() {
     }
 
     if (editor.activeTool === 'drawBlock' || editor.activeTool === 'drawSection') {
-      dispatch(setEditorSelectionCommand(
+      dispatch(setSelectionAction(
         editor,
         toggleOnly(editor.selection, field, id),
       ))
@@ -299,7 +300,7 @@ function EditorDebugContent() {
         handlepushHistoryCommand(deleteCommandKind, payload)
       }
 
-      dispatch(setEditorSelectionCommand(
+      dispatch(setSelectionAction(
         editor,
         removeSelectedId(editor.selection, field, id),
       ))
@@ -469,7 +470,6 @@ function createDebugCommand(
     return {
       createdAt: new Date().toISOString(),
       id: `debug_command_${sequence}`,
-      inverse: editorPayload,
       kind: kind as EditorCommandKind,
       label: kind,
       payload: editorPayload,
@@ -484,9 +484,6 @@ function createDebugCommand(
   return {
     createdAt: new Date().toISOString(),
     id: `debug_command_${sequence}`,
-    inverse: kind === 'setGridDivision'
-      ? { grid: workspace.timeline.grid }
-      : undefined,
     kind: kind as WorkspaceCommandKind,
     label: kind,
     payload: {
@@ -511,6 +508,22 @@ function createEditorDebugCommandPayload(
   editor: Editor,
 ): CommandPayload {
   switch (kind) {
+    case 'copySelection':
+      return {}
+    case 'selectBlock':
+      return editor.selection.selectedBlockIds[0] === undefined
+        ? {}
+        : { additive: false, blockId: editor.selection.selectedBlockIds[0] }
+    case 'selectSection':
+      return editor.selection.selectedSectionIds[0] === undefined
+        ? {}
+        : { additive: false, sectionId: editor.selection.selectedSectionIds[0] }
+    case 'selectTimelineEvent':
+      return editor.selection.selectedTimelineEventIds[0] === undefined
+        ? {}
+        : { additive: false, timelineEventId: editor.selection.selectedTimelineEventIds[0] }
+    case 'selectTimelineRange':
+      return { endTick: 0, startTick: 0 }
     case 'setActiveTool':
       return { activeTool: editor.activeTool }
     case 'setClipboard':
@@ -851,7 +864,7 @@ function CommandHistoryList({
   commands,
   title,
 }: {
-  commands: Command[]
+  commands: CommandHistoryEntry[]
   title: string
 }) {
   if (commands.length === 0) {
@@ -872,17 +885,17 @@ function CommandHistoryList({
         <Text fw={600} size="sm">{title}</Text>
         <Badge color="gray" variant="light">{commands.length}</Badge>
       </Group>
-      {commands.map(command => (
-        <Paper key={command.id} withBorder radius="sm" p="sm">
+      {commands.map(entry => (
+        <Paper key={entry.command.id} withBorder radius="sm" p="sm">
           <Group justify="space-between" align="flex-start" gap="xs">
             <Box>
               <Group gap="xs">
-                <Badge variant="light">{command.kind}</Badge>
-                <Text fw={600} size="sm">{command.label}</Text>
+                <Badge variant="light">{entry.command.kind}</Badge>
+                <Text fw={600} size="sm">{entry.command.label}</Text>
               </Group>
-              <Text c="dimmed" size="xs">{command.id}</Text>
+              <Text c="dimmed" size="xs">{entry.command.id}</Text>
             </Box>
-            <Text c="dimmed" size="xs">{command.createdAt}</Text>
+            <Text c="dimmed" size="xs">{entry.command.createdAt}</Text>
           </Group>
         </Paper>
       ))}
