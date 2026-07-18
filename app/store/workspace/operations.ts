@@ -1,6 +1,7 @@
 import { addEntity, removeEntity, updateEntity } from '../type'
 import {
   selectBlock,
+  selectMixChannel,
   selectPattern,
   selectPatternEvent,
   selectPatternIdForEvent,
@@ -9,12 +10,17 @@ import {
   selectTrack,
 } from './selector'
 import type { Workspace } from './type'
+import { validateMixChannel } from './validation'
 import {
   type Block,
   type BlockId,
   type BlockPlaybackMode,
+  createMixChannel,
   getTimelineEventField,
   type GridDivision,
+  type MixChannel,
+  type MixChannelId,
+  type Mixer,
   type PatternEvent,
   type PatternEventId,
   type PatternId,
@@ -40,20 +46,52 @@ export function setTimeline(workspace: Workspace, timeline: Timeline): Workspace
   }
 }
 
-export function addTrack(workspace: Workspace, track: Track): Workspace {
+export function addTrack(
+  workspace: Workspace,
+  track: Track,
+  mixChannel: MixChannel = createMixChannel({ id: track.mixChannelId }),
+): Workspace {
   if (workspace.tracks.byId[track.id] !== undefined) {
     throw new Error(`Track ${track.id} already exists.`)
   }
 
+  if (mixChannel.id !== track.mixChannelId) {
+    throw new Error(`Track ${track.id} must reference mix channel ${mixChannel.id}.`)
+  }
+
+  if (workspace.mixer.channels.byId[mixChannel.id] !== undefined) {
+    throw new Error(`Mix channel ${mixChannel.id} already exists.`)
+  }
+
+  if (workspace.tracks.allIds.some(trackId => (
+    workspace.tracks.byId[trackId].mixChannelId === mixChannel.id
+  ))) {
+    throw new Error(`Mix channel ${mixChannel.id} is already referenced by a track.`)
+  }
+
+  const mixChannelErrors = validateMixChannel(mixChannel)
+
+  if (mixChannelErrors.length > 0) {
+    throw new Error(mixChannelErrors.join(' '))
+  }
+
   return {
     ...workspace,
+    mixer: {
+      ...workspace.mixer,
+      channels: addEntity(workspace.mixer.channels, mixChannel),
+    },
     project: touchProject(workspace.project),
     tracks: addEntity(workspace.tracks, track),
   }
 }
 
 export function updateTrack(workspace: Workspace, track: Track): Workspace {
-  requireTrack(workspace, track.id)
+  const currentTrack = requireTrack(workspace, track.id)
+
+  if (currentTrack.mixChannelId !== track.mixChannelId) {
+    throw new Error(`Track ${track.id} cannot change its mix channel.`)
+  }
 
   return {
     ...workspace,
@@ -63,12 +101,57 @@ export function updateTrack(workspace: Workspace, track: Track): Workspace {
 }
 
 export function removeTrack(workspace: Workspace, trackId: string): Workspace {
-  requireTrack(workspace, trackId)
+  const track = requireTrack(workspace, trackId)
+  requireMixChannel(workspace, track.mixChannelId)
 
   return {
     ...workspace,
+    mixer: {
+      ...workspace.mixer,
+      channels: removeEntity(workspace.mixer.channels, track.mixChannelId),
+    },
     project: touchProject(workspace.project),
     tracks: removeEntity(workspace.tracks, trackId),
+  }
+}
+
+export function duplicateTrack(workspace: Workspace, trackId: TrackId): Workspace {
+  const track = requireTrack(workspace, trackId)
+  const mixChannel = requireMixChannel(workspace, track.mixChannelId)
+  const duplicateTrackId = createUniqueId(
+    `${track.id}_copy`,
+    new Set(workspace.tracks.allIds),
+  )
+  const duplicateMixChannelId = createUniqueId(
+    `${mixChannel.id}_copy`,
+    new Set([
+      ...workspace.mixer.channels.allIds,
+      ...workspace.tracks.allIds.map(currentTrackId => (
+        workspace.tracks.byId[currentTrackId].mixChannelId
+      )),
+    ]),
+  )
+
+  return addTrack(
+    workspace,
+    {
+      ...track,
+      id: duplicateTrackId,
+      mixChannelId: duplicateMixChannelId,
+      name: `${track.name} Copy`,
+    },
+    {
+      ...mixChannel,
+      id: duplicateMixChannelId,
+    },
+  )
+}
+
+export function updateMixer(workspace: Workspace, mixer: Mixer): Workspace {
+  return {
+    ...workspace,
+    mixer,
+    project: touchProject(workspace.project),
   }
 }
 
@@ -599,6 +682,16 @@ function requireTrack(workspace: Workspace, trackId: TrackId): Track {
   }
 
   return track
+}
+
+function requireMixChannel(workspace: Workspace, mixChannelId: MixChannelId): MixChannel {
+  const mixChannel = selectMixChannel(workspace, mixChannelId)
+
+  if (mixChannel === undefined) {
+    throw new Error(`Mix channel ${mixChannelId} does not exist.`)
+  }
+
+  return mixChannel
 }
 
 function requirePattern(workspace: Workspace, patternId: PatternId): Pattern {

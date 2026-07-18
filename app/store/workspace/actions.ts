@@ -13,6 +13,7 @@ import {
   createDeleteTrackCommand,
   createDuplicateBlockCommand,
   createDuplicateSectionCommand,
+  createDuplicateTrackCommand,
   createMoveBlockCommand,
   createMoveSectionCommand,
   createReorderTrackCommand,
@@ -22,6 +23,7 @@ import {
   createSplitBlockCommand,
   createSplitSectionCommand,
   createUpdateBlockCommand,
+  createUpdateMixerCommand,
   createUpdatePatternCommand,
   createUpdatePatternEventCommand,
   createUpdateSectionCommand,
@@ -32,6 +34,8 @@ import type {
   Block,
   BlockId,
   GridDivision,
+  MixChannel,
+  Mixer,
   Pattern,
   PatternEvent,
   PatternEventId,
@@ -120,12 +124,16 @@ export function updateSectionAction(section: Section): WorkspaceCommand {
   return createUpdateSectionCommand(section)
 }
 
-export function addTrackAction(track: Track): WorkspaceCommand {
-  return createAddTrackCommand(track)
+export function addTrackAction(track: Track, mixChannel?: MixChannel): WorkspaceCommand {
+  return createAddTrackCommand(track, mixChannel)
 }
 
 export function deleteTrackAction(trackId: TrackId): WorkspaceCommand {
   return createDeleteTrackCommand(trackId)
+}
+
+export function duplicateTrackAction(trackId: TrackId): WorkspaceCommand {
+  return createDuplicateTrackCommand(trackId)
 }
 
 export function updateTrackAction(track: Track): WorkspaceCommand {
@@ -134,6 +142,10 @@ export function updateTrackAction(track: Track): WorkspaceCommand {
 
 export function reorderTrackAction(trackIds: readonly TrackId[]): WorkspaceCommand {
   return createReorderTrackCommand(trackIds)
+}
+
+export function updateMixerAction(mixer: Mixer): WorkspaceCommand {
+  return createUpdateMixerCommand(mixer)
 }
 
 export function addPatternAction(pattern: Pattern): WorkspaceCommand {

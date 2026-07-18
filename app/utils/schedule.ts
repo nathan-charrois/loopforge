@@ -22,6 +22,8 @@ import {
   getScheduledEventStartTick,
   materializeChordVoicing,
   type MidiNote,
+  type MixChannel,
+  type MixChannelId,
   type Pattern,
   type PatternEvent,
   type PatternEventId,
@@ -34,6 +36,7 @@ import {
   type VoiceIndex,
 } from '~/domain'
 import {
+  selectMixChannel,
   selectPattern,
   selectTrack,
   selectWorkspaceEndTick,
@@ -47,8 +50,8 @@ export type ScheduledPlaybackEventBase = {
   event: PatternEvent
   patternId: PatternId
   startTick: Tick
+  mixChannelId: MixChannelId
   trackId: TrackId
-  trackVolume: number
 }
 
 export type ScheduledPlaybackEvent = ScheduledPlaybackEventBase & {
@@ -59,6 +62,7 @@ export type PlaybackTriggerSource = {
   scheduledEventId: string
   eventId: PatternEventId
   blockId: BlockId
+  mixChannelId: MixChannelId
   patternId: PatternId
   trackId: TrackId
 }
@@ -70,7 +74,6 @@ export type NotePlaybackTrigger = {
   durationTicks: DurationTicks
   pitch: MidiNote
   velocity: Velocity
-  trackVolume: number
   stepIndex?: number
   voiceIndex?: VoiceIndex
   source: PlaybackTriggerSource
@@ -82,7 +85,6 @@ export type DrumPlaybackTrigger = {
   startTick: Tick
   kitPiece: DrumKitPiece
   velocity: Velocity
-  trackVolume: number
   source: PlaybackTriggerSource
 }
 
@@ -124,6 +126,7 @@ export function buildSchedule(workspace: Workspace): PlaybackSchedule {
     events.push(
       ...createScheduledPlaybackEventsForBlock({
         block,
+        mixChannel: context.mixChannel,
         pattern: context.pattern,
         track: context.track,
       }),
@@ -162,10 +165,6 @@ function getBlockContext(
     return null
   }
 
-  if (track.muted) {
-    return null
-  }
-
   const pattern = selectPattern(workspace, block.patternId)
 
   if (pattern === undefined) {
@@ -192,7 +191,18 @@ function getBlockContext(
     return null
   }
 
+  const mixChannel = selectMixChannel(workspace, track.mixChannelId)
+
+  if (mixChannel === undefined) {
+    warnings.push({
+      id: `missing-mix-channel-${block.id}`,
+      message: `${track.name} references missing mix channel ${track.mixChannelId}.`,
+    })
+    return null
+  }
+
   return {
+    mixChannel,
     pattern,
     track,
   }
@@ -200,30 +210,34 @@ function getBlockContext(
 
 function createScheduledPlaybackEventsForBlock({
   block,
+  mixChannel,
   pattern,
   track,
 }: {
   block: Block
+  mixChannel: MixChannel
   pattern: Pattern
   track: Track
 }): ScheduledPlaybackEvent[] {
   switch (block.playbackMode) {
     case 'oneShot':
-      return createOneShotScheduledEvents({ block, pattern, track })
+      return createOneShotScheduledEvents({ block, mixChannel, pattern, track })
     case 'stretch':
-      return createStretchScheduledEvents({ block, pattern, track })
+      return createStretchScheduledEvents({ block, mixChannel, pattern, track })
     case 'loop':
     default:
-      return createLoopScheduledEvents({ block, pattern, track })
+      return createLoopScheduledEvents({ block, mixChannel, pattern, track })
   }
 }
 
 function createOneShotScheduledEvents({
   block,
+  mixChannel,
   pattern,
   track,
 }: {
   block: Block
+  mixChannel: MixChannel
   pattern: Pattern
   track: Track
 }): ScheduledPlaybackEvent[] {
@@ -233,6 +247,7 @@ function createOneShotScheduledEvents({
     const scheduledEvent = createScheduledPlaybackEvent({
       block,
       event,
+      mixChannel,
       offsetTick: 0,
       pattern,
       track,
@@ -248,10 +263,12 @@ function createOneShotScheduledEvents({
 
 function createStretchScheduledEvents({
   block,
+  mixChannel,
   pattern,
   track,
 }: {
   block: Block
+  mixChannel: MixChannel
   pattern: Pattern
   track: Track
 }): ScheduledPlaybackEvent[] {
@@ -289,10 +306,10 @@ function createStretchScheduledEvents({
       durationTicks,
       event,
       id: `${block.id}:stretch:${event.id}`,
+      mixChannelId: mixChannel.id,
       patternId: pattern.id,
       startTick,
       trackId: track.id,
-      trackVolume: track.volume,
     }
 
     events.push({
@@ -314,10 +331,12 @@ function stretchTickToBlock(
 
 function createLoopScheduledEvents({
   block,
+  mixChannel,
   pattern,
   track,
 }: {
   block: Block
+  mixChannel: MixChannel
   pattern: Pattern
   track: Track
 }): ScheduledPlaybackEvent[] {
@@ -328,6 +347,7 @@ function createLoopScheduledEvents({
       const scheduledEvent = createScheduledPlaybackEvent({
         block,
         event,
+        mixChannel,
         offsetTick,
         pattern,
         track,
@@ -345,12 +365,14 @@ function createLoopScheduledEvents({
 function createScheduledPlaybackEvent({
   block,
   event,
+  mixChannel,
   offsetTick,
   pattern,
   track,
 }: {
   block: Block
   event: PatternEvent
+  mixChannel: MixChannel
   offsetTick: number
   pattern: Pattern
   track: Track
@@ -368,11 +390,11 @@ function createScheduledPlaybackEvent({
     blockId: block.id,
     event,
     id: `${block.id}:${offsetTick}:${event.id}`,
+    mixChannelId: mixChannel.id,
     patternId: pattern.id,
     startTick,
     durationTicks,
     trackId: track.id,
-    trackVolume: track.volume,
   }
 
   return {
@@ -509,7 +531,6 @@ function createBlockChordPlaybackTriggers({
     kind: 'note',
     id: `${scheduledEvent.id}:note:${stepIndex}:${note.midiNote}`,
     pitch: note.midiNote,
-    trackVolume: scheduledEvent.trackVolume,
     velocity: event.velocity,
     startTick: scheduledEvent.startTick,
     source,
@@ -693,7 +714,6 @@ function createRecipeNotePlaybackTrigger({
     kind: 'note',
     id: `${scheduledEvent.id}:note:${stepIndex}:${note.voiceIndex}:${pitch}:${startOffsetTicks}`,
     pitch,
-    trackVolume: scheduledEvent.trackVolume,
     velocity: getRecipeStepVelocity(event.velocity, step),
     source,
     stepIndex,
@@ -724,7 +744,6 @@ function createRecipeHeldStepPlaybackTrigger({
     kind: 'note',
     id: `${scheduledEvent.id}:held:${heldIndex}:${note.voiceIndex}:${pitch}`,
     pitch,
-    trackVolume: scheduledEvent.trackVolume,
     velocity: getRecipeStepVelocity(event.velocity, heldStep),
     source,
     voiceIndex: note.voiceIndex,
@@ -748,7 +767,6 @@ function createNotePlaybackTrigger(
     pitch: event.pitch,
     source: createPlaybackTriggerSource(scheduledEvent),
     startTick: scheduledEvent.startTick,
-    trackVolume: scheduledEvent.trackVolume,
     velocity: event.velocity,
   }
 }
@@ -763,7 +781,6 @@ function createDrumPlaybackTrigger(
     kitPiece: event.kitPiece,
     source: createPlaybackTriggerSource(scheduledEvent),
     startTick: scheduledEvent.startTick,
-    trackVolume: scheduledEvent.trackVolume,
     velocity: event.velocity,
   }
 }
@@ -786,6 +803,7 @@ function createPlaybackTriggerSource(scheduledEvent: ScheduledPlaybackEventBase)
   return {
     blockId: scheduledEvent.blockId,
     eventId: scheduledEvent.event.id,
+    mixChannelId: scheduledEvent.mixChannelId,
     patternId: scheduledEvent.patternId,
     scheduledEventId: scheduledEvent.id,
     trackId: scheduledEvent.trackId,

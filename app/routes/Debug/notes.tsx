@@ -45,6 +45,7 @@ import {
   createMeterEvent,
   createPattern,
   createPitchClass,
+  createProject,
   createSection,
   createTempoEvent,
   createTimeline,
@@ -74,6 +75,7 @@ import {
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
+import { createEntityStore } from '~/store/type'
 import { createWorkspace, type Workspace } from '~/store/workspace'
 import {
   clampInteger,
@@ -820,15 +822,17 @@ function createNotesModel(input: {
         }),
       ],
     },
-    id: 'project_notes_debug',
-    name: 'Notes Debug',
-    patterns: [pattern],
+    patterns: createEntityStore([pattern]),
+    project: createProject({
+      id: 'project_notes_debug',
+      name: 'Notes Debug',
+    }),
     timeline: createTimeline({
       keyEvents: [createKeyEvent({ key, tick: 0 })],
       meterEvents: [createMeterEvent({ tick: 0 })],
       tempoEvents: [createTempoEvent({ bpm: 120, tick: 0 })],
     }),
-    tracks: [track],
+    tracks: createEntityStore([track]),
   })
   const chordPitchLabels = getChordPitchClasses(chord).map(getNoteNameForPitchClass)
   const playbackSchedule = buildSchedule(workspace)

@@ -4,6 +4,7 @@ import { selectTracks } from './selector'
 import type { Workspace } from './type'
 import { type Block, createBlock, createDefaultArrangement, createSection } from '~/domain/arrangement'
 import { createChordSymbol, createDefaultKey } from '~/domain/harmony'
+import { createMixChannel, createMixer } from '~/domain/mixer'
 import type { PitchClass } from '~/domain/musicPrimitives'
 import { createAutomationEvent, createChordEvent, createDrumHitEvent, createNoteEvent } from '~/domain/patternEvents'
 import { createPattern, createSeedPatternEvents, type Pattern } from '~/domain/patterns'
@@ -20,12 +21,15 @@ import {
 import { createDefaultTracks, createTrack, getPatternKindForTrack, type Track, type TrackRole } from '~/domain/tracks'
 
 export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
+  const tracks = normalizeEntityStore(input.tracks, createEntityStore(createDefaultTracks()))
+
   return {
     arrangement: input.arrangement ?? createDefaultArrangement(),
+    mixer: input.mixer ?? createMixerForTracks(tracks),
     patterns: normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>()),
-    project: createProject(),
+    project: input.project ?? createProject(),
     timeline: input.timeline ?? createDefaultTimeline(),
-    tracks: normalizeEntityStore(input.tracks, createEntityStore(createDefaultTracks())),
+    tracks,
   }
 }
 
@@ -124,7 +128,6 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
       id: `stress_track_${index + 1}`,
       name: `Track ${index + 1}`,
       role,
-      volume: role === 'drums' ? 0.72 : 0.58,
     }))
   }
 
@@ -181,6 +184,13 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
     },
     patterns: createEntityStore(patterns),
     project: touchProject(sourceWorkspace.project),
+    mixer: {
+      ...sourceWorkspace.mixer,
+      channels: createEntityStore(tracks.map(track => createMixChannel({
+        id: track.mixChannelId,
+        volumeDb: track.role === 'drums' ? -3 : -6,
+      }))),
+    },
     tracks: createEntityStore(tracks),
   }
 }
@@ -473,12 +483,21 @@ export function createInitialWorkspace(): Workspace {
 export function summarizeWorkspaceAction(workspace: Workspace): Record<string, number | string> {
   return {
     blocks: workspace.arrangement.blocks.length,
+    mixChannels: workspace.mixer.channels.allIds.length,
     patterns: workspace.patterns.allIds.length,
     projectId: workspace.project.id,
     sections: workspace.arrangement.sections.length,
     tracks: workspace.tracks.allIds.length,
     updatedAt: workspace.project.updatedAt,
   }
+}
+
+function createMixerForTracks(tracks: EntityStore<Track>) {
+  return createMixer({
+    channels: createEntityStore(tracks.allIds.map(trackId => createMixChannel({
+      id: tracks.byId[trackId].mixChannelId,
+    }))),
+  })
 }
 
 function normalizeEntityStore<TEntity extends { id: string }>(

@@ -1,5 +1,6 @@
 export * from './arrangement'
 export * from './harmony'
+export * from './mixer'
 export * from './musicPrimitives'
 export * from './patternEvents'
 export * from './patterns'

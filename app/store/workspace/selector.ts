@@ -1,10 +1,50 @@
 import type { Workspace } from './type'
-import { type KeyEvent, type MeterEvent, sortTimelineEventsByTick, type TempoEvent, type TimelineEvent, type TimelineEventId } from '~/domain'
+import {
+  type KeyEvent,
+  type MasterMixChannel,
+  type MeterEvent,
+  type MixChannel,
+  type MixChannelId,
+  type Mixer,
+  sortTimelineEventsByTick,
+  type TempoEvent,
+  type TimelineEvent,
+  type TimelineEventId,
+} from '~/domain'
 import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
 import type { Tick, TickRange } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
 import type { Pattern, PatternId } from '~/domain/patterns'
 import type { Track, TrackId } from '~/domain/tracks'
+
+export function selectMixer(workspace: Workspace): Mixer {
+  return workspace.mixer
+}
+
+export function selectMixChannels(workspace: Workspace): MixChannel[] {
+  return workspace.mixer.channels.allIds.map(mixChannelId => (
+    workspace.mixer.channels.byId[mixChannelId]
+  ))
+}
+
+export function selectMixChannel(
+  workspace: Workspace,
+  mixChannelId: MixChannelId,
+): MixChannel | undefined {
+  return workspace.mixer.channels.byId[mixChannelId]
+}
+
+export function selectMixChannelForTrack(
+  workspace: Workspace,
+  trackId: TrackId,
+): MixChannel | undefined {
+  const track = selectTrack(workspace, trackId)
+  return track === undefined ? undefined : selectMixChannel(workspace, track.mixChannelId)
+}
+
+export function selectMasterMixChannel(workspace: Workspace): MasterMixChannel {
+  return workspace.mixer.master
+}
 
 export function selectTracks(workspace: Workspace): Track[] {
   return workspace.tracks.allIds.map(trackId => workspace.tracks.byId[trackId])

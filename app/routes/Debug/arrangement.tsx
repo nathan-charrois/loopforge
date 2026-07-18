@@ -123,6 +123,7 @@ import type { CommandHistoryEntry } from '~/store/session'
 import {
   deleteTimelineEventAction,
   selectBlocksForTrack,
+  selectMixChannel,
   selectPattern,
   selectPatterns,
   selectTimelineEvents,
@@ -523,6 +524,7 @@ function ArrangementDebugContent() {
                 focusedBlockId={editor.focusedBlockId}
                 tracks={tracks}
                 viewport={viewport}
+                workspace={workspace}
               />
               <Box
                 ref={scrollRef}
@@ -732,10 +734,12 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
   focusedBlockId,
   tracks,
   viewport,
+  workspace,
 }: {
   focusedBlockId?: string
   tracks: Track[]
   viewport: ViewportState
+  workspace: Workspace
 }) {
   return (
     <Box
@@ -756,18 +760,42 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
         <Text fw={700} size="sm">Sections</Text>
       </StaticTimelineLabel>
       {tracks.map(track => (
-        <StaticTimelineLabel key={track.id} height={viewport.laneHeight}>
-          <Stack gap={1}>
-            <Text fw={700} size="sm" truncate>{track.name}</Text>
-            <Group gap={4}>
-              <Badge size="xs" variant="light">{track.role}</Badge>
-              {track.muted && <Badge color="gray" size="xs">muted</Badge>}
-              {track.soloed && <Badge color="yellow" size="xs">solo</Badge>}
-            </Group>
-          </Stack>
-        </StaticTimelineLabel>
+        <TimelineTrackLabel
+          key={track.id}
+          track={track}
+          viewport={viewport}
+          workspace={workspace}
+        />
       ))}
     </Box>
+  )
+})
+
+const TimelineTrackLabel = memo(function TimelineTrackLabel({
+  track,
+  viewport,
+  workspace,
+}: {
+  track: Track
+  viewport: ViewportState
+  workspace: Workspace
+}) {
+  const mixChannel = useMemo(
+    () => selectMixChannel(workspace, track.mixChannelId),
+    [track.mixChannelId, workspace],
+  )
+
+  return (
+    <StaticTimelineLabel height={viewport.laneHeight}>
+      <Stack gap={1}>
+        <Text fw={700} size="sm" truncate>{track.name}</Text>
+        <Group gap={4}>
+          <Badge size="xs" variant="light">{track.role}</Badge>
+          {mixChannel?.muted && <Badge color="gray" size="xs">muted</Badge>}
+          {mixChannel?.soloed && <Badge color="yellow" size="xs">solo</Badge>}
+        </Group>
+      </Stack>
+    </StaticTimelineLabel>
   )
 })
 

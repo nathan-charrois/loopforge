@@ -11,6 +11,7 @@ import {
   deleteTimelineEvents,
   duplicateBlocks,
   duplicateSections,
+  duplicateTrack,
   moveBlock,
   moveSection,
   removePattern,
@@ -22,6 +23,7 @@ import {
   splitBlock,
   splitSection,
   updateBlock,
+  updateMixer,
   updatePattern,
   updatePatternEvent,
   updateSection,
@@ -29,21 +31,24 @@ import {
   updateTrack,
 } from './operations'
 import type { Workspace } from './type'
-import type {
-  Block,
-  BlockId,
-  GridDivision,
-  Pattern,
-  PatternEvent,
-  PatternEventId,
-  PatternId,
-  Section,
-  SectionId,
-  Tick,
-  TimelineEvent,
-  TimelineEventId,
-  Track,
-  TrackId,
+import {
+  type Block,
+  type BlockId,
+  createMixChannel,
+  type GridDivision,
+  type MixChannel,
+  type Mixer,
+  type Pattern,
+  type PatternEvent,
+  type PatternEventId,
+  type PatternId,
+  type Section,
+  type SectionId,
+  type Tick,
+  type TimelineEvent,
+  type TimelineEventId,
+  type Track,
+  type TrackId,
 } from '~/domain'
 import type {
   CommandPayload,
@@ -142,11 +147,18 @@ export function applyWorkspaceCommand(
     }
     case 'addTrack': {
       const track = getPayloadObject<Track>(payload, 'track')
-      return track === undefined ? workspace : addTrack(workspace, track)
+      const mixChannel = getPayloadObject<MixChannel>(payload, 'mixChannel')
+      return track === undefined || mixChannel === undefined
+        ? workspace
+        : addTrack(workspace, track, mixChannel)
     }
     case 'deleteTrack': {
       const trackId = getPayloadString(payload, 'trackId')
       return trackId === undefined ? workspace : removeTrack(workspace, trackId)
+    }
+    case 'duplicateTrack': {
+      const trackId = getPayloadString(payload, 'trackId')
+      return trackId === undefined ? workspace : duplicateTrack(workspace, trackId)
     }
     case 'updateTrack': {
       const track = getPayloadObject<Track>(payload, 'track')
@@ -154,6 +166,10 @@ export function applyWorkspaceCommand(
     }
     case 'reorderTrack':
       return reorderTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
+    case 'updateMixer': {
+      const mixer = getPayloadObject<Mixer>(payload, 'mixer')
+      return mixer === undefined ? workspace : updateMixer(workspace, mixer)
+    }
     case 'addPattern': {
       const pattern = getPayloadObject<Pattern>(payload, 'pattern')
       return pattern === undefined ? workspace : addPattern(workspace, pattern)
@@ -295,12 +311,22 @@ export function createUpdateSectionCommand(section: Section): WorkspaceCommand {
   })
 }
 
-export function createAddTrackCommand(track: Track): WorkspaceCommand {
-  return createWorkspaceCommandRecord('addTrack', `Add track ${track.name}`, { track: toJsonValue(track) })
+export function createAddTrackCommand(
+  track: Track,
+  mixChannel: MixChannel = createMixChannel({ id: track.mixChannelId }),
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addTrack', `Add track ${track.name}`, {
+    mixChannel: toJsonValue(mixChannel),
+    track: toJsonValue(track),
+  })
 }
 
 export function createDeleteTrackCommand(trackId: TrackId): WorkspaceCommand {
   return createWorkspaceCommandRecord('deleteTrack', 'Delete track', { trackId })
+}
+
+export function createDuplicateTrackCommand(trackId: TrackId): WorkspaceCommand {
+  return createWorkspaceCommandRecord('duplicateTrack', 'Duplicate track', { trackId })
 }
 
 export function createUpdateTrackCommand(track: Track): WorkspaceCommand {
@@ -309,6 +335,12 @@ export function createUpdateTrackCommand(track: Track): WorkspaceCommand {
 
 export function createReorderTrackCommand(trackIds: readonly TrackId[]): WorkspaceCommand {
   return createWorkspaceCommandRecord('reorderTrack', 'Reorder tracks', { trackIds: [...trackIds] })
+}
+
+export function createUpdateMixerCommand(mixer: Mixer): WorkspaceCommand {
+  return createWorkspaceCommandRecord('updateMixer', 'Update mixer', {
+    mixer: toJsonValue(mixer),
+  })
 }
 
 export function createAddPatternCommand(pattern: Pattern): WorkspaceCommand {

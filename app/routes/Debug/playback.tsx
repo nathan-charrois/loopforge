@@ -41,6 +41,7 @@ import {
   CHORD_QUALITIES,
   type ChordQuality,
   createBlock,
+  createMixChannel,
   createPattern,
   createSection,
   createSeedPatternEvents,
@@ -163,7 +164,7 @@ export default function Play() {
 
   const [trackName, setTrackName] = useState('')
   const [trackRole, setTrackRole] = useState<TrackRole>('melody')
-  const [trackVolume, setTrackVolume] = useState('0.85')
+  const [trackVolumeDb, setTrackVolumeDb] = useState('0')
 
   const [sectionName, setSectionName] = useState('')
   const [sectionStartBar, setSectionStartBar] = useState(DEFAULT_START_BAR_VALUE)
@@ -312,12 +313,15 @@ export default function Play() {
         id: createEntityId(`track_${trackRole}`, tracks.length),
         name: getNameOrFallback(trackName, `${capitalize(trackRole)} Track ${tracks.length + 1}`),
         role: trackRole,
-        volume: parseNumber(trackVolume),
+      })
+      const mixChannel = createMixChannel({
+        id: track.mixChannelId,
+        volumeDb: parseNumber(trackVolumeDb),
       })
 
       setSelectedTrackId(track.id)
 
-      return addWorkspaceTrack(currentWorkspace, track)
+      return addWorkspaceTrack(currentWorkspace, track, mixChannel)
     })
   }
 
@@ -614,7 +618,7 @@ export default function Play() {
                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
                   <Field label="Name" value={trackName} onChange={setTrackName} />
                   <SelectField label="Role" value={trackRole} data={TRACK_ROLES} onChange={setTrackRole} />
-                  <Field label="Volume" value={trackVolume} onChange={setTrackVolume} />
+                  <Field label="Volume dB" value={trackVolumeDb} onChange={setTrackVolumeDb} />
                 </SimpleGrid>
                 <Button onClick={handleAddTrack}>Add Track</Button>
               </Stack>

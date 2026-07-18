@@ -1,7 +1,8 @@
 import type { EntityStore } from '../type'
-import type { Arrangement, Pattern, Project, Timeline, Track } from '~/domain'
+import type { Arrangement, Mixer, Pattern, Project, Timeline, Track } from '~/domain'
 
 export type Workspace = {
+  mixer: Mixer
   project: Project
   timeline: Timeline
   arrangement: Arrangement
