@@ -189,6 +189,19 @@ const HANDLE_WIDTH = 8
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -60
 const MAX_MIX_CHANNEL_VOLUME_DB = 12
+
+const HOVER_BOX_SHADOWS = {
+  entity: '0 0 0 3px var(--mantine-color-gray-5)',
+  label: 'inset 0 0 0 1px var(--mantine-color-gray-4)',
+  marker: '0 0 0 2px var(--mantine-color-gray-5)',
+} as const
+
+const SELECTED_STYLES = {
+  border: '2px solid var(--mantine-color-blue-6)',
+  outline: '2px solid var(--mantine-color-blue-6)',
+  shadow: 'inset 0 0 0 1px var(--mantine-color-blue-5)',
+} as const
+
 const TRACK_COLOR_PALETTE = [
   DEFAULT_TRACK_COLOR,
   '#868e96',
@@ -1206,11 +1219,11 @@ const StaticTimelineLabel = memo(function StaticTimelineLabel({
         background: getTrackTint(tintColor, 18),
         borderBottom: '1px solid var(--mantine-color-gray-3)',
         boxShadow: selected && hovered
-          ? 'inset 3px 0 0 var(--mantine-color-blue-6), inset 0 0 0 2px var(--mantine-color-gray-6)'
+          ? `${SELECTED_STYLES.shadow}, ${HOVER_BOX_SHADOWS.label}`
           : selected
-            ? 'inset 3px 0 0 var(--mantine-color-blue-6)'
+            ? SELECTED_STYLES.shadow
             : hovered
-              ? 'inset 0 0 0 2px var(--mantine-color-gray-6)'
+              ? HOVER_BOX_SHADOWS.label
               : undefined,
         cursor: onClick === undefined ? undefined : 'pointer',
         display: 'flex',
@@ -1365,16 +1378,13 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
           background: `var(--mantine-color-${color}-0)`,
           border: `1px ${isPlaceholder ? 'dashed' : 'solid'} var(--mantine-color-${color}-5)`,
           borderRadius: 4,
-          boxShadow: isSelected
-            ? '0 0 0 2px var(--mantine-color-yellow-5)'
-            : isHovered
-              ? '0 0 0 2px var(--mantine-color-gray-5)'
-              : undefined,
+          boxShadow: isHovered && !isSelected ? HOVER_BOX_SHADOWS.marker : undefined,
           color: `var(--mantine-color-${color}-9)`,
           display: 'flex',
           gap: 3,
           height: 20,
           minWidth: 34,
+          outline: isSelected ? SELECTED_STYLES.outline : undefined,
           paddingInline: 4,
         }}
       >
@@ -1474,12 +1484,12 @@ const SectionLane = memo(function SectionLane({
             background: 'var(--mantine-color-gray-1)',
             border: '1px solid var(--mantine-color-gray-4)',
             borderRadius: 4,
-            boxShadow: hoveredSectionId === section.id ? '0 0 0 3px var(--mantine-color-gray-5)' : undefined,
+            boxShadow: hoveredSectionId === section.id ? HOVER_BOX_SHADOWS.entity : undefined,
             cursor: 'grab',
             display: 'flex',
             height: 28,
             left: tickToX(viewport.pixelsPerTick, section.startTick),
-            outline: selectedSectionIds.includes(section.id) ? '2px solid var(--mantine-color-blue-6)' : undefined,
+            outline: selectedSectionIds.includes(section.id) ? SELECTED_STYLES.outline : undefined,
             overflow: 'hidden',
             paddingInline: 7,
             position: 'absolute',
@@ -1694,13 +1704,13 @@ const BlockView = memo(function BlockView({
         background: block.muted ? 'var(--mantine-color-gray-5)' : block.color,
         border: '1px solid rgba(0, 0, 0, 0.24)',
         borderRadius: 5,
-        boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? '0 0 0 3px var(--mantine-color-gray-5)' : undefined,
+        boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? HOVER_BOX_SHADOWS.entity : undefined,
         color: 'white',
         cursor: 'grab',
         height: isFocused ? 56 : 42,
         left: tickToX(viewport.pixelsPerTick, block.startTick),
         opacity: dimmedByFocus ? 0.22 : block.muted ? 0.58 : 0.96,
-        outline: selected ? '2px solid var(--mantine-color-blue-2)' : undefined,
+        outline: selected ? SELECTED_STYLES.outline : undefined,
         overflow: 'hidden',
         padding: '5px 8px',
         position: 'absolute',
@@ -1750,8 +1760,8 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
     <Box
       style={{
         background: 'rgba(255, 255, 255, 0.14)',
-        borderRadius: 5,
-        bottom: 4,
+        borderRadius: 3,
+        bottom: 6,
         left: 6,
         overflow: 'hidden',
         position: 'absolute',
@@ -1768,17 +1778,16 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
           onClick={event => onPatternClick(event, pattern.id)}
           onPointerDown={event => event.stopPropagation()}
           style={{
-            background: selectedPatternIds.includes(pattern.id)
-              ? 'var(--mantine-color-gray-4)'
-              : 'var(--mantine-color-gray-5)',
-            border: '1px solid rgba(0, 0, 0, 0.24)',
+            background: 'var(--mantine-color-gray-5)',
+            border: selectedPatternIds.includes(pattern.id)
+              ? SELECTED_STYLES.border
+              : '1px solid rgba(0, 0, 0, 0.24)',
             cursor: 'pointer',
             position: 'absolute',
-            borderRadius: '5px',
+            borderRadius: 3,
             width: '100%',
             left: 0,
             right: 0,
-            padding: 5,
             top: 0,
             bottom: 0,
             zIndex: 1,
@@ -1805,16 +1814,15 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
             style={{
               background: getPatternEventColor(patternEvent),
               border: selected
-                ? '2px solid var(--mantine-color-yellow-4)'
+                ? SELECTED_STYLES.border
                 : '1px solid rgba(0, 0, 0, 0.4)',
               borderRadius: 3,
-              bottom: 4,
+              bottom: 5,
               cursor: 'pointer',
               left: `${leftPercent}%`,
               minWidth: 10,
-              padding: 0,
               position: 'absolute',
-              top: 4,
+              top: 5,
               width: durationTicks === 0 ? 10 : `max(10px, ${widthPercent}%)`,
               zIndex: 2,
             }}
