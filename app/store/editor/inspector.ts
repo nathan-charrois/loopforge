@@ -7,6 +7,7 @@ import {
   isTempoEvent,
   type MixChannel,
   type Pattern,
+  type PatternEvent,
   type Section,
   type TimelineEvent,
   type Track,
@@ -30,6 +31,14 @@ export function createInspectorDraft(): InspectorDraft {
     mixChannelVolumeDb: 0,
     patternKind: 'chord',
     patternName: '',
+    patternEventDurationTicks: 1,
+    patternEventKind: 'note',
+    patternEventParameter: '',
+    patternEventPiece: 'kick',
+    patternEventPitch: 60,
+    patternEventTimeTick: 0,
+    patternEventValue: '',
+    patternEventVelocity: 96,
     sectionName: '',
     tempoBpm: 120,
     tempoTick: 0,
@@ -46,6 +55,7 @@ export function updateInspectorDraftFromSelection(
   selectedMixChannel?: MixChannel,
   selectedBlock?: Block,
   selectedPattern?: Pattern,
+  selectedPatternEvent?: PatternEvent,
   selectedSection?: Section,
   selectionTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
@@ -53,9 +63,53 @@ export function updateInspectorDraftFromSelection(
   const withMixChannel = updateInspectorDraftFromMixChannel(withTrack, selectedMixChannel)
   const withBlock = updateInspectorDraftFromBlock(withMixChannel, selectedBlock)
   const withPattern = updateInspectorDraftFromPattern(withBlock, selectedPattern)
-  const withSection = updateInspectorDraftFromSection(withPattern, selectedSection)
+  const withPatternEvent = updateInspectorDraftFromPatternEvent(withPattern, selectedPatternEvent)
+  const withSection = updateInspectorDraftFromSection(withPatternEvent, selectedSection)
 
   return updateInspectorDraftFromTimelineEvent(withSection, selectionTimelineEvent)
+}
+
+export function updateInspectorDraftFromPatternEvent(
+  currentDraft: InspectorDraft,
+  selectedPatternEvent?: PatternEvent,
+): InspectorDraft {
+  if (selectedPatternEvent === undefined) {
+    return currentDraft
+  }
+
+  const nextDraft: InspectorDraft = {
+    ...currentDraft,
+    patternEventKind: selectedPatternEvent.kind,
+    patternEventTimeTick: selectedPatternEvent.timeTick,
+  }
+
+  switch (selectedPatternEvent.kind) {
+    case 'automation':
+      return {
+        ...nextDraft,
+        patternEventParameter: selectedPatternEvent.parameter,
+        patternEventValue: String(selectedPatternEvent.value),
+      }
+    case 'chord':
+      return {
+        ...nextDraft,
+        patternEventDurationTicks: selectedPatternEvent.durationTicks,
+        patternEventVelocity: selectedPatternEvent.velocity,
+      }
+    case 'drumHit':
+      return {
+        ...nextDraft,
+        patternEventPiece: selectedPatternEvent.piece,
+        patternEventVelocity: selectedPatternEvent.velocity,
+      }
+    case 'note':
+      return {
+        ...nextDraft,
+        patternEventDurationTicks: selectedPatternEvent.durationTicks,
+        patternEventPitch: selectedPatternEvent.pitch,
+        patternEventVelocity: selectedPatternEvent.velocity,
+      }
+  }
 }
 
 export function updateInspectorDraftFromPattern(

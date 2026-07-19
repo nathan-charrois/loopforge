@@ -6,9 +6,10 @@ import type {
   SectionId,
 } from '~/domain/arrangement'
 import type { ChordSymbol, Key } from '~/domain/harmony'
+import type { DrumPiece } from '~/domain/instrument'
 import type { MixChannelId } from '~/domain/mixer'
 import type { Tick } from '~/domain/musicPrimitives'
-import type { PatternEventId } from '~/domain/patternEvents'
+import type { PatternEventId, PatternEventKind } from '~/domain/patternEvents'
 import type { PatternId, PatternKind } from '~/domain/patterns'
 import type { TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
 import type { TrackId, TrackRole } from '~/domain/tracks'
@@ -149,7 +150,18 @@ export type TimelineEventDraft = {
   tempoTick: number
 }
 
-export type InspectorDraft = TimelineEventDraft & {
+export type PatternEventDraft = {
+  patternEventDurationTicks: number
+  patternEventKind: PatternEventKind
+  patternEventParameter: string
+  patternEventPiece: DrumPiece
+  patternEventPitch: number
+  patternEventTimeTick: number
+  patternEventValue: string
+  patternEventVelocity: number
+}
+
+export type InspectorDraft = PatternEventDraft & TimelineEventDraft & {
   blockColor: string
   blockMuted: boolean
   blockName: string

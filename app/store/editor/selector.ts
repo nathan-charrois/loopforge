@@ -2,13 +2,15 @@ import {
   selectBlock,
   selectMixChannel,
   selectPattern,
+  selectPatternEvent,
+  selectPatternIdForEvent,
   selectSection,
   selectTimelineEvent,
   selectTrack,
   type Workspace,
 } from '../workspace'
 import type { Editor, SelectionState } from './type'
-import type { Block, MixChannel, Pattern, Section, TimelineEvent, Track } from '~/domain'
+import type { Block, MixChannel, Pattern, PatternEvent, Section, TimelineEvent, Track } from '~/domain'
 
 export function selectFirstSelectedBlock(editor: Editor, workspace: Workspace): Block | undefined {
   if (editor.selection.selectedBlockIds.length === 1) {
@@ -35,6 +37,24 @@ export function selectFirstSelectedPattern(
   }
 
   return undefined
+}
+
+export function selectFirstSelectedPatternEvent(
+  editor: Editor,
+  workspace: Workspace,
+): PatternEvent | undefined {
+  if (editor.selection.selectedPatternEventIds.length !== 1) {
+    return undefined
+  }
+
+  const patternEventId = editor.selection.selectedPatternEventIds[0]
+  const patternId = selectPatternIdForEvent(workspace, patternEventId)
+
+  if (!patternId) {
+    return undefined
+  }
+
+  return selectPatternEvent(workspace, patternId, patternEventId)
 }
 
 export function selectFirstSelectedSection(editor: Editor, workspace: Workspace): Section | undefined {

@@ -3,6 +3,7 @@ import {
   createSelectBlockCommand,
   createSelectMixChannelCommand,
   createSelectPatternCommand,
+  createSelectPatternEventCommand,
   createSelectSectionCommand,
   createSelectTimelineEventCommand,
   createSelectTrackCommand,
@@ -34,9 +35,14 @@ import type {
 import {
   type Block,
   type BlockId,
+  createAutomationEvent,
+  createChordEvent,
+  createChordSymbol,
   createDraftEntityId,
+  createDrumHitEvent,
   createKeyEvent,
   createMeterEvent,
+  createNoteEvent,
   createPattern,
   createTempoEvent,
   getKeyAtTick,
@@ -49,6 +55,8 @@ import {
   type MixChannel,
   type MixChannelId,
   type Pattern,
+  type PatternEvent,
+  type PatternEventId,
   type PatternId,
   type Section,
   type SectionId,
@@ -77,12 +85,14 @@ import {
   resizeBlockAction,
   resizeSectionAction,
   selectBlock,
+  selectPatternIdForEvent,
   selectTimelineEventIds,
   splitBlockAction,
   splitSectionAction,
   updateBlockAction,
   updateMixChannelAction,
   updatePatternAction,
+  updatePatternEventAction,
   updateSectionAction,
   updateTimelineEventAction,
   updateTrackAction,
@@ -108,6 +118,13 @@ export function selectPatternAction(
   additive = false,
 ): EditorCommand {
   return createSelectPatternCommand(patternId, additive)
+}
+
+export function selectPatternEventAction(
+  patternEventId: PatternEventId,
+  additive = false,
+): EditorCommand {
+  return createSelectPatternEventCommand(patternEventId, additive)
 }
 
 export function selectSectionAction(
@@ -468,6 +485,55 @@ export function updatePatternFromInspectorAction(input: {
     kind: draft.patternKind,
     name: draft.patternName.trim() || pattern.name,
   }))
+}
+
+export function updatePatternEventFromInspectorAction(input: {
+  draft: InspectorDraft
+  patternEvent: PatternEvent
+  workspace: Workspace
+}): Command | undefined {
+  const { draft, patternEvent, workspace } = input
+  const patternId = selectPatternIdForEvent(workspace, patternEvent.id)
+
+  if (patternId === undefined) {
+    return undefined
+  }
+
+  const common = {
+    id: patternEvent.id,
+    timeTick: draft.patternEventTimeTick,
+  }
+
+  switch (draft.patternEventKind) {
+    case 'automation':
+      return updatePatternEventAction(patternId, createAutomationEvent({
+        ...common,
+        parameter: draft.patternEventParameter,
+        value: draft.patternEventValue,
+      }))
+    case 'chord':
+      return updatePatternEventAction(patternId, createChordEvent({
+        ...(patternEvent.kind === 'chord'
+          ? patternEvent
+          : { chord: createChordSymbol({ root: 0 }) }),
+        ...common,
+        durationTicks: draft.patternEventDurationTicks,
+        velocity: draft.patternEventVelocity,
+      }))
+    case 'drumHit':
+      return updatePatternEventAction(patternId, createDrumHitEvent({
+        ...common,
+        piece: draft.patternEventPiece,
+        velocity: draft.patternEventVelocity,
+      }))
+    case 'note':
+      return updatePatternEventAction(patternId, createNoteEvent({
+        ...common,
+        durationTicks: draft.patternEventDurationTicks,
+        pitch: draft.patternEventPitch,
+        velocity: draft.patternEventVelocity,
+      }))
+  }
 }
 
 export function applyTimelineEventToolAction(

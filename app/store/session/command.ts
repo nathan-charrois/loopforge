@@ -56,6 +56,7 @@ export const EDITOR_COMMAND_KINDS = [
   'selectBlock',
   'selectMixChannel',
   'selectPattern',
+  'selectPatternEvent',
   'selectSection',
   'selectTimelineEvent',
   'selectTrack',

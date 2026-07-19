@@ -521,6 +521,10 @@ function createEditorDebugCommandPayload(
       return editor.selection.selectedPatternIds[0] === undefined
         ? {}
         : { additive: false, patternId: editor.selection.selectedPatternIds[0] }
+    case 'selectPatternEvent':
+      return editor.selection.selectedPatternEventIds[0] === undefined
+        ? {}
+        : { additive: false, patternEventId: editor.selection.selectedPatternEventIds[0] }
     case 'selectSection':
       return editor.selection.selectedSectionIds[0] === undefined
         ? {}

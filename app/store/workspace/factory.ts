@@ -337,18 +337,32 @@ export function createInitialWorkspace(): Workspace {
       createPattern({
         events: [
           createNoteEvent({
-            durationTicks: PPQ / 2,
+            durationTicks: PPQ / 4,
             id: 'debug_event_bass_1',
             pitch: 36,
             timeTick: 0,
             velocity: 100,
           }),
           createNoteEvent({
-            durationTicks: PPQ / 2,
+            durationTicks: PPQ / 4,
             id: 'debug_event_bass_2',
             pitch: 43,
-            timeTick: PPQ / 2,
+            timeTick: PPQ / 4,
             velocity: 92,
+          }),
+          createNoteEvent({
+            durationTicks: PPQ / 4,
+            id: 'debug_event_bass_3',
+            pitch: 43,
+            timeTick: PPQ / 2,
+            velocity: 86,
+          }),
+          createNoteEvent({
+            durationTicks: PPQ / 4,
+            id: 'debug_event_bass_4',
+            pitch: 49,
+            timeTick: PPQ - (PPQ / 4),
+            velocity: 80,
           }),
         ],
         id: 'debug_pattern_bass',
