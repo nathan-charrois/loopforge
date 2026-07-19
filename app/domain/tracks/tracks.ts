@@ -1,10 +1,10 @@
+import type { InstrumentId } from '../instrument'
 import type { MixChannelId } from '../mixer'
 import type { PatternKind } from '../patterns'
 import { TRACK_ROLES } from './constants'
 
 export type TrackId = string
 export type TrackRole = typeof TRACK_ROLES[number]
-export type InstrumentId = string
 
 export type Track = {
   id: TrackId
