@@ -45,7 +45,7 @@ export function SessionProvider({
   )
 }
 
-function useSessionStore(): SessionStore {
+export function useSessionStore(): SessionStore {
   const store = useContext(SessionStoreContext)
 
   if (store === undefined) {

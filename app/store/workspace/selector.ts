@@ -1,5 +1,7 @@
 import type { Workspace } from './type'
 import {
+  type Instrument,
+  type InstrumentId,
   type KeyEvent,
   type MasterMixChannel,
   type MeterEvent,
@@ -44,6 +46,13 @@ export function selectMixChannelForTrack(
 
 export function selectMasterMixChannel(workspace: Workspace): MasterMixChannel {
   return workspace.mixer.master
+}
+
+export function selectInstrument(
+  workspace: Workspace,
+  instrumentId: InstrumentId,
+): Instrument | undefined {
+  return workspace.instruments.byId[instrumentId]
 }
 
 export function selectTracks(workspace: Workspace): Track[] {

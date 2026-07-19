@@ -1,5 +1,6 @@
 import { MantineProvider } from '@mantine/core'
 
+import { PlaybackProvider } from './PlaybackProvider'
 import { SessionProvider } from './SessionProvider'
 import { createEditor } from '~/store/editor'
 import { createInitialWorkspace } from '~/store/workspace'
@@ -16,7 +17,9 @@ export default function AppProvider({ children }: Props) {
         createInitialEditor={createEditor}
         createInitialWorkspace={createInitialWorkspace}
       >
-        {children}
+        <PlaybackProvider>
+          {children}
+        </PlaybackProvider>
       </SessionProvider>
     </MantineProvider>
   )
