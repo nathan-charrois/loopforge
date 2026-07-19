@@ -2,7 +2,7 @@ import { MantineProvider } from '@mantine/core'
 
 import { SessionProvider } from './SessionProvider'
 import { createEditor } from '~/store/editor'
-import { createWorkspace } from '~/store/workspace'
+import { createInitialWorkspace } from '~/store/workspace'
 import theme from '~/utils/theme'
 
 type Props = {
@@ -14,7 +14,7 @@ export default function AppProvider({ children }: Props) {
     <MantineProvider theme={theme}>
       <SessionProvider
         createInitialEditor={createEditor}
-        createInitialWorkspace={createWorkspace}
+        createInitialWorkspace={createInitialWorkspace}
       >
         {children}
       </SessionProvider>

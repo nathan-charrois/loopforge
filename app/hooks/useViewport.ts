@@ -14,7 +14,7 @@ import {
 } from '~/store/editor'
 
 const WHEEL_ZOOM_SENSITIVITY = 0.001
-const WHEEL_ZOOM_SAFE_ZONE_PX = 25
+const WHEEL_ZOOM_SAFE_ZONE_PX = 50
 
 export function useViewport() {
   const scrollRef = useRef<HTMLDivElement>(null)
