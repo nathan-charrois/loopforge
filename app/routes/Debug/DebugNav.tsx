@@ -5,7 +5,6 @@ const DEBUG_NAV_ITEMS = [
   { label: 'Chord', path: '/chord' },
   { label: 'Notes', path: '/notes' },
   { label: 'Playback', path: '/playback' },
-  { label: 'Editor', path: '/editor' },
   { label: 'Arrangement', path: '/arrangement' },
 ] as const
 

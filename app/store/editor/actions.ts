@@ -28,7 +28,6 @@ import type {
   DragState,
   Editor,
   InspectorDraft,
-  InspectorPanel,
   SelectionState,
   TimelineEventDraft,
 } from './type'
@@ -168,10 +167,6 @@ export function setClipboardAction(clipboard: ClipboardState): EditorCommand {
 
 export function setFocusedBlockIdAction(blockId?: BlockId): EditorCommand {
   return createSetFocusedBlockIdCommand(blockId)
-}
-
-export function setInspectorPanelAction(panel: InspectorPanel): EditorCommand {
-  return createSetInspectorCommand(`Open ${panel} inspector`, { open: true, panel })
 }
 
 export function closeInspectorAction(): EditorCommand {
