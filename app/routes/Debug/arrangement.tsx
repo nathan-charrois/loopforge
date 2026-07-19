@@ -2263,7 +2263,6 @@ const InspectorPanel = memo(function InspectorPanel({
               items={[
                 ['ID', selectedPattern.id],
                 ['Length tick', selectedPattern.lengthTicks],
-                ['Kind', selectedPattern.kind],
                 ['Events', selectedPattern.events.length],
               ]}
             />

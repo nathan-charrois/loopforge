@@ -1,6 +1,7 @@
 import type { ChordSymbol } from '../harmony'
 import type { DrumPiece } from '../instrument'
 import {
+  createPitchClass,
   createPositiveDurationTicks,
   createTick,
   createVelocity,
@@ -46,14 +47,14 @@ export function createNoteEvent(input: {
   id: PatternEventId
   timeTick?: Tick
   durationTicks: DurationTicks
-  pitch: MidiNote
+  pitch?: MidiNote
   velocity?: Velocity
 }): NoteEvent {
   return {
     durationTicks: createPositiveDurationTicks(input.durationTicks),
     id: input.id,
     kind: 'note',
-    pitch: input.pitch,
+    pitch: createPitchClass(input.pitch ?? 0),
     timeTick: createTick(input.timeTick ?? 0),
     velocity: createVelocity(input.velocity ?? DEFAULT_VELOCITY),
   }

@@ -43,6 +43,7 @@ import {
   createMeterEvent,
   createNoteEvent,
   createPattern,
+  createSeedPatternEvents,
   createTempoEvent,
   getKeyAtTick,
   getMeterAtTick,
@@ -477,6 +478,12 @@ export function updatePatternFromInspectorAction(input: {
 
   return updatePatternAction(createPattern({
     ...pattern,
+    events: createSeedPatternEvents(draft.patternKind, pattern.lengthTicks, {
+      chordQuality: 'sus2',
+      chordRoot: 0,
+      drumPiece: 'clap',
+      notePitch: 0,
+    }),
     kind: draft.patternKind,
     name: draft.patternName.trim() || pattern.name,
   }))

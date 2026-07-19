@@ -1,6 +1,10 @@
 import { type ChordQuality, createChordSymbol } from '../harmony'
 import type { DrumPiece } from '../instrument'
-import { createPositiveDurationTicks, type DurationTicks, type PitchClass } from '../musicPrimitives'
+import {
+  createPositiveDurationTicks,
+  type DurationTicks,
+  type PitchClass,
+} from '../musicPrimitives'
 import {
   createAutomationEvent,
   createChordEvent,
