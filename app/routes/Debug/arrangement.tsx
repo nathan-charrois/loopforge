@@ -321,6 +321,11 @@ function ArrangementDebugContent() {
     [viewport.pixelsPerTick, timelineEndTick],
   )
 
+  const timelineHeight = useMemo(
+    () => tracks.length * viewport.laneHeight,
+    [tracks.length, viewport.laneHeight],
+  )
+
   const rulerMarks = useMemo(
     () => getRulerMarks(workspace.timeline, 0, timelineEndTick),
     [timelineEndTick, workspace.timeline],
@@ -811,14 +816,13 @@ function ArrangementDebugContent() {
                   onSectionPointerDown={handleSectionPointerDown}
                   onSetHoveredSection={setHoveredSectionId}
                 />
-                <Box ref={trackRowsRef}>
+                <Box ref={trackRowsRef} pos="relative">
                   {tracks.map(track => (
                     <TrackLane
                       key={track.id}
                       drag={dragState}
                       focusedBlockId={editor.focusedBlockId}
                       hoveredBlockId={hoveredBlockId}
-                      marks={rulerMarks}
                       selectedBlockIds={editor.selection.selectedBlockIds}
                       selectedPatternEventIds={editor.selection.selectedPatternEventIds}
                       selectedPatternIds={editor.selection.selectedPatternIds}
@@ -836,6 +840,12 @@ function ArrangementDebugContent() {
                       onSetHoveredBlock={setHoveredBlockId}
                     />
                   ))}
+                  <TimelineGridLines
+                    height={timelineHeight}
+                    marks={rulerMarks}
+                    timelineWidth={timelineWidth}
+                    viewport={viewport}
+                  />
                 </Box>
                 <TimelinePlayhead
                   timelineRef={timelineRef}
@@ -1519,30 +1529,46 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
 })
 
 const TimelineGridLines = memo(function TimelineGridLines({
+  height,
   marks,
+  timelineWidth,
   viewport,
 }: {
+  height: number
   marks: RulerMark[]
+  timelineWidth: number
   viewport: ViewportState
 }) {
+  if (height <= 0) {
+    return null
+  }
+
   return (
-    <>
-      {marks.map(mark => (
-        <Box
-          key={`${mark.kind}:${mark.tick}`}
-          style={{
-            borderLeft: getGridLineBorder(mark),
-            bottom: 0,
-            left: tickToX(viewport.pixelsPerTick, mark.tick),
-            opacity: mark.kind === 'bar' ? 0.7 : mark.kind === 'beat' ? 0.55 : 0.4,
-            pointerEvents: 'none',
-            position: 'absolute',
-            top: 0,
-            zIndex: 0,
-          }}
+    <svg
+      aria-hidden
+      height={height}
+      shapeRendering="crispEdges"
+      viewBox={`0 0 ${timelineWidth} ${height}`}
+      width={timelineWidth}
+      style={{
+        left: 0,
+        pointerEvents: 'none',
+        position: 'absolute',
+        top: 0,
+        zIndex: 0,
+      }}
+    >
+      {(['bar', 'beat', 'subdivision'] as const).map(kind => (
+        <path
+          key={kind}
+          d={getTimelineGridPath(marks, kind, viewport.pixelsPerTick, height)}
+          fill="none"
+          opacity={getGridLineOpacity(kind)}
+          stroke={getGridLineColor(kind)}
+          strokeWidth={1}
         />
       ))}
-    </>
+    </svg>
   )
 })
 
@@ -1594,7 +1620,12 @@ const SectionLane = memo(function SectionLane({
         width: timelineWidth,
       }}
     >
-      <TimelineGridLines marks={marks} viewport={viewport} />
+      <TimelineGridLines
+        height={viewport.sectionLaneHeight}
+        marks={marks}
+        timelineWidth={timelineWidth}
+        viewport={viewport}
+      />
       {workspace.arrangement.sections.map(section => (
         <Box
           key={section.id}
@@ -1662,7 +1693,6 @@ const TrackLane = memo(function TrackLane({
   drag,
   focusedBlockId,
   hoveredBlockId,
-  marks,
   onBlockDoubleClick,
   onBlockPointerDown,
   onBlockResizePointerDown,
@@ -1682,7 +1712,6 @@ const TrackLane = memo(function TrackLane({
   drag?: DragState
   focusedBlockId?: string
   hoveredBlockId?: string
-  marks: RulerMark[]
   onBlockDoubleClick: (blockId: string) => void
   onBlockPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
   onBlockResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block, edge: 'left' | 'right') => void
@@ -1722,7 +1751,6 @@ const TrackLane = memo(function TrackLane({
         width: timelineWidth,
       }}
     >
-      <TimelineGridLines marks={marks} viewport={viewport} />
       {blocks.map(block => (
         <BlockView
           key={block.id}
@@ -2788,14 +2816,37 @@ function getRulerBorder(mark: RulerMark): string {
   }
 }
 
-function getGridLineBorder(mark: RulerMark): string {
-  switch (mark.kind) {
+function getTimelineGridPath(
+  marks: RulerMark[],
+  kind: RulerMark['kind'],
+  pixelsPerTick: number,
+  height: number,
+): string {
+  return marks
+    .filter(mark => mark.kind === kind)
+    .map(mark => `M ${tickToX(pixelsPerTick, mark.tick) + 0.5} 0 V ${height}`)
+    .join(' ')
+}
+
+function getGridLineColor(kind: RulerMark['kind']): string {
+  switch (kind) {
     case 'bar':
-      return '1px solid var(--mantine-color-gray-6)'
+      return 'var(--mantine-color-gray-6)'
     case 'beat':
-      return '1px solid var(--mantine-color-gray-5)'
+      return 'var(--mantine-color-gray-5)'
     case 'subdivision':
-      return '1px solid var(--mantine-color-gray-4)'
+      return 'var(--mantine-color-gray-4)'
+  }
+}
+
+function getGridLineOpacity(kind: RulerMark['kind']): number {
+  switch (kind) {
+    case 'bar':
+      return 0.7
+    case 'beat':
+      return 0.55
+    case 'subdivision':
+      return 0.4
   }
 }
 
