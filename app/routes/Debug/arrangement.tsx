@@ -3,6 +3,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -23,11 +24,14 @@ import {
   MoveIcon,
   MuteIcon,
   PaintBrush01Icon,
+  PauseIcon,
   PencilEdit01Icon,
+  PlayIcon,
   Redo03Icon,
   Resize01Icon,
   RulerIcon,
   ScissorIcon,
+  StopIcon,
   TimeSetting01Icon,
   Undo03Icon,
   ZoomInAreaIcon,
@@ -115,6 +119,11 @@ import {
   useTrackLaneOverlay,
 } from '~/hooks/useDragOverlay'
 import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
+import {
+  useTransport,
+  useTransportPlayhead,
+  useTransportStatus,
+} from '~/hooks/useTransport'
 import { useViewport } from '~/hooks/useViewport'
 import {
   ACTIVE_TOOLS,
@@ -176,6 +185,7 @@ import {
   type Workspace,
 } from '~/store/workspace'
 import { parseNumber } from '~/utils/number'
+import type { Transport } from '~/utils/transport'
 
 const TRACK_LABEL_WIDTH = 150
 const MIX_CHANNEL_COLUMN_WIDTH = 96
@@ -259,7 +269,14 @@ function ArrangementDebugContent() {
     workspace,
   } = useSession()
 
-  const { viewport, scrollRef, handleViewportWheel, handleZoomBy } = useViewport()
+  const transport = useTransport(workspace)
+
+  const {
+    viewport,
+    scrollRef,
+    handleViewportWheel,
+    handleZoomBy,
+  } = useViewport()
 
   const {
     cancelDrag,
@@ -703,6 +720,7 @@ function ArrangementDebugContent() {
           </Group>
         </Group>
         <Toolbar
+          transport={transport}
           activeTool={editor.activeTool}
           canRedo={canRedo}
           canUndo={canUndo}
@@ -819,6 +837,11 @@ function ArrangementDebugContent() {
                     />
                   ))}
                 </Box>
+                <TimelinePlayhead
+                  timelineRef={timelineRef}
+                  transport={transport}
+                  viewport={viewport}
+                />
               </Box>
             </Box>
           </Paper>
@@ -865,6 +888,7 @@ function ArrangementDebugContent() {
 }
 
 const Toolbar = memo(function Toolbar({
+  transport,
   activeTool,
   canRedo,
   canUndo,
@@ -879,6 +903,7 @@ const Toolbar = memo(function Toolbar({
   onZoomIn,
   onZoomOut,
 }: {
+  transport: Transport
   activeTool: ActiveTool
   canRedo: boolean
   canUndo: boolean
@@ -896,6 +921,7 @@ const Toolbar = memo(function Toolbar({
   return (
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between" gap="xs">
+        <TransportControls transport={transport} />
         <Group gap={4}>
           {TOOLBAR_SECTION_LEFT.map(item => (
             <Tooltip key={item.tool} label={item.label}>
@@ -972,6 +998,103 @@ const Toolbar = memo(function Toolbar({
         </Group>
       </Group>
     </Paper>
+  )
+})
+
+const TransportControls = memo(function TransportControls({
+  transport,
+}: {
+  transport: Transport
+}) {
+  const status = useTransportStatus(transport)
+
+  return (
+    <Group gap={4}>
+      <Tooltip label="Play">
+        <ActionIcon
+          aria-label="Play"
+          color="green"
+          disabled={status === 'playing'}
+          size="lg"
+          variant={status === 'playing' ? 'filled' : 'light'}
+          onClick={() => void transport.play()}
+        >
+          <HugeiconsIcon icon={PlayIcon} size={18} />
+        </ActionIcon>
+      </Tooltip>
+      <Tooltip label="Pause">
+        <ActionIcon
+          aria-label="Pause"
+          color="yellow"
+          disabled={status !== 'playing'}
+          size="lg"
+          variant="light"
+          onClick={() => transport.pause()}
+        >
+          <HugeiconsIcon icon={PauseIcon} size={18} />
+        </ActionIcon>
+      </Tooltip>
+      <Tooltip label="Stop">
+        <ActionIcon
+          aria-label="Stop"
+          color="red"
+          size="lg"
+          variant="light"
+          onClick={() => transport.stop()}
+        >
+          <HugeiconsIcon icon={StopIcon} size={18} />
+        </ActionIcon>
+      </Tooltip>
+    </Group>
+  )
+})
+
+const TimelinePlayhead = memo(function TimelinePlayhead({
+  timelineRef,
+  transport,
+  viewport,
+}: {
+  timelineRef: RefObject<HTMLDivElement | null>
+  transport: Transport
+  viewport: ViewportState
+}) {
+  const playheadProps = useTransportPlayhead(
+    transport,
+    viewport.pixelsPerTick,
+    timelineRef,
+  )
+
+  return (
+    <Box
+
+      onPointerCancel={playheadProps.onPointerCancel}
+      onPointerDown={playheadProps.onPointerDown}
+      onPointerMove={playheadProps.onPointerMove}
+      onPointerUp={playheadProps.onPointerUp}
+      ref={playheadProps.ref}
+      aria-label="Playhead"
+      style={{
+        bottom: 8,
+        cursor: 'ew-resize',
+        left: -5,
+        pointerEvents: 'auto',
+        position: 'absolute',
+        touchAction: 'none',
+        top: 0,
+        width: 12,
+        willChange: 'transform',
+        zIndex: 10,
+      }}
+    >
+      <Box
+        style={{
+          background: 'var(--mantine-color-red-6)',
+          height: '100%',
+          marginInline: 'auto',
+          width: 2,
+        }}
+      />
+    </Box>
   )
 })
 
