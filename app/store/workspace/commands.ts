@@ -380,7 +380,7 @@ export function createDeletePatternCommand(patternId: PatternId): WorkspaceComma
   return createWorkspaceCommandRecord('deletePattern', 'Delete pattern', { patternId })
 }
 
-export function createUpdatePatternCommand(pattern: Pattern): WorkspaceCommand {
+export function createUpdatePatternCommand(pattern: Partial<Pattern>): WorkspaceCommand {
   return createWorkspaceCommandRecord('updatePattern', `Update pattern ${pattern.name}`, {
     pattern: toJsonValue(pattern),
   })

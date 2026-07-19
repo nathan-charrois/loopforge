@@ -1,6 +1,14 @@
-import { selectBlock, selectMixChannel, selectSection, selectTimelineEvent, selectTrack, type Workspace } from '../workspace'
+import {
+  selectBlock,
+  selectMixChannel,
+  selectPattern,
+  selectSection,
+  selectTimelineEvent,
+  selectTrack,
+  type Workspace,
+} from '../workspace'
 import type { Editor, SelectionState } from './type'
-import type { Block, MixChannel, Section, TimelineEvent, Track } from '~/domain'
+import type { Block, MixChannel, Pattern, Section, TimelineEvent, Track } from '~/domain'
 
 export function selectFirstSelectedBlock(editor: Editor, workspace: Workspace): Block | undefined {
   if (editor.selection.selectedBlockIds.length === 1) {
@@ -13,6 +21,17 @@ export function selectFirstSelectedBlock(editor: Editor, workspace: Workspace): 
 export function selectFirstSelectedMixChannel(editor: Editor, workspace: Workspace): MixChannel | undefined {
   if (editor.selection.selectedMixChannelIds.length === 1) {
     return selectMixChannel(workspace, editor.selection.selectedMixChannelIds[0])
+  }
+
+  return undefined
+}
+
+export function selectFirstSelectedPattern(
+  editor: Editor,
+  workspace: Workspace,
+): Pattern | undefined {
+  if (editor.selection.selectedPatternIds.length === 1) {
+    return selectPattern(workspace, editor.selection.selectedPatternIds[0])
   }
 
   return undefined
@@ -45,6 +64,7 @@ export function selectFirstSelectedTrack(editor: Editor, workspace: Workspace): 
 export function hasAnySelection(selection: SelectionState): boolean {
   return selection.selectedBlockIds.length > 0
     || selection.selectedMixChannelIds.length > 0
+    || selection.selectedPatternIds.length > 0
     || selection.selectedSectionIds.length > 0
     || selection.selectedPatternEventIds.length > 0
     || selection.selectedTrackIds.length > 0

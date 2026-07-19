@@ -19,6 +19,7 @@ export function createSelectionState(): SelectionState {
   return {
     selectedBlockIds: [],
     selectedMixChannelIds: [],
+    selectedPatternIds: [],
     selectedPatternEventIds: [],
     selectedSectionIds: [],
     selectedTimelineEventIds: [],

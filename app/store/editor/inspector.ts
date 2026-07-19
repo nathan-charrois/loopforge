@@ -6,6 +6,7 @@ import {
   isMeterEvent,
   isTempoEvent,
   type MixChannel,
+  type Pattern,
   type Section,
   type TimelineEvent,
   type Track,
@@ -27,6 +28,8 @@ export function createInspectorDraft(): InspectorDraft {
     mixChannelPan: 0,
     mixChannelSoloed: false,
     mixChannelVolumeDb: 0,
+    patternKind: 'chord',
+    patternName: '',
     sectionName: '',
     tempoBpm: 120,
     tempoTick: 0,
@@ -42,15 +45,32 @@ export function updateInspectorDraftFromSelection(
   selectedTrack?: Track,
   selectedMixChannel?: MixChannel,
   selectedBlock?: Block,
+  selectedPattern?: Pattern,
   selectedSection?: Section,
   selectionTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
   const withTrack = updateInspectorDraftFromTrack(currentDraft, selectedTrack)
   const withMixChannel = updateInspectorDraftFromMixChannel(withTrack, selectedMixChannel)
   const withBlock = updateInspectorDraftFromBlock(withMixChannel, selectedBlock)
-  const withSection = updateInspectorDraftFromSection(withBlock, selectedSection)
+  const withPattern = updateInspectorDraftFromPattern(withBlock, selectedPattern)
+  const withSection = updateInspectorDraftFromSection(withPattern, selectedSection)
 
   return updateInspectorDraftFromTimelineEvent(withSection, selectionTimelineEvent)
+}
+
+export function updateInspectorDraftFromPattern(
+  currentDraft: InspectorDraft,
+  selectedPattern?: Pattern,
+): InspectorDraft {
+  if (selectedPattern) {
+    return {
+      ...currentDraft,
+      patternKind: selectedPattern.kind,
+      patternName: selectedPattern.name,
+    }
+  }
+
+  return currentDraft
 }
 
 export function updateInspectorDraftFromMixChannel(

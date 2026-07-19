@@ -85,7 +85,10 @@ import {
   type MixChannel,
   type MixChannelId,
   MODES,
+  type Pattern,
+  PATTERN_EVENT_KINDS,
   PATTERN_KINDS,
+  type PatternId,
   type PatternKind,
   type RulerMark,
   type Section,
@@ -125,11 +128,13 @@ import {
   selectBlockAction,
   selectFirstSelectedBlock,
   selectFirstSelectedMixChannel,
+  selectFirstSelectedPattern,
   selectFirstSelectedSection,
   selectFirstSelectedTimelineEvent,
   selectFirstSelectedTrack,
   type SelectionState,
   selectMixChannelAction,
+  selectPatternAction,
   selectSectionAction,
   selectTimelineEventAction,
   selectTrackAction,
@@ -140,6 +145,7 @@ import {
   updateBlockFromInspectorAction,
   updateInspectorDraftFromSelection,
   updateMixChannelFromInspectorAction,
+  updatePatternFromInspectorAction,
   updateSectionFromInspectorAction,
   updateTimelineEventFromInspectorAction,
   updateTrackFromInspectorAction,
@@ -262,6 +268,7 @@ function ArrangementDebugContent() {
   const patterns = useMemo(() => selectPatterns(workspace), [workspace])
   const selectedBlock = useMemo(() => selectFirstSelectedBlock(editor, workspace), [editor, workspace])
   const selectedMixChannel = useMemo(() => selectFirstSelectedMixChannel(editor, workspace), [editor, workspace])
+  const selectedPattern = useMemo(() => selectFirstSelectedPattern(editor, workspace), [editor, workspace])
   const selectedSection = useMemo(() => selectFirstSelectedSection(editor, workspace), [editor, workspace])
   const selectedTimelineEvent = useMemo(() => selectFirstSelectedTimelineEvent(editor, workspace), [editor, workspace])
   const selectedTrack = useMemo(() => selectFirstSelectedTrack(editor, workspace), [editor, workspace])
@@ -292,10 +299,18 @@ function ArrangementDebugContent() {
       selectedTrack,
       selectedMixChannel,
       selectedBlock,
+      selectedPattern,
       selectedSection,
       selectedTimelineEvent,
     ))
-  }, [selectedBlock, selectedMixChannel, selectedSection, selectedTimelineEvent, selectedTrack])
+  }, [
+    selectedBlock,
+    selectedMixChannel,
+    selectedPattern,
+    selectedSection,
+    selectedTimelineEvent,
+    selectedTrack,
+  ])
 
   const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const commands = applyTimelineEventToolAction(
@@ -454,6 +469,14 @@ function ArrangementDebugContent() {
     dispatch(selectMixChannelAction(mixChannelId, event.shiftKey))
   }, [dispatch])
 
+  const handlePatternClick = useCallback((
+    event: ReactMouseEvent<HTMLButtonElement>,
+    patternId: PatternId,
+  ) => {
+    event.stopPropagation()
+    dispatch(selectPatternAction(patternId, event.shiftKey))
+  }, [dispatch])
+
   const handleClickMixChannelMute = useCallback((
     event: ReactMouseEvent<HTMLButtonElement>,
     mixChannel: MixChannel,
@@ -592,6 +615,17 @@ function ArrangementDebugContent() {
     }))
   }, [dispatch, inspectorDraft, selectedMixChannel])
 
+  const updateSelectedPatternFromInspector = useCallback(() => {
+    if (selectedPattern === undefined) {
+      return
+    }
+
+    dispatch(updatePatternFromInspectorAction({
+      draft: inspectorDraft,
+      pattern: selectedPattern,
+    }))
+  }, [dispatch, inspectorDraft, selectedPattern])
+
   const unfocusSelection = useCallback(() => {
     dispatch(unfocusSelectionAction(editor.focusedBlockId))
   }, [dispatch, editor.focusedBlockId])
@@ -725,6 +759,7 @@ function ArrangementDebugContent() {
                       hoveredBlockId={hoveredBlockId}
                       marks={rulerMarks}
                       selectedBlockIds={editor.selection.selectedBlockIds}
+                      selectedPatternIds={editor.selection.selectedPatternIds}
                       timelineWidth={timelineWidth}
                       track={track}
                       viewport={viewport}
@@ -734,6 +769,7 @@ function ArrangementDebugContent() {
                       onBlockResizePointerDown={handleBlockResizePointerDown}
                       onEmptyDoubleClick={handleBlockCloseFocus}
                       onPointerDown={handleTrackLanePointerDown}
+                      onPatternClick={handlePatternClick}
                       onSetHoveredBlock={setHoveredBlockId}
                     />
                   ))}
@@ -755,6 +791,7 @@ function ArrangementDebugContent() {
               patterns={patterns}
               selectedBlock={selectedBlock}
               selectedMixChannel={selectedMixChannel}
+              selectedPattern={selectedPattern}
               selectedSection={selectedSection}
               selectedTimelineEvent={selectedTimelineEvent}
               selectedTrack={selectedTrack}
@@ -765,6 +802,7 @@ function ArrangementDebugContent() {
               onDeleteSelected={deleteSelection}
               onUpdateBlock={updateSelectedBlockFromInspector}
               onUpdateMixChannel={updateSelectedMixChannelFromInspector}
+              onUpdatePattern={updateSelectedPatternFromInspector}
               onUpdateSection={updateSelectedSectionFromInspector}
               onUpdateTimelineEvent={updateSelectedTimelineEventFromInspector}
               onUpdateTrack={updateSelectedTrackFromInspector}
@@ -1463,9 +1501,11 @@ const TrackLane = memo(function TrackLane({
   onBlockPointerDown,
   onBlockResizePointerDown,
   onEmptyDoubleClick,
+  onPatternClick,
   onPointerDown,
   onSetHoveredBlock,
   selectedBlockIds,
+  selectedPatternIds,
   timelineWidth,
   track,
   viewport,
@@ -1479,9 +1519,11 @@ const TrackLane = memo(function TrackLane({
   onBlockPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
   onBlockResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block, edge: 'left' | 'right') => void
   onEmptyDoubleClick: () => void
+  onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, trackId: string) => void
   onSetHoveredBlock: (blockId: string | undefined) => void
   selectedBlockIds: string[]
+  selectedPatternIds: PatternId[]
   timelineWidth: number
   track: Track
   viewport: ViewportState
@@ -1517,12 +1559,13 @@ const TrackLane = memo(function TrackLane({
           block={block}
           focusedBlockId={focusedBlockId}
           hovered={hoveredBlockId === block.id}
-          pattern={selectPattern(workspace, block.patternId)}
           selected={selectedBlockIds.includes(block.id)}
+          selectedPatternIds={selectedPatternIds}
           viewport={viewport}
           workspace={workspace}
           onDoubleClick={onBlockDoubleClick}
           onPointerDown={onBlockPointerDown}
+          onPatternClick={onPatternClick}
           onResizePointerDown={onBlockResizePointerDown}
           onSetHoveredBlock={onSetHoveredBlock}
         />
@@ -1564,11 +1607,12 @@ const BlockView = memo(function BlockView({
   focusedBlockId,
   hovered,
   onDoubleClick,
+  onPatternClick,
   onPointerDown,
   onResizePointerDown,
   onSetHoveredBlock,
-  pattern,
   selected,
+  selectedPatternIds,
   viewport,
   workspace,
 }: {
@@ -1576,16 +1620,22 @@ const BlockView = memo(function BlockView({
   focusedBlockId?: string
   hovered: boolean
   onDoubleClick: (blockId: string) => void
+  onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block, edge: 'left' | 'right') => void
   onSetHoveredBlock: (blockId: string | undefined) => void
-  pattern?: ReturnType<typeof selectPattern>
   selected: boolean
+  selectedPatternIds: PatternId[]
   viewport: ViewportState
   workspace: Workspace
 }) {
   const isFocused = focusedBlockId === block.id
   const dimmedByFocus = focusedBlockId !== undefined && !isFocused
+
+  const pattern = useMemo(
+    () => selectPattern(workspace, block.patternId),
+    [block.patternId, workspace],
+  )
 
   return (
     <Box
@@ -1621,7 +1671,6 @@ const BlockView = memo(function BlockView({
       <Group justify="space-between" gap={6} wrap="nowrap">
         <Box style={{ minWidth: 0 }}>
           <Text fw={800} size="xs" truncate>{block.name}</Text>
-          <Text size="10px" truncate>{pattern?.name ?? block.patternId}</Text>
         </Box>
         <Badge color={block.muted ? 'gray' : 'dark'} size="xs" variant="filled">
           {block.playbackMode}
@@ -1630,7 +1679,9 @@ const BlockView = memo(function BlockView({
       <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, block, 'right')} />
       {focusedBlockId === block.id && (
         <FocusedBlockOverlay
-          block={block}
+          pattern={pattern}
+          selectedPatternIds={selectedPatternIds}
+          onPatternClick={onPatternClick}
         />
       )}
     </Box>
@@ -1638,39 +1689,53 @@ const BlockView = memo(function BlockView({
 })
 
 const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
-  block,
+  onPatternClick,
+  pattern,
+  selectedPatternIds,
 }: {
-  block: Block
+  onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
+  pattern?: Pattern
+  selectedPatternIds: PatternId[]
 }) {
   return (
     <Box
       style={{
         background: 'rgba(255, 255, 255, 0.14)',
-        borderRadius: 3,
+        borderRadius: 5,
         bottom: 4,
         left: 6,
         overflow: 'hidden',
         position: 'absolute',
         right: 6,
-        top: 24,
+        top: 25,
       }}
     >
-      <Box
-        style={{
-          background: 'rgba(255, 235, 59, 0.82)',
-          borderRadius: 2,
-          bottom: 3,
-          cursor: 'pointer',
-          left: 1,
-          minWidth: 3,
-          position: 'absolute',
-          top: 3,
-          width: 22,
-          height: 10,
-        }}
-      >
-        <Text size="xs">{block.id}</Text>
-      </Box>
+      {pattern !== undefined && (
+        <Box
+          aria-label={`Select pattern ${pattern.id}`}
+          aria-pressed={selectedPatternIds.includes(pattern.id)}
+          component="button"
+          type="button"
+          onClick={event => onPatternClick(event, pattern.id)}
+          onPointerDown={event => event.stopPropagation()}
+          style={{
+            background: selectedPatternIds.includes(pattern.id)
+              ? 'var(--mantine-color-gray-4)'
+              : 'var(--mantine-color-gray-5)',
+            border: '1px solid rgba(0, 0, 0, 0.24)',
+            cursor: 'pointer',
+            position: 'absolute',
+            borderRadius: '5px',
+            width: '100%',
+            left: 0,
+            right: 0,
+            padding: 5,
+            top: 0,
+            bottom: 0,
+          }}
+        />
+
+      )}
     </Box>
   )
 })
@@ -1681,12 +1746,14 @@ const InspectorPanel = memo(function InspectorPanel({
   onDeleteSelected,
   onUpdateBlock,
   onUpdateMixChannel,
+  onUpdatePattern,
   onUpdateSection,
   onUpdateTimelineEvent,
   onUpdateTrack,
   patterns,
   selectedBlock,
   selectedMixChannel,
+  selectedPattern,
   selectedSection,
   selectedTimelineEvent,
   selectedTrack,
@@ -1700,12 +1767,14 @@ const InspectorPanel = memo(function InspectorPanel({
   onDeleteSelected: () => void
   onUpdateBlock: () => void
   onUpdateMixChannel: () => void
+  onUpdatePattern: () => void
   onUpdateSection: () => void
   onUpdateTimelineEvent: () => void
   onUpdateTrack: () => void
   patterns: ReturnType<typeof selectPatterns>
   selectedBlock?: Block
   selectedMixChannel?: MixChannel
+  selectedPattern?: Pattern
   selectedSection?: Section
   selectedTimelineEvent?: TimelineEvent
   selectedTrack?: Track
@@ -1722,6 +1791,7 @@ const InspectorPanel = memo(function InspectorPanel({
           <Badge color="gray" variant="light">
             {selection.selectedBlockIds.length
               + selection.selectedMixChannelIds.length
+              + selection.selectedPatternIds.length
               + selection.selectedSectionIds.length
               + selection.selectedTimelineEventIds.length
               + selection.selectedTrackIds.length}
@@ -1933,6 +2003,41 @@ const InspectorPanel = memo(function InspectorPanel({
               }}
             />
             <Button size="xs" onClick={onUpdateBlock}>Apply Block</Button>
+          </Stack>
+        )}
+
+        {selectedPattern !== undefined && (
+          <Stack gap="sm">
+            <Text fw={700} size="sm">Pattern</Text>
+            <InspectorDataList
+              items={[
+                ['ID', selectedPattern.id],
+                ['Length tick', selectedPattern.lengthTicks],
+                ['Kind', selectedPattern.kind],
+                ['Events', selectedPattern.events.length],
+              ]}
+            />
+            <TextInput
+              label="Name"
+              size="xs"
+              value={draft.patternName}
+              onChange={(event) => {
+                const { value } = event.currentTarget
+                setDraft(currentDraft => ({ ...currentDraft, patternName: value }))
+              }}
+            />
+            <Select
+              allowDeselect={false}
+              data={PATTERN_EVENT_KINDS.map(value => ({ label: value, value }))}
+              label="Kind"
+              size="xs"
+              value={draft.patternKind}
+              onChange={value => setDraft(currentDraft => ({
+                ...currentDraft,
+                patternKind: (value ?? currentDraft.patternKind) as PatternKind,
+              }))}
+            />
+            <Button size="xs" onClick={onUpdatePattern}>Apply Pattern</Button>
           </Stack>
         )}
 

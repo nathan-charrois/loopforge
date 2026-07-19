@@ -2,6 +2,7 @@ import {
   createCopySelectionCommand,
   createSelectBlockCommand,
   createSelectMixChannelCommand,
+  createSelectPatternCommand,
   createSelectSectionCommand,
   createSelectTimelineEventCommand,
   createSelectTrackCommand,
@@ -36,6 +37,7 @@ import {
   createDraftEntityId,
   createKeyEvent,
   createMeterEvent,
+  createPattern,
   createTempoEvent,
   getKeyAtTick,
   getMeterAtTick,
@@ -46,6 +48,8 @@ import {
   type Key,
   type MixChannel,
   type MixChannelId,
+  type Pattern,
+  type PatternId,
   type Section,
   type SectionId,
   type Tick,
@@ -61,6 +65,7 @@ import {
   addTimelineEventAction,
   deleteBlockAction,
   deleteMixChannelAction,
+  deletePatternAction,
   deletePatternEventAction,
   deleteSectionAction,
   deleteTimelineEventAction,
@@ -77,6 +82,7 @@ import {
   splitSectionAction,
   updateBlockAction,
   updateMixChannelAction,
+  updatePatternAction,
   updateSectionAction,
   updateTimelineEventAction,
   updateTrackAction,
@@ -95,6 +101,13 @@ export function selectMixChannelAction(
   additive = false,
 ): EditorCommand {
   return createSelectMixChannelCommand(mixChannelId, additive)
+}
+
+export function selectPatternAction(
+  patternId: PatternId,
+  additive = false,
+): EditorCommand {
+  return createSelectPatternCommand(patternId, additive)
 }
 
 export function selectSectionAction(
@@ -175,6 +188,10 @@ export function deleteSelectionAction(selection: SelectionState): readonly Comma
 
   if (selection.selectedSectionIds.length > 0) {
     commands.push(deleteSectionAction(selection.selectedSectionIds))
+  }
+
+  if (selection.selectedPatternIds.length > 0) {
+    commands.push(deletePatternAction(selection.selectedPatternIds[0]))
   }
 
   if (selection.selectedPatternEventIds.length > 0) {
@@ -438,6 +455,19 @@ export function updateMixChannelFromInspectorAction(input: {
     soloed: input.draft.mixChannelSoloed,
     volumeDb: input.draft.mixChannelVolumeDb,
   })
+}
+
+export function updatePatternFromInspectorAction(input: {
+  draft: InspectorDraft
+  pattern: Pattern
+}): Command {
+  const { draft, pattern } = input
+
+  return updatePatternAction(createPattern({
+    ...pattern,
+    kind: draft.patternKind,
+    name: draft.patternName.trim() || pattern.name,
+  }))
 }
 
 export function applyTimelineEventToolAction(

@@ -10,6 +10,7 @@ import type {
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
 import type { MixChannelId } from '~/domain/mixer'
+import type { PatternId } from '~/domain/patterns'
 import type { TimelineEventId } from '~/domain/timeline'
 import type { TrackId } from '~/domain/tracks'
 import { toggleInArray } from '~/utils/array'
@@ -131,6 +132,35 @@ export function selectMixChannel(
       ...createSelectionState(),
       selectedMixChannelIds: [
         mixChannelId,
+      ],
+    },
+  }
+}
+
+export function selectPattern(
+  editor: Editor,
+  patternId: PatternId,
+  additive = false,
+): Editor {
+  if (additive) {
+    return {
+      ...editor,
+      selection: {
+        ...editor.selection,
+        selectedPatternIds: toggleInArray(
+          editor.selection.selectedPatternIds,
+          patternId,
+        ),
+      },
+    }
+  }
+
+  return {
+    ...editor,
+    selection: {
+      ...createSelectionState(),
+      selectedPatternIds: [
+        patternId,
       ],
     },
   }

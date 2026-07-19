@@ -489,6 +489,7 @@ function createDebugCommand(
       inspectorPanel: editor.inspector.panel ?? null,
       selectedBlockIds: editor.selection.selectedBlockIds,
       selectedMixChannelIds: editor.selection.selectedMixChannelIds,
+      selectedPatternIds: editor.selection.selectedPatternIds,
       selectedPatternEventIds: editor.selection.selectedPatternEventIds,
       selectedSectionIds: editor.selection.selectedSectionIds,
       selectedTimelineEventIds: editor.selection.selectedTimelineEventIds,
@@ -516,6 +517,10 @@ function createEditorDebugCommandPayload(
       return editor.selection.selectedMixChannelIds[0] === undefined
         ? {}
         : { additive: false, mixChannelId: editor.selection.selectedMixChannelIds[0] }
+    case 'selectPattern':
+      return editor.selection.selectedPatternIds[0] === undefined
+        ? {}
+        : { additive: false, patternId: editor.selection.selectedPatternIds[0] }
     case 'selectSection':
       return editor.selection.selectedSectionIds[0] === undefined
         ? {}
@@ -548,6 +553,7 @@ function createEmptySelection(selection: Editor['selection']): Editor['selection
     ...selection,
     selectedBlockIds: [],
     selectedMixChannelIds: [],
+    selectedPatternIds: [],
     selectedPatternEventIds: [],
     selectedSectionIds: [],
     selectedTimelineEventIds: [],

@@ -167,7 +167,7 @@ export function deletePatternAction(patternId: PatternId): WorkspaceCommand {
   return createDeletePatternCommand(patternId)
 }
 
-export function updatePatternAction(pattern: Pattern): WorkspaceCommand {
+export function updatePatternAction(pattern: Partial<Pattern>): WorkspaceCommand {
   return createUpdatePatternCommand(pattern)
 }
 

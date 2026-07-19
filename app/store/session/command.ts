@@ -55,6 +55,7 @@ export const EDITOR_COMMAND_KINDS = [
   'copySelection',
   'selectBlock',
   'selectMixChannel',
+  'selectPattern',
   'selectSection',
   'selectTimelineEvent',
   'selectTrack',
