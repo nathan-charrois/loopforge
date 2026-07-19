@@ -4,7 +4,12 @@ import { selectTracks } from './selector'
 import type { Workspace } from './type'
 import { type Block, createBlock, createDefaultArrangement, createSection } from '~/domain/arrangement'
 import { createChordSymbol, createDefaultKey } from '~/domain/harmony'
-import { type Instrument } from '~/domain/instrument'
+import {
+  createDrumInstrument,
+  createDrumPieceSound,
+  createMelodicInstrument,
+  type Instrument,
+} from '~/domain/instrument'
 import { createMixChannel, createMixer } from '~/domain/mixer'
 import type { PitchClass } from '~/domain/musicPrimitives'
 import { createAutomationEvent, createChordEvent, createDrumHitEvent, createNoteEvent } from '~/domain/patternEvents'
@@ -309,6 +314,41 @@ export function createInitialWorkspace(): Workspace {
         }),
       ],
     },
+    instruments: createEntityStore<Instrument>([
+      createMelodicInstrument({
+        id: 'keys.default',
+        name: 'Default Keys',
+        soundId: 'keys.default',
+      }),
+      createMelodicInstrument({
+        id: 'bass.default',
+        name: 'Default Bass',
+        soundId: 'bass.default',
+      }),
+      createMelodicInstrument({
+        id: 'lead.default',
+        name: 'Default Lead',
+        soundId: 'lead.default',
+      }),
+      createDrumInstrument({
+        id: 'drums.default',
+        name: 'Default Drums',
+        pieces: {
+          closedHat: createDrumPieceSound({
+            soundId: 'drums.closedHat.default',
+          }),
+          kick: createDrumPieceSound({
+            soundId: 'drums.kick.default',
+          }),
+          openHat: createDrumPieceSound({
+            soundId: 'drums.openHat.default',
+          }),
+          snare: createDrumPieceSound({
+            soundId: 'drums.snare.default',
+          }),
+        },
+      }),
+    ]),
     patterns: createEntityStore([
       createPattern({
         events: [
