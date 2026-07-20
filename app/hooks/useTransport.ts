@@ -8,55 +8,22 @@ import {
   useState,
 } from 'react'
 
+import type { PlaybackEngine } from '~/audio'
 import {
   tickToX,
   xToTick,
 } from '~/store/editor'
-import type { Workspace } from '~/store/workspace'
-import {
-  Transport,
-  type TransportStatus,
-} from '~/utils/transport'
+import type { TransportStatus } from '~/utils/transport'
 
-export function useTransport(
-  workspace: Workspace,
-  loopEnabled: boolean = false,
-): Transport {
-  const transportRef = useRef<Transport | null>(null)
+export function useTransportStatus(playbackEngine: PlaybackEngine): TransportStatus {
+  const [status, setStatus] = useState<TransportStatus>(
+    () => playbackEngine.getStatus(),
+  )
 
-  if (transportRef.current === null) {
-    transportRef.current = new Transport(workspace)
-  }
-
-  const transport = transportRef.current
-  const workspaceRef = useRef(workspace)
-
-  useEffect(() => {
-    if (workspaceRef.current !== workspace) {
-      transport.setWorkspace(workspace)
-      workspaceRef.current = workspace
-    }
-
-    if (!loopEnabled || transport.getSnapshot().loopEnabled !== loopEnabled) {
-      transport.setLoop(undefined, loopEnabled)
-    }
-  }, [loopEnabled, transport, workspace])
-
-  useEffect(() => {
-    return () => {
-      transport.destroy()
-    }
-  }, [transport])
-
-  return transport
-}
-
-export function useTransportStatus(transport: Transport): TransportStatus {
-  const [status, setStatus] = useState<TransportStatus>(() => transport.getSnapshot().status)
   const statusRef = useRef(status)
 
   useEffect(() => {
-    return transport.subscribe((snapshot) => {
+    return playbackEngine.subscribe((snapshot) => {
       if (statusRef.current === snapshot.status) {
         return
       }
@@ -64,13 +31,13 @@ export function useTransportStatus(transport: Transport): TransportStatus {
       statusRef.current = snapshot.status
       setStatus(snapshot.status)
     })
-  }, [transport])
+  }, [playbackEngine])
 
   return status
 }
 
 export function useTransportPlayhead(
-  transport: Transport,
+  playbackEngine: PlaybackEngine,
   pixelsPerTick: number,
   timelineRef: RefObject<HTMLDivElement | null>,
 ) {
@@ -79,7 +46,7 @@ export function useTransportPlayhead(
 
   const getSeekTickFromClientX = useCallback((clientX: number) => {
     if (timelineRef.current === null) {
-      return transport.getPlayheadTick()
+      return playbackEngine.getPlayheadTick()
     }
 
     const rect = timelineRef.current.getBoundingClientRect()
@@ -87,9 +54,9 @@ export function useTransportPlayhead(
 
     return Math.max(
       0,
-      Math.min(transport.getSnapshot().projectEndTick, Math.round(rawTick)),
+      Math.min(playbackEngine.getSnapshot().projectEndTick, Math.round(rawTick)),
     )
-  }, [pixelsPerTick, timelineRef, transport])
+  }, [pixelsPerTick, playbackEngine, timelineRef])
 
   const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -98,8 +65,8 @@ export function useTransportPlayhead(
     isDraggingRef.current = true
 
     event.currentTarget.setPointerCapture(event.pointerId)
-    transport.seek(getSeekTickFromClientX(event.clientX))
-  }, [getSeekTickFromClientX, transport])
+    playbackEngine.seek(getSeekTickFromClientX(event.clientX))
+  }, [getSeekTickFromClientX, playbackEngine])
 
   const handlePointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) {
@@ -109,8 +76,8 @@ export function useTransportPlayhead(
     event.preventDefault()
     event.stopPropagation()
 
-    transport.seek(getSeekTickFromClientX(event.clientX))
-  }, [getSeekTickFromClientX, transport])
+    playbackEngine.seek(getSeekTickFromClientX(event.clientX))
+  }, [getSeekTickFromClientX, playbackEngine])
 
   const handlePointerEnd = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) {
@@ -129,7 +96,7 @@ export function useTransportPlayhead(
     let frameId = 0
 
     function updatePlayheadTransform() {
-      const playheadTick = transport.getPlayheadTick()
+      const playheadTick = playbackEngine.getPlayheadTick()
 
       if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
         playheadRef.current.style.transform = `translateX(${tickToX(pixelsPerTick, playheadTick)}px)`
@@ -143,7 +110,7 @@ export function useTransportPlayhead(
     return () => {
       cancelAnimationFrame(frameId)
     }
-  }, [pixelsPerTick, transport])
+  }, [pixelsPerTick, playbackEngine])
 
   return useMemo(() => ({
     onPointerCancel: handlePointerEnd,

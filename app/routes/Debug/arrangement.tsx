@@ -63,8 +63,10 @@ import {
 } from '@mantine/core'
 
 import { DebugNav } from './DebugNav'
+import type { PlaybackEngine } from '~/audio'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
+import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import { useSession } from '~/components/Providers/SessionProvider'
 import {
   type Block,
@@ -120,7 +122,6 @@ import {
 } from '~/hooks/useDragOverlay'
 import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
 import {
-  useTransport,
   useTransportPlayhead,
   useTransportStatus,
 } from '~/hooks/useTransport'
@@ -185,7 +186,6 @@ import {
   type Workspace,
 } from '~/store/workspace'
 import { parseNumber } from '~/utils/number'
-import type { Transport } from '~/utils/transport'
 
 const TRACK_LABEL_WIDTH = 150
 const MIX_CHANNEL_COLUMN_WIDTH = 96
@@ -269,7 +269,7 @@ function ArrangementDebugContent() {
     workspace,
   } = useSession()
 
-  const transport = useTransport(workspace)
+  const playbackEngine = usePlaybackEngine()
 
   const {
     viewport,
@@ -725,7 +725,7 @@ function ArrangementDebugContent() {
           </Group>
         </Group>
         <Toolbar
-          transport={transport}
+          playbackEngine={playbackEngine}
           activeTool={editor.activeTool}
           canRedo={canRedo}
           canUndo={canUndo}
@@ -848,8 +848,8 @@ function ArrangementDebugContent() {
                   />
                 </Box>
                 <TimelinePlayhead
+                  playbackEngine={playbackEngine}
                   timelineRef={timelineRef}
-                  transport={transport}
                   viewport={viewport}
                 />
               </Box>
@@ -898,7 +898,7 @@ function ArrangementDebugContent() {
 }
 
 const Toolbar = memo(function Toolbar({
-  transport,
+  playbackEngine,
   activeTool,
   canRedo,
   canUndo,
@@ -913,7 +913,7 @@ const Toolbar = memo(function Toolbar({
   onZoomIn,
   onZoomOut,
 }: {
-  transport: Transport
+  playbackEngine: PlaybackEngine
   activeTool: ActiveTool
   canRedo: boolean
   canUndo: boolean
@@ -931,7 +931,7 @@ const Toolbar = memo(function Toolbar({
   return (
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between" gap="xs">
-        <TransportControls transport={transport} />
+        <TransportControls playbackEngine={playbackEngine} />
         <Group gap={4}>
           {TOOLBAR_SECTION_LEFT.map(item => (
             <Tooltip key={item.tool} label={item.label}>
@@ -1012,11 +1012,11 @@ const Toolbar = memo(function Toolbar({
 })
 
 const TransportControls = memo(function TransportControls({
-  transport,
+  playbackEngine,
 }: {
-  transport: Transport
+  playbackEngine: PlaybackEngine
 }) {
-  const status = useTransportStatus(transport)
+  const status = useTransportStatus(playbackEngine)
 
   return (
     <Group gap={4}>
@@ -1027,7 +1027,7 @@ const TransportControls = memo(function TransportControls({
           disabled={status === 'playing'}
           size="lg"
           variant={status === 'playing' ? 'filled' : 'light'}
-          onClick={() => void transport.play()}
+          onClick={() => void playbackEngine.play()}
         >
           <HugeiconsIcon icon={PlayIcon} size={18} />
         </ActionIcon>
@@ -1039,7 +1039,7 @@ const TransportControls = memo(function TransportControls({
           disabled={status !== 'playing'}
           size="lg"
           variant="light"
-          onClick={() => transport.pause()}
+          onClick={() => playbackEngine.pause()}
         >
           <HugeiconsIcon icon={PauseIcon} size={18} />
         </ActionIcon>
@@ -1050,7 +1050,7 @@ const TransportControls = memo(function TransportControls({
           color="red"
           size="lg"
           variant="light"
-          onClick={() => transport.stop()}
+          onClick={() => playbackEngine.stop()}
         >
           <HugeiconsIcon icon={StopIcon} size={18} />
         </ActionIcon>
@@ -1060,16 +1060,16 @@ const TransportControls = memo(function TransportControls({
 })
 
 const TimelinePlayhead = memo(function TimelinePlayhead({
+  playbackEngine,
   timelineRef,
-  transport,
   viewport,
 }: {
+  playbackEngine: PlaybackEngine
   timelineRef: RefObject<HTMLDivElement | null>
-  transport: Transport
   viewport: ViewportState
 }) {
   const playheadProps = useTransportPlayhead(
-    transport,
+    playbackEngine,
     viewport.pixelsPerTick,
     timelineRef,
   )

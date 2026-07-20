@@ -28,8 +28,10 @@ import {
 } from '@mantine/core'
 
 import { DebugNav } from './DebugNav'
+import type { PlaybackEngine } from '~/audio'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
+import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import {
   barEndValueToTick,
   barLengthValueToTicks,
@@ -96,7 +98,6 @@ import {
   type Workspace,
 } from '~/store/workspace'
 import {
-  Transport,
   type TransportSnapshot,
   type TransportStatus,
 } from '~/utils/transport'
@@ -146,6 +147,15 @@ export function meta({ }: MetaArgs) {
 }
 
 export default function Play() {
+  return (
+    <AppProvider>
+      <PlaybackDebugContent />
+    </AppProvider>
+  )
+}
+
+function PlaybackDebugContent() {
+  const playbackEngine = usePlaybackEngine()
   const [projectName, setProjectName] = useState('')
   const [projectBpm, setProjectBpm] = useState('120')
   const [projectNumerator, setProjectNumerator] = useState('4')
@@ -156,14 +166,6 @@ export default function Play() {
     name: 'Playback Sketch',
     numerator: 4,
   }))
-  const transportRef = useRef<Transport | null>(null)
-
-  if (transportRef.current === null) {
-    transportRef.current = new Transport(workspace)
-  }
-
-  const transport = transportRef.current
-
   const [trackName, setTrackName] = useState('')
   const [trackRole, setTrackRole] = useState<TrackRole>('melody')
   const [trackVolumeDb, setTrackVolumeDb] = useState('0')
@@ -195,14 +197,8 @@ export default function Play() {
   const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
 
   useEffect(() => {
-    transport.setWorkspace(workspace)
-  }, [transport, workspace])
-
-  useEffect(() => {
-    return () => {
-      transport.destroy()
-    }
-  }, [transport])
+    playbackEngine.loadWorkspace(workspace)
+  }, [playbackEngine, workspace])
 
   function runAction(label: string, action: () => unknown) {
     try {
@@ -249,8 +245,9 @@ export default function Play() {
       setSelectedPatternId(patterns[0]?.id ?? '')
       setSelectedSectionId(null)
       setSelectedBlockId(null)
-      transport.seek(0)
-      transport.setLoop({
+      playbackEngine.loadWorkspace(nextWorkspace)
+      playbackEngine.seek(0)
+      playbackEngine.setLoop({
         endTick: selectWorkspaceEndTick(nextWorkspace),
         startTick: 0,
       }, true)
@@ -298,8 +295,9 @@ export default function Play() {
       setSelectedPatternId(patterns[0]?.id ?? '')
       setSelectedSectionId(null)
       setSelectedBlockId(null)
-      transport.seek(0)
-      transport.setLoop({
+      playbackEngine.loadWorkspace(nextWorkspace)
+      playbackEngine.seek(0)
+      playbackEngine.setLoop({
         endTick: selectWorkspaceEndTick(nextWorkspace),
         startTick: 0,
       }, true)
@@ -552,7 +550,7 @@ export default function Play() {
     value: pattern.id,
   }))
   return (
-    <AppProvider>
+    <>
       <AppLayout>
         <Stack gap="lg" py="lg">
           <Group justify="space-between" align="flex-start">
@@ -572,7 +570,7 @@ export default function Play() {
           )}
 
           <PlaybackRuntime
-            transport={transport}
+            playbackEngine={playbackEngine}
             actions={actions}
             onError={setErrorMessage}
             onSelectBlock={handleSelectBlock}
@@ -689,7 +687,7 @@ export default function Play() {
                 </SimpleGrid>
                 <Group gap="xs">
                   <Button onClick={() => handleAddBlock()}>Add Block</Button>
-                  <Button variant="light" onClick={() => handleAddBlock(transport.getPlayheadTick())}>Add At Playhead</Button>
+                  <Button variant="light" onClick={() => handleAddBlock(playbackEngine.getPlayheadTick())}>Add At Playhead</Button>
                   <Button variant="light" disabled={selectedBlockId === null} onClick={handleUpdateBlock}>Update Selected</Button>
                   <Button variant="light" color="red" disabled={selectedBlockId === null} onClick={handleDeleteSelectedBlock}>Delete Selected</Button>
                   <Button variant="subtle" disabled={selectedBlockId === null} onClick={handleClearSelectedBlock}>Clear Selection</Button>
@@ -726,13 +724,13 @@ export default function Play() {
 
         </Stack>
       </AppLayout>
-    </AppProvider>
+    </>
   )
 }
 
 function PlaybackRuntime({
   actions,
-  transport,
+  playbackEngine,
   onError,
   onSelectBlock,
   onSelectSection,
@@ -742,7 +740,7 @@ function PlaybackRuntime({
   selectedSectionId,
 }: {
   actions: ActionLogEntry[]
-  transport: Transport
+  playbackEngine: PlaybackEngine
   onError: (message: string | null) => void
   onSelectBlock: (block: Block) => void
   onSelectSection: (section: Section) => void
@@ -752,8 +750,8 @@ function PlaybackRuntime({
   selectedSectionId: string | null
 }) {
   const playheadRef = useRef<HTMLDivElement>(null)
-  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => transport.getSnapshot())
-  const [sliderTick, setSliderTick] = useState(() => toTimelineTick(transport.getPlayheadTick()))
+  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => playbackEngine.getSnapshot())
+  const [sliderTick, setSliderTick] = useState(() => toTimelineTick(playbackEngine.getPlayheadTick()))
   const projectEndTick = transportSnapshot.projectEndTick
   const timelineWidth = Math.max(860, Math.ceil(projectEndTick * TICK_WIDTH))
   const barOptions = STATIC_BAR_OPTIONS
@@ -768,26 +766,26 @@ function PlaybackRuntime({
     const nextTick = toTimelineTick(tick)
 
     setSliderTick(nextTick)
-    transport.seek(nextTick)
-  }, [transport])
+    playbackEngine.seek(nextTick)
+  }, [playbackEngine])
 
   useEffect(() => {
-    return transport.subscribe((snapshot) => {
+    return playbackEngine.subscribe((snapshot) => {
       setTransportSnapshot(snapshot)
 
       if (snapshot.status !== 'playing') {
         setSliderTick(snapshot.playheadTick)
       }
     })
-  }, [transport])
+  }, [playbackEngine])
 
   useEffect(() => {
     let frameId = 0
     let lastSliderUpdateMs = 0
-    let lastSliderTick = toTimelineTick(transport.getPlayheadTick())
+    let lastSliderTick = toTimelineTick(playbackEngine.getPlayheadTick())
 
     function updatePlayheadTransform(nowMs: number) {
-      const playheadTick = transport.getPlayheadTick()
+      const playheadTick = playbackEngine.getPlayheadTick()
 
       if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
         playheadRef.current.style.transform = `translateX(${playheadTick * TICK_WIDTH}px)`
@@ -812,24 +810,24 @@ function PlaybackRuntime({
     return () => {
       cancelAnimationFrame(frameId)
     }
-  }, [transport])
+  }, [playbackEngine])
 
   function handlePlay() {
-    void transport.play().catch((error: unknown) => {
+    void playbackEngine.play().catch((error: unknown) => {
       onError(error instanceof Error ? error.message : String(error))
     })
   }
 
   function handlePause() {
-    transport.pause()
+    playbackEngine.pause()
   }
 
   function handleStop() {
-    transport.stop()
+    playbackEngine.stop()
   }
 
   function updateLoopRange(partialRange: Partial<{ endTick: Tick, startTick: Tick }>) {
-    transport.setLoop({
+    playbackEngine.setLoop({
       endTick: partialRange.endTick ?? transportSnapshot.loopRange?.endTick ?? projectEndTick,
       startTick: partialRange.startTick ?? transportSnapshot.loopRange?.startTick ?? 0,
     }, transportSnapshot.loopEnabled)
@@ -886,7 +884,7 @@ function PlaybackRuntime({
             <Button variant="light" color="red" onClick={handleStop}>Stop</Button>
             <Button
               variant={transportSnapshot.loopEnabled ? 'filled' : 'light'}
-              onClick={() => transport.setLoop(transportSnapshot.loopRange, !transportSnapshot.loopEnabled)}
+              onClick={() => playbackEngine.setLoop(transportSnapshot.loopRange, !transportSnapshot.loopEnabled)}
             >
               Loop
             </Button>

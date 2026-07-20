@@ -24,6 +24,7 @@ import {
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
+import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import {
   BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
@@ -90,7 +91,6 @@ import {
   type ScheduledPlaybackEvent,
 } from '~/utils/schedule'
 import {
-  Transport,
   type TransportSnapshot,
   type TransportStatus,
 } from '~/utils/transport'
@@ -441,39 +441,33 @@ export default function Notes() {
 }
 
 function NotesLooper({ model }: { model: NotesModel }) {
-  const transportRef = useRef<Transport | null>(null)
-
-  if (transportRef.current === null) {
-    transportRef.current = new Transport(model.workspace)
-  }
-
-  const transport = transportRef.current
+  const playbackEngine = usePlaybackEngine()
   const playheadRef = useRef<HTMLDivElement>(null)
-  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => transport.getSnapshot())
+  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => playbackEngine.getSnapshot())
   const noteRows = getNoteRows(model.renderedNotes)
   const noteRowIndexByKey = getNoteRowIndexByKey(noteRows)
   const noteBarHeight = getNoteBarHeight(noteRows.length)
   const playheadX = getLoopX(transportSnapshot.playheadTick, model.loopLengthTicks)
 
   useEffect(() => {
-    transport.setWorkspace(model.workspace)
-    transport.setLoop({
+    playbackEngine.loadWorkspace(model.workspace)
+    playbackEngine.setLoop({
       endTick: model.loopLengthTicks,
       startTick: 0,
     }, true)
-  }, [model.loopLengthTicks, model.workspace, transport])
+  }, [model.loopLengthTicks, model.workspace, playbackEngine])
 
   useEffect(() => {
-    return transport.subscribe((snapshot) => {
+    return playbackEngine.subscribe((snapshot) => {
       setTransportSnapshot(snapshot)
     })
-  }, [transport])
+  }, [playbackEngine])
 
   useEffect(() => {
     let frameId = 0
 
     function updatePlayheadTransform() {
-      const currentTick = transport.getPlayheadTick()
+      const currentTick = playbackEngine.getPlayheadTick()
 
       if (playheadRef.current !== null && Number.isFinite(currentTick)) {
         playheadRef.current.style.transform = `translateX(${getLoopX(currentTick, model.loopLengthTicks)}px)`
@@ -487,24 +481,18 @@ function NotesLooper({ model }: { model: NotesModel }) {
     return () => {
       cancelAnimationFrame(frameId)
     }
-  }, [model.loopLengthTicks, transport])
-
-  useEffect(() => {
-    return () => {
-      transport.destroy()
-    }
-  }, [transport])
+  }, [model.loopLengthTicks, playbackEngine])
 
   function handlePlay() {
-    void transport.play()
+    void playbackEngine.play()
   }
 
   function handlePause() {
-    transport.pause()
+    playbackEngine.pause()
   }
 
   function handleStop() {
-    transport.stop()
+    playbackEngine.stop()
   }
 
   function setTransportStatus(status: TransportStatus) {

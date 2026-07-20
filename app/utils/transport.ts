@@ -38,12 +38,16 @@ export class Transport {
   private loopRange: TickRange | undefined
   private playheadTick: Tick = 0
   private snapshotTimerId: number | undefined
-  private status: TransportStatus = 'stopped'
   private workspace: Workspace
 
-  constructor(workspace: Workspace) {
+  public status: TransportStatus = 'stopped'
+
+  constructor(
+    workspace: Workspace,
+    compiled: PlaybackSchedule = buildSchedule(workspace),
+  ) {
     this.workspace = workspace
-    this.compiled = buildSchedule(workspace)
+    this.compiled = compiled
     this.loopRange = this.getDefaultLoopRange()
   }
 
@@ -113,9 +117,12 @@ export class Transport {
     this.emitSnapshot()
   }
 
-  setWorkspace(workspace: Workspace) {
+  loadWorkspace(
+    workspace: Workspace,
+    compiled: PlaybackSchedule = buildSchedule(workspace),
+  ) {
     this.workspace = workspace
-    this.compiled = buildSchedule(workspace)
+    this.compiled = compiled
 
     if (this.loopRange === undefined) {
       this.loopRange = this.getDefaultLoopRange()
@@ -152,7 +159,10 @@ export class Transport {
 
   subscribe(listener: TransportListener): () => void {
     this.listeners.add(listener)
-    listener(this.getSnapshot())
+
+    if (this.compiled) {
+      listener(this.getSnapshot())
+    }
 
     return () => {
       this.listeners.delete(listener)
