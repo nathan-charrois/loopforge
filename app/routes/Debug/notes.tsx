@@ -76,6 +76,7 @@ import {
   VOICING_TYPES,
   type VoicingType,
 } from '~/domain'
+import { useTransportSnapshot } from '~/hooks/useTransport'
 import { createEntityStore } from '~/store/type'
 import { createWorkspace, type Workspace } from '~/store/workspace'
 import {
@@ -90,10 +91,7 @@ import {
   type PlaybackTrigger,
   type ScheduledPlaybackEvent,
 } from '~/utils/schedule'
-import {
-  type TransportSnapshot,
-  type TransportStatus,
-} from '~/utils/transport'
+import type { TransportStatus } from '~/utils/transport'
 
 const LOOP_WIDTH = 850
 const LOOP_HEIGHT = 460
@@ -443,7 +441,7 @@ export default function Notes() {
 function NotesLooper({ model }: { model: NotesModel }) {
   const playbackEngine = usePlaybackEngine()
   const playheadRef = useRef<HTMLDivElement>(null)
-  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => playbackEngine.getSnapshot())
+  const transportSnapshot = useTransportSnapshot(playbackEngine)
   const noteRows = getNoteRows(model.renderedNotes)
   const noteRowIndexByKey = getNoteRowIndexByKey(noteRows)
   const noteBarHeight = getNoteBarHeight(noteRows.length)
@@ -458,16 +456,10 @@ function NotesLooper({ model }: { model: NotesModel }) {
   }, [model.loopLengthTicks, model.workspace, playbackEngine])
 
   useEffect(() => {
-    return playbackEngine.subscribe((snapshot) => {
-      setTransportSnapshot(snapshot)
-    })
-  }, [playbackEngine])
-
-  useEffect(() => {
     let frameId = 0
 
     function updatePlayheadTransform() {
-      const currentTick = playbackEngine.getPlayheadTick()
+      const currentTick = playbackEngine.getSnapshot().transport.playheadTick
 
       if (playheadRef.current !== null && Number.isFinite(currentTick)) {
         playheadRef.current.style.transform = `translateX(${getLoopX(currentTick, model.loopLengthTicks)}px)`

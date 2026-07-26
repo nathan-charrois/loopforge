@@ -5,7 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
 } from 'react'
 
 import type { PlaybackEngine } from '~/audio'
@@ -13,27 +13,45 @@ import {
   tickToX,
   xToTick,
 } from '~/store/editor'
-import type { TransportStatus } from '~/utils/transport'
+import type {
+  TransportSnapshot,
+  TransportStatus,
+} from '~/utils/transport'
 
 export function useTransportStatus(playbackEngine: PlaybackEngine): TransportStatus {
-  const [status, setStatus] = useState<TransportStatus>(
-    () => playbackEngine.getStatus(),
+  const subscribe = useCallback(
+    (listener: () => void) => playbackEngine.subscribe(listener),
+    [playbackEngine],
+  )
+  const getSnapshot = useCallback(
+    () => playbackEngine.getSnapshot().transport.status,
+    [playbackEngine],
   )
 
-  const statusRef = useRef(status)
+  return useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getSnapshot,
+  )
+}
 
-  useEffect(() => {
-    return playbackEngine.subscribe((snapshot) => {
-      if (statusRef.current === snapshot.status) {
-        return
-      }
+export function useTransportSnapshot(
+  playbackEngine: PlaybackEngine,
+): TransportSnapshot {
+  const subscribe = useCallback(
+    (listener: () => void) => playbackEngine.subscribe(listener),
+    [playbackEngine],
+  )
+  const getSnapshot = useCallback(
+    () => playbackEngine.getSnapshot().transport,
+    [playbackEngine],
+  )
 
-      statusRef.current = snapshot.status
-      setStatus(snapshot.status)
-    })
-  }, [playbackEngine])
-
-  return status
+  return useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getSnapshot,
+  )
 }
 
 export function useTransportPlayhead(
@@ -46,7 +64,7 @@ export function useTransportPlayhead(
 
   const getSeekTickFromClientX = useCallback((clientX: number) => {
     if (timelineRef.current === null) {
-      return playbackEngine.getPlayheadTick()
+      return playbackEngine.getSnapshot().transport.playheadTick
     }
 
     const rect = timelineRef.current.getBoundingClientRect()
@@ -54,7 +72,10 @@ export function useTransportPlayhead(
 
     return Math.max(
       0,
-      Math.min(playbackEngine.getSnapshot().projectEndTick, Math.round(rawTick)),
+      Math.min(
+        playbackEngine.getSnapshot().transport.projectEndTick,
+        Math.round(rawTick),
+      ),
     )
   }, [pixelsPerTick, playbackEngine, timelineRef])
 
@@ -96,7 +117,7 @@ export function useTransportPlayhead(
     let frameId = 0
 
     function updatePlayheadTransform() {
-      const playheadTick = playbackEngine.getPlayheadTick()
+      const playheadTick = playbackEngine.getSnapshot().transport.playheadTick
 
       if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
         playheadRef.current.style.transform = `translateX(${tickToX(pixelsPerTick, playheadTick)}px)`

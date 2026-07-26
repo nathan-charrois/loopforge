@@ -81,7 +81,7 @@ export function getScheduledEventDurationTicks(event: PatternEvent, maxDurationT
 }
 
 export function getScheduledEventStartTick(event: PatternEvent, offset: Tick): Tick {
-  if (isTimedPatternEvent(event)) {
+  if (isTimedPatternEvent(event) || event.kind === 'drumHit') {
     return event.timeTick + offset
   }
 

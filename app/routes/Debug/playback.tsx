@@ -75,6 +75,7 @@ import {
   TRACK_ROLES,
   type TrackRole,
 } from '~/domain'
+import { useTransportSnapshot } from '~/hooks/useTransport'
 import {
   addBlock as addWorkspaceBlock,
   addPattern as addWorkspacePattern,
@@ -687,7 +688,14 @@ function PlaybackDebugContent() {
                 </SimpleGrid>
                 <Group gap="xs">
                   <Button onClick={() => handleAddBlock()}>Add Block</Button>
-                  <Button variant="light" onClick={() => handleAddBlock(playbackEngine.getPlayheadTick())}>Add At Playhead</Button>
+                  <Button
+                    variant="light"
+                    onClick={() => handleAddBlock(
+                      playbackEngine.getSnapshot().transport.playheadTick,
+                    )}
+                  >
+                    Add At Playhead
+                  </Button>
                   <Button variant="light" disabled={selectedBlockId === null} onClick={handleUpdateBlock}>Update Selected</Button>
                   <Button variant="light" color="red" disabled={selectedBlockId === null} onClick={handleDeleteSelectedBlock}>Delete Selected</Button>
                   <Button variant="subtle" disabled={selectedBlockId === null} onClick={handleClearSelectedBlock}>Clear Selection</Button>
@@ -750,8 +758,10 @@ function PlaybackRuntime({
   selectedSectionId: string | null
 }) {
   const playheadRef = useRef<HTMLDivElement>(null)
-  const [transportSnapshot, setTransportSnapshot] = useState<TransportSnapshot>(() => playbackEngine.getSnapshot())
-  const [sliderTick, setSliderTick] = useState(() => toTimelineTick(playbackEngine.getPlayheadTick()))
+  const transportSnapshot = useTransportSnapshot(playbackEngine)
+  const [sliderTick, setSliderTick] = useState(
+    () => toTimelineTick(transportSnapshot.playheadTick),
+  )
   const projectEndTick = transportSnapshot.projectEndTick
   const timelineWidth = Math.max(860, Math.ceil(projectEndTick * TICK_WIDTH))
   const barOptions = STATIC_BAR_OPTIONS
@@ -770,22 +780,20 @@ function PlaybackRuntime({
   }, [playbackEngine])
 
   useEffect(() => {
-    return playbackEngine.subscribe((snapshot) => {
-      setTransportSnapshot(snapshot)
-
-      if (snapshot.status !== 'playing') {
-        setSliderTick(snapshot.playheadTick)
-      }
-    })
-  }, [playbackEngine])
+    if (transportSnapshot.status !== 'playing') {
+      setSliderTick(transportSnapshot.playheadTick)
+    }
+  }, [transportSnapshot.playheadTick, transportSnapshot.status])
 
   useEffect(() => {
     let frameId = 0
     let lastSliderUpdateMs = 0
-    let lastSliderTick = toTimelineTick(playbackEngine.getPlayheadTick())
+    let lastSliderTick = toTimelineTick(
+      playbackEngine.getSnapshot().transport.playheadTick,
+    )
 
     function updatePlayheadTransform(nowMs: number) {
-      const playheadTick = playbackEngine.getPlayheadTick()
+      const playheadTick = playbackEngine.getSnapshot().transport.playheadTick
 
       if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
         playheadRef.current.style.transform = `translateX(${playheadTick * TICK_WIDTH}px)`

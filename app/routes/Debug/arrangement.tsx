@@ -931,7 +931,7 @@ const Toolbar = memo(function Toolbar({
   return (
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between" gap="xs">
-        <TransportControls playbackEngine={playbackEngine} />
+        <PlaybackControls playbackEngine={playbackEngine} />
         <Group gap={4}>
           {TOOLBAR_SECTION_LEFT.map(item => (
             <Tooltip key={item.tool} label={item.label}>
@@ -1011,7 +1011,7 @@ const Toolbar = memo(function Toolbar({
   )
 })
 
-const TransportControls = memo(function TransportControls({
+const PlaybackControls = memo(function PlaybackControls({
   playbackEngine,
 }: {
   playbackEngine: PlaybackEngine
