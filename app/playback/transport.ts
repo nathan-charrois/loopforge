@@ -58,17 +58,16 @@ export class Transport {
   }
 
   public loadWorkspace(workspace: Workspace, schedule: PlaybackSchedule): void {
-    const initalTick = this.getPlayheadTick()
+    const initialTick = this.getPlayheadTick()
 
     this.clock = createTimelineClock(workspace.timeline)
     this.projectEndTick = toTimelineTick(schedule.projectEndTick)
-    this.status = 'stopped'
 
     this.loopRange = this.loopRange
       ? this.normalizeLoopRange(this.loopRange)
       : this.getDefaultLoopRange()
 
-    this.setPosition(initalTick)
+    this.setPosition(initialTick)
     this.publishSnapshot()
   }
 

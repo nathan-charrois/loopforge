@@ -44,13 +44,16 @@ export class PlaybackEngine {
 
     this.invalidatePendingPlay()
     this.stopScheduledAudio()
-    this.transport.stop()
 
     this.workspace = workspace
     this.schedule = schedule
 
     this.audioEngine.loadWorkspace(workspace)
     this.transport.loadWorkspace(workspace, schedule)
+
+    if (this.isPlaying()) {
+      this.startScheduling()
+    }
   }
 
   public play(): Promise<void> {
