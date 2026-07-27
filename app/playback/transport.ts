@@ -1,66 +1,53 @@
-import { positiveModulo } from '../utils/number'
-import type {
-  PlaybackSchedule,
-  PlaybackScheduleWarning,
-} from './buildSchedule'
-import {
-  getTempoAtTick,
-  isTickInRange,
-  type Tick,
-  type TickRange,
-} from '~/domain'
+import type { PlaybackSchedule } from './buildSchedule'
+import { type Tick, type TickRange, toTimelineTick } from '~/domain'
+import { createTimelineClock, type TimelineClock } from '~/playback/timelineClock'
 import type { Workspace } from '~/store/workspace'
+import { clampNumber, positiveModulo } from '~/utils/number'
 
-export type TransportStatus
-  = | 'stopped'
-    | 'playing'
-    | 'paused'
+export type TransportStatus = 'stopped' | 'playing' | 'paused'
 
 export type TransportSnapshot = {
-  loaded: boolean
-  activeBlockIds: string[]
-  compileWarnings: PlaybackScheduleWarning[]
-  loopEnabled: boolean
-  loopRange?: TickRange
+  status: TransportStatus
   playheadTick: Tick
   projectEndTick: Tick
-  scheduledEventCount: number
-  status: TransportStatus
-}
-
-export type TransportLoadInput = {
-  workspace: Workspace
-  schedule: PlaybackSchedule
+  loopEnabled: boolean
+  loopRange?: TickRange
 }
 
 export const INITIAL_TRANSPORT_SNAPSHOT: TransportSnapshot = {
-  loaded: false,
-  activeBlockIds: [],
-  compileWarnings: [],
-  loopEnabled: true,
-  loopRange: undefined,
+  status: 'stopped',
   playheadTick: 0,
   projectEndTick: 0,
-  scheduledEventCount: 0,
-  status: 'stopped',
+  loopEnabled: true,
+  loopRange: undefined,
 }
 
-const SNAPSHOT_INTERVAL_MS = 33
+const SNAPSHOT_INTERVAL_MS = 28
+
+type PlaybackAnchor = {
+  tick: Tick
+  timeMs: number
+}
 
 export class Transport {
-  private anchorMs = 0
-  private anchorTick: Tick = 0
-  private listeners = new Set<() => void>()
+  private clock: TimelineClock | undefined
+  private status: TransportStatus = 'stopped'
+
+  private projectEndTick: Tick = 0
+
+  private anchor: PlaybackAnchor = { tick: 0, timeMs: 0 }
+
   private loopEnabled = INITIAL_TRANSPORT_SNAPSHOT.loopEnabled
   private loopRange: TickRange | undefined
-  private playheadTick: Tick = 0
-  private schedule: PlaybackSchedule | undefined
-  private snapshot = INITIAL_TRANSPORT_SNAPSHOT
-  private snapshotTimerId: ReturnType<typeof setInterval> | undefined
-  private status: TransportStatus = 'stopped'
-  private workspace: Workspace | undefined
 
-  public getSnapshot = (): TransportSnapshot => this.snapshot
+  private readonly listeners = new Set<() => void>()
+
+  private snapshot: TransportSnapshot = INITIAL_TRANSPORT_SNAPSHOT
+  private snapshotTimerId: ReturnType<typeof setInterval> | undefined
+
+  public getSnapshot = (): TransportSnapshot => {
+    return this.snapshot
+  }
 
   public subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
@@ -71,45 +58,43 @@ export class Transport {
   }
 
   public loadWorkspace(workspace: Workspace, schedule: PlaybackSchedule): void {
-    const previousPlayheadTick = this.workspace === undefined
-      ? 0
-      : this.getPlayheadTick()
+    const initalTick = this.getPlayheadTick()
 
-    this.stopTimers()
-    this.workspace = workspace
-    this.schedule = schedule
+    this.clock = createTimelineClock(workspace.timeline)
+    this.projectEndTick = toTimelineTick(schedule.projectEndTick)
     this.status = 'stopped'
 
-    this.loopRange = this.loopRange === undefined
-      ? this.getDefaultLoopRange()
-      : this.normalizeLoopRange(this.loopRange)
+    this.loopRange = this.loopRange
+      ? this.normalizeLoopRange(this.loopRange)
+      : this.getDefaultLoopRange()
 
-    this.playheadTick = this.clampTick(previousPlayheadTick)
-    this.anchorTick = this.playheadTick
-    this.anchorMs = getNowMs()
-    this.emitSnapshot()
+    this.setPosition(initalTick)
+    this.publishSnapshot()
   }
 
   public play(): void {
-    const schedule = this.requiredSchedule()
+    this.requireClock()
 
     if (this.status === 'playing') {
       return
     }
 
-    const fallbackStartTick = this.playheadTick >= schedule.projectEndTick
-      ? this.loopRange?.startTick ?? 0
-      : this.playheadTick
-    const startTick = this.loopEnabled && this.loopRange !== undefined
-      ? this.getTickInsideLoop(fallbackStartTick, this.loopRange)
-      : fallbackStartTick
+    const activeLoopRange = this.getActiveLoopRange()
+    let startTick = this.anchor.tick
 
+    if (startTick >= this.projectEndTick) {
+      startTick = activeLoopRange?.startTick ?? 0
+    }
+
+    if (activeLoopRange) {
+      startTick = getTickInsideRange(startTick, activeLoopRange)
+    }
+
+    this.setPosition(startTick)
     this.status = 'playing'
-    this.anchorTick = toTimelineTick(startTick)
-    this.playheadTick = this.anchorTick
-    this.anchorMs = getNowMs()
-    this.startTimers()
-    this.emitSnapshot()
+
+    this.startSnapshotTimer()
+    this.publishSnapshot()
   }
 
   public pause(): void {
@@ -117,189 +102,118 @@ export class Transport {
       return
     }
 
-    this.playheadTick = this.getPlayheadTick()
+    const currentTick = this.getPlayheadTick()
+
     this.status = 'paused'
-    this.stopTimers()
-    this.emitSnapshot()
+    this.setPosition(currentTick)
+
+    this.stopSnapshotTimer()
+    this.publishSnapshot()
   }
 
   public stop(): void {
-    if (this.workspace === undefined) {
+    if (!this.clock) {
       return
     }
 
     this.status = 'stopped'
-    this.playheadTick = this.loopEnabled ? (this.loopRange?.startTick ?? 0) : 0
-    this.anchorTick = this.playheadTick
-    this.anchorMs = getNowMs()
-    this.stopTimers()
-    this.emitSnapshot()
+    this.setPosition(this.getActiveLoopRange()?.startTick ?? 0)
+
+    this.stopSnapshotTimer()
+    this.publishSnapshot()
   }
 
   public seek(tick: Tick): void {
-    if (this.workspace === undefined) {
+    if (!this.clock) {
       return
     }
 
-    const clampedTick = this.clampTick(tick)
-    const nextTick = (
-      this.status === 'playing'
-      && this.loopEnabled
-      && this.loopRange !== undefined
-    )
-      ? this.getTickInsideLoop(clampedTick, this.loopRange)
-      : clampedTick
+    const activeLoopRange = this.getActiveLoopRange()
+    let nextTick = this.clampTick(tick)
 
-    this.playheadTick = nextTick
-    this.anchorTick = nextTick
-    this.anchorMs = getNowMs()
-    this.emitSnapshot()
+    if (this.status === 'playing' && activeLoopRange) {
+      nextTick = getTickInsideRange(nextTick, activeLoopRange)
+    }
+
+    this.setPosition(nextTick)
+    this.publishSnapshot()
   }
 
-  public setLoop(
-    range: TickRange | undefined,
-    enabled = this.loopEnabled,
-  ): void {
-    this.requiredSchedule()
+  public setLoop(range: TickRange | undefined, enabled = this.loopEnabled): void {
+    this.requireClock()
     this.loopEnabled = enabled
 
-    const nextRange = range
-      ?? (enabled ? this.loopRange ?? this.getDefaultLoopRange() : undefined)
-
-    this.loopRange = nextRange === undefined
-      ? undefined
-      : this.normalizeLoopRange(nextRange)
-
-    if (this.loopEnabled && this.loopRange !== undefined) {
-      this.seek(this.getTickInsideLoop(this.getPlayheadTick(), this.loopRange))
-      return
+    if (range !== undefined) {
+      this.loopRange = this.normalizeLoopRange(range)
+    }
+    else if (enabled && this.loopRange === undefined) {
+      this.loopRange = this.getDefaultLoopRange()
     }
 
-    this.emitSnapshot()
+    const activeLoopRange = this.getActiveLoopRange()
+
+    if (activeLoopRange) {
+      const currentTick = this.getPlayheadTick()
+      this.setPosition(getTickInsideRange(currentTick, activeLoopRange))
+    }
+
+    this.publishSnapshot()
   }
 
   public getPlayheadTick(): Tick {
-    return toTimelineTick(this.getComputedPlayheadTick())
+    return toTimelineTick(this.computePlayheadTick())
   }
 
-  public getSecondsBetweenTicks(
-    startTick: Tick,
-    endTick: Tick,
-  ): number {
-    const workspace = this.requiredWorkspace()
-
-    if (startTick === endTick) {
-      return 0
-    }
-
-    if (startTick > endTick) {
-      return -this.getSecondsBetweenTicks(endTick, startTick)
-    }
-
-    const timeline = workspace.timeline
-    const tempoEvents = [...timeline.tempoEvents]
-      .sort((left, right) => left.tick - right.tick)
-      .filter(event => event.tick > startTick && event.tick < endTick)
-
-    let seconds = 0
-    let segmentStartTick = startTick
-    let bpm = getTempoAtTick(timeline, toTimelineTick(startTick))
-
-    for (const tempoEvent of tempoEvents) {
-      seconds += ticksToSeconds(
-        tempoEvent.tick - segmentStartTick,
-        bpm,
-        timeline.ppq,
-      )
-      segmentStartTick = tempoEvent.tick
-      bpm = tempoEvent.bpm
-    }
-
-    return seconds + ticksToSeconds(
-      endTick - segmentStartTick,
-      bpm,
-      timeline.ppq,
-    )
+  public getSecondsBetweenTicks(startTick: Tick, endTick: Tick): number {
+    return this.requireClock().getSecondsBetweenTicks(startTick, endTick)
   }
 
   public dispose(): void {
-    this.stopTimers()
-    this.workspace = undefined
-    this.schedule = undefined
+    this.stopSnapshotTimer()
+
+    this.clock = undefined
+    this.projectEndTick = 0
     this.status = 'stopped'
+    this.anchor = { tick: 0, timeMs: 0 }
     this.loopEnabled = INITIAL_TRANSPORT_SNAPSHOT.loopEnabled
     this.loopRange = undefined
-    this.playheadTick = 0
-    this.anchorTick = 0
-    this.snapshot = INITIAL_TRANSPORT_SNAPSHOT
-    this.emitListeners()
+
+    this.replaceSnapshot(INITIAL_TRANSPORT_SNAPSHOT)
     this.listeners.clear()
   }
 
-  private startTimers(): void {
-    this.stopTimers()
-    this.snapshotTimerId = setInterval(
-      () => this.emitSnapshot(),
-      SNAPSHOT_INTERVAL_MS,
-    )
-  }
-
-  private stopTimers(): void {
-    if (this.snapshotTimerId === undefined) {
-      return
+  private computePlayheadTick(): Tick {
+    if (this.status !== 'playing' || !this.clock) {
+      return this.clampTick(this.anchor.tick)
     }
 
-    clearInterval(this.snapshotTimerId)
-    this.snapshotTimerId = undefined
-  }
+    const elapsedSeconds = Math.max(0, (getNowMs() - this.anchor.timeMs) / 1000)
+    const activeLoopRange = this.getActiveLoopRange()
 
-  private getComputedPlayheadTick(): Tick {
-    const schedule = this.schedule
-
-    if (
-      this.status !== 'playing'
-      || this.workspace === undefined
-      || schedule === undefined
-    ) {
-      return this.clampTick(this.playheadTick)
+    if (activeLoopRange) {
+      return this.getLoopedTick(this.anchor.tick, elapsedSeconds, activeLoopRange)
     }
 
-    const elapsedSeconds = Math.max(0, (getNowMs() - this.anchorMs) / 1000)
-
-    if (this.loopEnabled && this.loopRange !== undefined) {
-      return this.getLoopedPlayheadTick(
-        this.anchorTick,
-        elapsedSeconds,
-        this.loopRange,
-      )
-    }
-
-    return this.getTickAfterSeconds(
-      this.anchorTick,
+    return this.clock.getTickAfterSeconds(
+      this.anchor.tick,
       elapsedSeconds,
-      schedule.projectEndTick,
+      this.projectEndTick,
     )
   }
 
-  private getLoopedPlayheadTick(
+  private getLoopedTick(
     startTick: Tick,
     elapsedSeconds: number,
     loopRange: TickRange,
   ): Tick {
-    const secondsToLoopEnd = this.getSecondsBetweenTicks(
-      startTick,
-      loopRange.endTick,
-    )
+    const clock = this.requireClock()
+    const secondsToLoopEnd = clock.getSecondsBetweenTicks(startTick, loopRange.endTick)
 
     if (elapsedSeconds < secondsToLoopEnd) {
-      return this.getTickAfterSeconds(
-        startTick,
-        elapsedSeconds,
-        loopRange.endTick,
-      )
+      return clock.getTickAfterSeconds(startTick, elapsedSeconds, loopRange.endTick)
     }
 
-    const loopDurationSeconds = this.getSecondsBetweenTicks(
+    const loopDurationSeconds = clock.getSecondsBetweenTicks(
       loopRange.startTick,
       loopRange.endTick,
     )
@@ -308,138 +222,82 @@ export class Transport {
       return loopRange.startTick
     }
 
-    const loopElapsedSeconds = positiveModulo(
+    const elapsedInsideLoop = positiveModulo(
       elapsedSeconds - secondsToLoopEnd,
       loopDurationSeconds,
     )
 
-    return this.getTickAfterSeconds(
+    return clock.getTickAfterSeconds(
       loopRange.startTick,
-      loopElapsedSeconds,
+      elapsedInsideLoop,
       loopRange.endTick,
     )
   }
 
-  private getTickAfterSeconds(
-    startTick: Tick,
-    seconds: number,
-    endTick: Tick,
-  ): Tick {
-    const workspace = this.requiredWorkspace()
-    const timeline = workspace.timeline
-    const tempoEvents = [...timeline.tempoEvents]
-      .sort((left, right) => left.tick - right.tick)
-      .filter(event => event.tick > startTick && event.tick < endTick)
+  private setPosition(tick: Tick): void {
+    const nextTick = this.clampTick(tick)
 
-    let remainingSeconds = seconds
-    let segmentStartTick = startTick
-    let bpm = getTempoAtTick(timeline, toTimelineTick(startTick))
-
-    for (const tempoEvent of tempoEvents) {
-      const segmentSeconds = ticksToSeconds(
-        tempoEvent.tick - segmentStartTick,
-        bpm,
-        timeline.ppq,
-      )
-
-      if (remainingSeconds < segmentSeconds) {
-        return segmentStartTick + secondsToTicks(
-          remainingSeconds,
-          bpm,
-          timeline.ppq,
-        )
-      }
-
-      remainingSeconds -= segmentSeconds
-      segmentStartTick = tempoEvent.tick
-      bpm = tempoEvent.bpm
+    this.anchor = {
+      tick: nextTick,
+      timeMs: getNowMs(),
     }
-
-    return Math.min(
-      endTick,
-      segmentStartTick + secondsToTicks(
-        remainingSeconds,
-        bpm,
-        timeline.ppq,
-      ),
-    )
   }
 
-  private getActiveBlockIds(playheadTick: Tick): string[] {
-    const workspace = this.workspace
-
-    if (workspace === undefined) {
-      return []
-    }
-
-    return workspace.arrangement.blocks
-      .filter(block => isTickInRange(playheadTick, {
-        endTick: block.startTick + block.lengthTicks,
-        startTick: block.startTick,
-      }))
-      .map(block => block.id)
+  private getActiveLoopRange(): TickRange | undefined {
+    return this.loopEnabled ? this.loopRange : undefined
   }
 
-  private clampTick(tick: Tick): Tick {
-    const projectEndTick = this.schedule?.projectEndTick ?? 0
-
-    return Math.max(0, Math.min(toTimelineTick(tick), projectEndTick))
-  }
-
-  private getTickInsideLoop(
-    tick: Tick,
-    loopRange: TickRange,
-  ): Tick {
-    const loopLengthTicks = loopRange.endTick - loopRange.startTick
-
-    if (loopLengthTicks <= 0) {
-      return loopRange.startTick
-    }
-
-    return loopRange.startTick
-      + positiveModulo(tick - loopRange.startTick, loopLengthTicks)
-  }
-
-  private normalizeLoopRange(
-    range: TickRange,
-  ): TickRange | undefined {
-    const schedule = this.requiredSchedule()
-
-    if (schedule.projectEndTick <= 0) {
+  private normalizeLoopRange(range: TickRange): TickRange | undefined {
+    if (this.projectEndTick <= 0) {
       return undefined
     }
 
-    const lastStartTick = Math.max(0, schedule.projectEndTick - 1)
-    const startTick = Math.min(this.clampTick(range.startTick), lastStartTick)
-    const endTick = Math.min(
-      schedule.projectEndTick,
-      Math.max(startTick + 1, this.clampTick(range.endTick)),
+    const startTick = clampNumber(
+      toTimelineTick(range.startTick),
+      0,
+      this.projectEndTick - 1,
     )
 
-    return {
-      endTick,
-      startTick,
-    }
+    const endTick = clampNumber(
+      toTimelineTick(range.endTick),
+      startTick + 1,
+      this.projectEndTick,
+    )
+
+    return { startTick, endTick }
   }
 
   private getDefaultLoopRange(): TickRange | undefined {
-    const projectEndTick = this.requiredSchedule().projectEndTick
-
-    if (projectEndTick <= 0) {
+    if (this.projectEndTick <= 0) {
       return undefined
     }
 
-    return {
-      endTick: projectEndTick,
+    return this.normalizeLoopRange({
       startTick: 0,
-    }
+      endTick: this.projectEndTick,
+    })
   }
 
-  private emitSnapshot(): void {
-    const schedule = this.schedule
-    const workspace = this.workspace
+  private clampTick(tick: Tick): Tick {
+    return clampNumber(toTimelineTick(tick), 0, this.projectEndTick)
+  }
 
-    if (schedule === undefined || workspace === undefined) {
+  private startSnapshotTimer(): void {
+    this.stopSnapshotTimer()
+    this.snapshotTimerId = setInterval(this.publishSnapshot, SNAPSHOT_INTERVAL_MS)
+  }
+
+  private stopSnapshotTimer(): void {
+    if (this.snapshotTimerId === undefined) {
+      return
+    }
+
+    clearInterval(this.snapshotTimerId)
+    this.snapshotTimerId = undefined
+  }
+
+  private readonly publishSnapshot = (): void => {
+    if (!this.clock) {
       this.replaceSnapshot(INITIAL_TRANSPORT_SNAPSHOT)
       return
     }
@@ -448,28 +306,27 @@ export class Transport {
 
     if (
       this.status === 'playing'
-      && (!this.loopEnabled || this.loopRange === undefined)
-      && playheadTick >= schedule.projectEndTick
+      && this.getActiveLoopRange() === undefined
+      && playheadTick >= this.projectEndTick
     ) {
       this.status = 'stopped'
-      this.playheadTick = schedule.projectEndTick
-      this.anchorTick = this.playheadTick
-      this.stopTimers()
-      playheadTick = this.playheadTick
+      playheadTick = this.projectEndTick
+      this.setPosition(playheadTick)
+      this.stopSnapshotTimer()
+    }
+    else {
+      this.anchor = {
+        tick: playheadTick,
+        timeMs: getNowMs(),
+      }
     }
 
-    this.playheadTick = playheadTick
-
     this.replaceSnapshot({
-      activeBlockIds: this.getActiveBlockIds(playheadTick),
-      compileWarnings: schedule.warnings,
-      loaded: true,
+      status: this.status,
+      playheadTick,
+      projectEndTick: this.projectEndTick,
       loopEnabled: this.loopEnabled,
       loopRange: this.loopRange,
-      playheadTick,
-      projectEndTick: schedule.projectEndTick,
-      scheduledEventCount: schedule.events.length,
-      status: this.status,
     })
   }
 
@@ -479,56 +336,40 @@ export class Transport {
     }
 
     this.snapshot = nextSnapshot
-    this.emitListeners()
-  }
 
-  private emitListeners(): void {
     for (const listener of this.listeners) {
       listener()
     }
   }
 
-  private requiredWorkspace(): Workspace {
-    if (this.workspace === undefined) {
-      throw new Error('No workspace has been loaded')
+  private requireClock(): TimelineClock {
+    if (!this.clock) {
+      throw new Error('No timeline has been loaded')
     }
 
-    return this.workspace
+    return this.clock
+  }
+}
+
+function getTickInsideRange(tick: Tick, range: TickRange): Tick {
+  const length = range.endTick - range.startTick
+
+  if (length <= 0) {
+    return range.startTick
   }
 
-  private requiredSchedule(): PlaybackSchedule {
-    if (this.schedule === undefined) {
-      throw new Error('No playback schedule has been loaded')
-    }
-
-    return this.schedule
-  }
+  return range.startTick + positiveModulo(tick - range.startTick, length)
 }
 
 function areTransportSnapshotsEqual(
   left: TransportSnapshot,
   right: TransportSnapshot,
 ): boolean {
-  return left.loaded === right.loaded
-    && areArraysEqual(left.activeBlockIds, right.activeBlockIds)
-    && areArraysEqual(left.compileWarnings, right.compileWarnings)
-    && left.loopEnabled === right.loopEnabled
-    && areTickRangesEqual(left.loopRange, right.loopRange)
+  return left.status === right.status
     && left.playheadTick === right.playheadTick
     && left.projectEndTick === right.projectEndTick
-    && left.scheduledEventCount === right.scheduledEventCount
-    && left.status === right.status
-}
-
-function areArraysEqual<T>(
-  left: readonly T[],
-  right: readonly T[],
-): boolean {
-  return left === right
-    || (
-      left.length === right.length
-      && left.every((value, index) => value === right[index])
-    )
+    && left.loopEnabled === right.loopEnabled
+    && areTickRangesEqual(left.loopRange, right.loopRange)
 }
 
 function areTickRangesEqual(
@@ -544,26 +385,6 @@ function areTickRangesEqual(
     )
 }
 
-function ticksToSeconds(
-  ticks: number,
-  bpm: number,
-  ppq: number,
-): number {
-  return (ticks * 60) / (bpm * ppq)
-}
-
-function secondsToTicks(
-  seconds: number,
-  bpm: number,
-  ppq: number,
-): Tick {
-  return (seconds * bpm * ppq) / 60
-}
-
 function getNowMs(): number {
   return globalThis.performance.now()
-}
-
-function toTimelineTick(tick: number): Tick {
-  return Math.max(0, Math.floor(tick))
 }

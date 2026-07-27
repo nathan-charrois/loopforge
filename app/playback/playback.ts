@@ -18,14 +18,8 @@ export class PlaybackEngine {
   private scheduleCursor: | PlaybackScheduleCursor | undefined
 
   private schedulerTimerId: | ReturnType<typeof setInterval> | undefined
-
   private scheduledThroughSeconds = 0
 
-  /*
-   * initialize() is asynchronous. This ID invalidates an old play request
-   * when pause, stop, loadWorkspace or dispose happens while initialization
-   * is still pending.
-   */
   private playRequestId = 0
   private playTask: Promise<void> | undefined
 
@@ -39,19 +33,13 @@ export class PlaybackEngine {
     this.audioEngine = audioEngine
   }
 
-  public loadWorkspace(
-    workspace: Workspace,
-  ): void {
+  public loadWorkspace(workspace: Workspace): void {
     this.requireActive()
 
     if (workspace === this.workspace) {
       return
     }
 
-    /*
-     * Compile first. If compilation fails, the currently loaded workspace
-     * and playback state remain untouched.
-     */
     const schedule = buildSchedule(workspace)
 
     this.invalidatePendingPlay()
@@ -62,11 +50,7 @@ export class PlaybackEngine {
     this.schedule = schedule
 
     this.audioEngine.loadWorkspace(workspace)
-
-    this.transport.loadWorkspace(
-      workspace,
-      schedule,
-    )
+    this.transport.loadWorkspace(workspace, schedule)
   }
 
   public play(): Promise<void> {
@@ -124,10 +108,7 @@ export class PlaybackEngine {
     }
   }
 
-  public setLoop(
-    range?: TickRange,
-    enabled?: boolean,
-  ): void {
+  public setLoop(range?: TickRange, enabled?: boolean): void {
     this.requireActive()
     this.invalidatePendingPlay()
 
@@ -158,9 +139,7 @@ export class PlaybackEngine {
     this.schedule = undefined
   }
 
-  private async beginPlayback(
-    requestId: number,
-  ): Promise<void> {
+  private async beginPlayback(requestId: number): Promise<void> {
     try {
       await this.audioEngine.initialize()
 
@@ -192,109 +171,78 @@ export class PlaybackEngine {
 
     this.stopScheduling()
 
-    const transportSnapshot
-      = this.transport.getSnapshot()
+    const transportSnapshot = this.transport.getSnapshot()
+    const startAudioTime = this.audioEngine.getCurrentTime() + PLAYBACK_START_DELAY_SECONDS
 
-    const startAudioTime
-      = this.audioEngine.getCurrentTime()
-        + PLAYBACK_START_DELAY_SECONDS
+    const loopRange = transportSnapshot.loopEnabled
+      ? transportSnapshot.loopRange
+      : undefined
 
-    const loopRange
-      = transportSnapshot.loopEnabled
-        ? transportSnapshot.loopRange
-        : undefined
+    this.scheduleCursor = new PlaybackScheduleCursor({
+      schedule,
+      startTick: this.transport.getPlayheadTick(),
+      startAudioTime,
+      loopRange,
+      secondsBetweenTicks: (startTick, endTick) =>
+        this.transport.getSecondsBetweenTicks(
+          startTick,
+          endTick,
+        ),
+    })
 
-    this.scheduleCursor
-      = new PlaybackScheduleCursor({
-        schedule,
-        startTick:
-          this.transport.getPlayheadTick(),
-        startAudioTime,
-        loopRange,
-        secondsBetweenTicks:
-          (startTick, endTick) =>
-            this.transport
-              .getSecondsBetweenTicks(
-                startTick,
-                endTick,
-              ),
-      })
-
-    this.scheduledThroughSeconds
-      = startAudioTime
+    this.scheduledThroughSeconds = startAudioTime
 
     this.schedulerTimerId = setInterval(
       this.scheduleLookahead,
       SCHEDULE_INTERVAL_MS,
     )
 
-    /*
-     * Do not wait 25 ms before scheduling the first events.
-     */
     this.scheduleLookahead()
   }
 
-  private readonly scheduleLookahead
-    = (): void => {
-      if (!this.isPlaying()) {
+  private scheduleLookahead = (): void => {
+    if (!this.isPlaying()) {
+      this.stopScheduling()
+      return
+    }
+
+    const cursor = this.scheduleCursor
+
+    if (!cursor) {
+      return
+    }
+
+    try {
+      const currentTime = this.audioEngine.getCurrentTime()
+      const windowStartSeconds = Math.max(currentTime, this.scheduledThroughSeconds)
+      const windowEndSeconds = currentTime + SCHEDULE_LOOKAHEAD_SECONDS
+
+      if (windowEndSeconds <= windowStartSeconds) {
+        return
+      }
+
+      const occurrences = cursor.readWindow(
+        windowStartSeconds,
+        windowEndSeconds,
+      )
+
+      for (const occurrence of occurrences) {
+        this.audioEngine.scheduleTrigger(occurrence)
+      }
+
+      this.scheduledThroughSeconds = windowEndSeconds
+
+      if (cursor.isFinished()) {
         this.stopScheduling()
-        return
-      }
-
-      const cursor = this.scheduleCursor
-
-      if (!cursor) {
-        return
-      }
-
-      try {
-        const currentTime
-          = this.audioEngine.getCurrentTime()
-
-        const windowStartSeconds = Math.max(
-          currentTime,
-          this.scheduledThroughSeconds,
-        )
-
-        const windowEndSeconds
-          = currentTime
-            + SCHEDULE_LOOKAHEAD_SECONDS
-
-        if (
-          windowEndSeconds
-          <= windowStartSeconds
-        ) {
-          return
-        }
-
-        const occurrences = cursor.readWindow(
-          windowStartSeconds,
-          windowEndSeconds,
-        )
-
-        for (const occurrence of occurrences) {
-          this.audioEngine.scheduleTrigger(
-            occurrence,
-          )
-        }
-
-        this.scheduledThroughSeconds
-          = windowEndSeconds
-
-        if (cursor.isFinished()) {
-          this.stopScheduling()
-        }
-      }
-      catch (error) {
-        console.error(
-          'Playback scheduling failed',
-          error,
-        )
-
-        this.stopScheduledAudio()
-        this.transport.stop()
       }
     }
+    catch (error) {
+      console.error('Playback scheduling failed', error)
+
+      this.stopScheduledAudio()
+      this.transport.stop()
+    }
+  }
 
   private stopScheduledAudio(): void {
     this.stopScheduling()
@@ -319,24 +267,16 @@ export class PlaybackEngine {
   private isCurrentPlayRequest(
     requestId: number,
   ): boolean {
-    return (
-      !this.disposed
-      && requestId === this.playRequestId
-    )
+    return !this.disposed && requestId === this.playRequestId
   }
 
   private isPlaying(): boolean {
-    return (
-      this.transport.getSnapshot().status
-      === 'playing'
-    )
+    return this.transport.getSnapshot().status === 'playing'
   }
 
   private requireSchedule(): PlaybackSchedule {
     if (!this.schedule) {
-      throw new Error(
-        'No playback schedule has been loaded',
-      )
+      throw new Error('No playback schedule has been loaded')
     }
 
     return this.schedule
@@ -344,9 +284,7 @@ export class PlaybackEngine {
 
   private requireActive(): void {
     if (this.disposed) {
-      throw new Error(
-        'Playback engine has been disposed',
-      )
+      throw new Error('Playback engine has been disposed')
     }
   }
 }

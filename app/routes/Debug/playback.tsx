@@ -15,7 +15,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Divider,
   Group,
   Paper,
   Select,
@@ -77,7 +76,6 @@ import {
 import { useTransportSnapshot } from '~/hooks/useTransport'
 import type { PlaybackEngine } from '~/playback/playback'
 import {
-  type TransportSnapshot,
   type TransportStatus,
 } from '~/playback/transport'
 import {
@@ -99,7 +97,6 @@ import {
   summarizeWorkspaceAction,
   updateBlock as updateWorkspaceBlock,
   updateSection as updateWorkspaceSection,
-  validateWorkspace,
   type Workspace,
 } from '~/store/workspace'
 
@@ -194,8 +191,8 @@ function PlaybackDebugContent() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
 
   const [actions, setActions] = useState<ActionLogEntry[]>([])
+  console.log(actions)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
 
   useEffect(() => {
     playbackEngine.loadWorkspace(workspace)
@@ -572,12 +569,10 @@ function PlaybackDebugContent() {
 
           <PlaybackRuntime
             playbackEngine={playbackEngine}
-            actions={actions}
             onError={setErrorMessage}
             onSelectBlock={handleSelectBlock}
             onSelectSection={handleSelectSection}
             workspace={workspace}
-            workspaceErrors={workspaceErrors}
             selectedBlockId={selectedBlockId}
             selectedSectionId={selectedSectionId}
           />
@@ -737,23 +732,19 @@ function PlaybackDebugContent() {
 }
 
 function PlaybackRuntime({
-  actions,
   playbackEngine,
   onError,
   onSelectBlock,
   onSelectSection,
   workspace,
-  workspaceErrors,
   selectedBlockId,
   selectedSectionId,
 }: {
-  actions: ActionLogEntry[]
   playbackEngine: PlaybackEngine
   onError: (message: string | null) => void
   onSelectBlock: (block: Block) => void
   onSelectSection: (section: Section) => void
   workspace: Workspace
-  workspaceErrors: string[]
   selectedBlockId: string | null
   selectedSectionId: string | null
 }) {
@@ -768,10 +759,7 @@ function PlaybackRuntime({
   const activeTimelineTick = toTimelineTick(transportSnapshot.playheadTick)
   const activeTempo = getTempoAtTick(workspace.timeline, activeTimelineTick)
   const activeMeter = getMeterAtTick(workspace.timeline, activeTimelineTick)
-  const activeBlocks = useMemo(
-    () => workspace.arrangement.blocks.filter(block => transportSnapshot.activeBlockIds.includes(block.id)),
-    [workspace.arrangement.blocks, transportSnapshot.activeBlockIds],
-  )
+  const activeBlocks: Block[] = []
   const handleSeek = useCallback((tick: Tick) => {
     const nextTick = toTimelineTick(tick)
 
@@ -878,11 +866,6 @@ function PlaybackRuntime({
               <Badge variant="light">
                 {formatTickAsBars(workspace.timeline, transportSnapshot.playheadTick)}
               </Badge>
-              <Badge variant="light">
-                {transportSnapshot.scheduledEventCount}
-                {' '}
-                scheduled
-              </Badge>
             </Group>
           </Group>
 
@@ -929,76 +912,7 @@ function PlaybackRuntime({
         timelineWidth={timelineWidth}
       />
 
-      <MemoizedPlaybackDomainState
-        actions={actions}
-        compileWarnings={transportSnapshot.compileWarnings}
-        workspaceErrors={workspaceErrors}
-      />
     </>
-  )
-}
-
-const MemoizedPlaybackDomainState = memo(PlaybackDomainState)
-
-function PlaybackDomainState({
-  actions,
-  compileWarnings,
-  workspaceErrors,
-}: {
-  actions: ActionLogEntry[]
-  compileWarnings: TransportSnapshot['compileWarnings']
-  workspaceErrors: string[]
-}) {
-  return (
-    <Paper withBorder radius="sm" p="md">
-      <Stack gap="sm">
-        <Group justify="space-between">
-          <Title order={2} size="h3">Domain State</Title>
-          <Badge color={workspaceErrors.length === 0 ? 'green' : 'red'} variant="light">
-            {workspaceErrors.length === 0 ? 'valid' : `${workspaceErrors.length} errors`}
-          </Badge>
-        </Group>
-        {workspaceErrors.length > 0 && (
-          <Stack gap={2}>
-            {workspaceErrors.map(error => (
-              <Text key={error} c="red" size="sm">{error}</Text>
-            ))}
-          </Stack>
-        )}
-        {compileWarnings.length > 0 && (
-          <Stack gap={2}>
-            {compileWarnings.map(warning => (
-              <Text key={warning.id} c="yellow.8" size="sm">{warning.message}</Text>
-            ))}
-          </Stack>
-        )}
-        <Divider />
-        <Group justify="space-between">
-          <Text size="sm" fw={600}>Actions</Text>
-          <Badge color="gray" variant="light">{actions.length}</Badge>
-        </Group>
-        {actions.length === 0 && (
-          <Text c="dimmed" size="sm">No actions yet</Text>
-        )}
-        {actions.length > 0 && (
-          <>
-            {actions.map(action => (
-              <Paper key={action.id} withBorder radius="sm" p="sm">
-                <Stack gap="xs">
-                  <Group justify="space-between">
-                    <Text size="sm" fw={600}>{action.label}</Text>
-                    <Badge color="gray" variant="light">{action.id}</Badge>
-                  </Group>
-                  <Box component="pre" m={0} p="sm" style={preStyle}>
-                    {formatOutput(action.value)}
-                  </Box>
-                </Stack>
-              </Paper>
-            ))}
-          </>
-        )}
-      </Stack>
-    </Paper>
   )
 }
 
@@ -1567,24 +1481,4 @@ function getTransportColor(status: TransportStatus): string {
     default:
       return 'gray'
   }
-}
-
-function formatOutput(value: unknown): string {
-  if (value === undefined) {
-    return 'undefined'
-  }
-
-  const json = JSON.stringify(value, null, 2)
-
-  return json ?? String(value)
-}
-
-const preStyle = {
-  background: 'var(--mantine-color-gray-0)',
-  border: '1px solid var(--mantine-color-gray-3)',
-  borderRadius: 4,
-  fontSize: 12,
-  maxHeight: 360,
-  overflow: 'auto',
-  whiteSpace: 'pre-wrap',
 }

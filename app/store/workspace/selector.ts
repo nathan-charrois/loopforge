@@ -112,6 +112,13 @@ export function selectBlocksByTrackId(workspace: Workspace, trackId: TrackId): B
   return workspace.arrangement.blocks.filter(block => block.trackId === trackId)
 }
 
+export function selectBlocksAtTick(workspace: Workspace, tick: Tick): Block[] {
+  return selectBlocksInRange(workspace, {
+    startTick: tick,
+    endTick: tick + 1,
+  })
+}
+
 export function selectBlocksInRange(workspace: Workspace, range: TickRange): Block[] {
   return workspace.arrangement.blocks.filter(block => isBlockInRange(block, range))
 }
