@@ -1,9 +1,9 @@
-import { AudioEngine } from './audioEngine'
+import { AudioEngine } from '../audio/audioEngine'
 import type { Tick, TickRange } from '~/domain'
-import { buildSchedule, type PlaybackSchedule } from '~/playback/schedule'
+import { buildSchedule, type PlaybackSchedule } from '~/playback/buildSchedule'
 import { PlaybackScheduleCursor } from '~/playback/scheduleCursor'
+import { Transport } from '~/playback/transport'
 import type { Workspace } from '~/store/workspace'
-import { Transport } from '~/utils/transport'
 
 const SCHEDULE_INTERVAL_MS = 25
 const SCHEDULE_LOOKAHEAD_SECONDS = 0.1

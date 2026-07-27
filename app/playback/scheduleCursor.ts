@@ -1,6 +1,6 @@
 // Adjust these imports to wherever these existing types live.
 import type { Tick, TickRange } from '~/domain'
-import type { PlaybackScheduleWarning, PlaybackTrigger, ScheduledPlaybackEvent } from '~/playback/schedule'
+import type { PlaybackScheduleWarning, PlaybackTrigger, ScheduledPlaybackEvent } from '~/playback/buildSchedule'
 
 /**
  * Immutable compiled representation of a Workspace.

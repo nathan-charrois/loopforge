@@ -28,7 +28,6 @@ import {
 } from '@mantine/core'
 
 import { DebugNav } from './DebugNav'
-import type { PlaybackEngine } from '~/audio'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
@@ -76,6 +75,11 @@ import {
   type TrackRole,
 } from '~/domain'
 import { useTransportSnapshot } from '~/hooks/useTransport'
+import type { PlaybackEngine } from '~/playback/playback'
+import {
+  type TransportSnapshot,
+  type TransportStatus,
+} from '~/playback/transport'
 import {
   addBlock as addWorkspaceBlock,
   addPattern as addWorkspacePattern,
@@ -98,10 +102,6 @@ import {
   validateWorkspace,
   type Workspace,
 } from '~/store/workspace'
-import {
-  type TransportSnapshot,
-  type TransportStatus,
-} from '~/utils/transport'
 
 const TICK_WIDTH = 0.09
 const TRACK_ROW_HEIGHT = 58

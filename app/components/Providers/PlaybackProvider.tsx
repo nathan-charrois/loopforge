@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import { useSessionStore } from './SessionProvider'
-import { PlaybackEngine } from '~/audio'
+import { PlaybackEngine } from '~/playback/playback'
 import type { Workspace } from '~/store/workspace'
 
 const PlaybackEngineContext = createContext<PlaybackEngine | undefined>(undefined)

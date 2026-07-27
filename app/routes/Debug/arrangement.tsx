@@ -63,7 +63,6 @@ import {
 } from '@mantine/core'
 
 import { DebugNav } from './DebugNav'
-import type { PlaybackEngine } from '~/audio'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
@@ -126,6 +125,7 @@ import {
   useTransportStatus,
 } from '~/hooks/useTransport'
 import { useViewport } from '~/hooks/useViewport'
+import type { PlaybackEngine } from '~/playback/playback'
 import {
   ACTIVE_TOOLS,
   type ActiveTool,

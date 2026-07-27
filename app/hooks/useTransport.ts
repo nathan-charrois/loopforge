@@ -8,12 +8,12 @@ import {
   useSyncExternalStore,
 } from 'react'
 
-import type { PlaybackEngine } from '~/audio'
+import type { PlaybackEngine } from '~/playback/playback'
+import type { TransportSnapshot, TransportStatus } from '~/playback/transport'
 import {
   tickToX,
   xToTick,
 } from '~/store/editor'
-import type { TransportSnapshot, TransportStatus } from '~/utils/transport'
 
 export function useTransportStatus(playbackEngine: PlaybackEngine): TransportStatus {
   const getSnapshot = useCallback(

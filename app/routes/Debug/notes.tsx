@@ -82,7 +82,8 @@ import {
   type NotePlaybackTrigger,
   type PlaybackTrigger,
   type ScheduledPlaybackEvent,
-} from '~/playback/schedule'
+} from '~/playback/buildSchedule'
+import type { TransportStatus } from '~/playback/transport'
 import { createEntityStore } from '~/store/type'
 import { createWorkspace, type Workspace } from '~/store/workspace'
 import {
@@ -91,7 +92,6 @@ import {
   parseInteger,
   parseNumber,
 } from '~/utils/number'
-import type { TransportStatus } from '~/utils/transport'
 
 const LOOP_WIDTH = 850
 const LOOP_HEIGHT = 460

@@ -1,8 +1,8 @@
+import { positiveModulo } from '../utils/number'
 import type {
   PlaybackSchedule,
   PlaybackScheduleWarning,
-} from '../playback/schedule'
-import { positiveModulo } from './number'
+} from './buildSchedule'
 import {
   getTempoAtTick,
   isTickInRange,

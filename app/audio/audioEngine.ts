@@ -5,7 +5,7 @@ import {
   type DrumPiece,
   type MelodicInstrument,
 } from '~/domain'
-import type { PlaybackTrigger } from '~/playback/schedule'
+import type { PlaybackTrigger } from '~/playback/buildSchedule'
 import {
   selectInstrument,
   selectTrack,
