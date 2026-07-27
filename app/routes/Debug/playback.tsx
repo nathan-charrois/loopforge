@@ -691,7 +691,7 @@ function PlaybackDebugContent() {
                   <Button
                     variant="light"
                     onClick={() => handleAddBlock(
-                      playbackEngine.getSnapshot().transport.playheadTick,
+                      playbackEngine.transport.getSnapshot().playheadTick,
                     )}
                   >
                     Add At Playhead
@@ -789,11 +789,11 @@ function PlaybackRuntime({
     let frameId = 0
     let lastSliderUpdateMs = 0
     let lastSliderTick = toTimelineTick(
-      playbackEngine.getSnapshot().transport.playheadTick,
+      playbackEngine.transport.getSnapshot().playheadTick,
     )
 
     function updatePlayheadTransform(nowMs: number) {
-      const playheadTick = playbackEngine.getSnapshot().transport.playheadTick
+      const playheadTick = playbackEngine.transport.getSnapshot().playheadTick
 
       if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
         playheadRef.current.style.transform = `translateX(${playheadTick * TICK_WIDTH}px)`
@@ -821,7 +821,7 @@ function PlaybackRuntime({
   }, [playbackEngine])
 
   function handlePlay() {
-    void playbackEngine.play().catch((error: unknown) => {
+    playbackEngine.play().catch((error: unknown) => {
       onError(error instanceof Error ? error.message : String(error))
     })
   }
@@ -1564,6 +1564,7 @@ function getTransportColor(status: TransportStatus): string {
     case 'playing':
       return 'green'
     case 'stopped':
+    default:
       return 'gray'
   }
 }

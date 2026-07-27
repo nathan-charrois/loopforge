@@ -40,7 +40,7 @@ export function PlaybackProvider({ children }: Props) {
 
     return () => {
       unsubscribe()
-      playbackEngine.dispose()
+      playbackEngine.stop()
     }
   }, [sessionStore, playbackEngine])
 

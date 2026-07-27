@@ -1,8 +1,8 @@
-import { positiveModulo } from './number'
 import type {
   PlaybackSchedule,
   PlaybackScheduleWarning,
-} from './schedule'
+} from '../playback/schedule'
+import { positiveModulo } from './number'
 import {
   getTempoAtTick,
   isTickInRange,
@@ -70,14 +70,14 @@ export class Transport {
     }
   }
 
-  public load(input: TransportLoadInput): void {
+  public loadWorkspace(workspace: Workspace, schedule: PlaybackSchedule): void {
     const previousPlayheadTick = this.workspace === undefined
       ? 0
       : this.getPlayheadTick()
 
     this.stopTimers()
-    this.workspace = input.workspace
-    this.schedule = input.schedule
+    this.workspace = workspace
+    this.schedule = schedule
     this.status = 'stopped'
 
     this.loopRange = this.loopRange === undefined

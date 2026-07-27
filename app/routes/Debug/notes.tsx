@@ -77,6 +77,12 @@ import {
   type VoicingType,
 } from '~/domain'
 import { useTransportSnapshot } from '~/hooks/useTransport'
+import {
+  buildSchedule,
+  type NotePlaybackTrigger,
+  type PlaybackTrigger,
+  type ScheduledPlaybackEvent,
+} from '~/playback/schedule'
 import { createEntityStore } from '~/store/type'
 import { createWorkspace, type Workspace } from '~/store/workspace'
 import {
@@ -85,12 +91,6 @@ import {
   parseInteger,
   parseNumber,
 } from '~/utils/number'
-import {
-  buildSchedule,
-  type NotePlaybackTrigger,
-  type PlaybackTrigger,
-  type ScheduledPlaybackEvent,
-} from '~/utils/schedule'
 import type { TransportStatus } from '~/utils/transport'
 
 const LOOP_WIDTH = 850
@@ -459,7 +459,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
     let frameId = 0
 
     function updatePlayheadTransform() {
-      const currentTick = playbackEngine.getSnapshot().transport.playheadTick
+      const currentTick = playbackEngine.transport.getSnapshot().playheadTick
 
       if (playheadRef.current !== null && Number.isFinite(currentTick)) {
         playheadRef.current.style.transform = `translateX(${getLoopX(currentTick, model.loopLengthTicks)}px)`
@@ -476,7 +476,7 @@ function NotesLooper({ model }: { model: NotesModel }) {
   }, [model.loopLengthTicks, playbackEngine])
 
   function handlePlay() {
-    void playbackEngine.play()
+    playbackEngine.play()
   }
 
   function handlePause() {

@@ -1027,7 +1027,7 @@ const PlaybackControls = memo(function PlaybackControls({
           disabled={status === 'playing'}
           size="lg"
           variant={status === 'playing' ? 'filled' : 'light'}
-          onClick={() => void playbackEngine.play()}
+          onClick={() => playbackEngine.play()}
         >
           <HugeiconsIcon icon={PlayIcon} size={18} />
         </ActionIcon>

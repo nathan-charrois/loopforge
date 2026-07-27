@@ -57,6 +57,7 @@ export function useSessionStore(): SessionStore {
 
 export function useSession() {
   const store = useSessionStore()
+
   const session = useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,

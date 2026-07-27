@@ -5,12 +5,12 @@ import {
   type DrumPiece,
   type MelodicInstrument,
 } from '~/domain'
+import type { PlaybackTrigger } from '~/playback/schedule'
 import {
   selectInstrument,
   selectTrack,
   type Workspace,
 } from '~/store/workspace'
-import type { PlaybackTrigger } from '~/utils/schedule'
 
 export type AudioEngineState
   = | 'uninitialized'

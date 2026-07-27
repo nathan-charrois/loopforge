@@ -13,23 +13,16 @@ import {
   tickToX,
   xToTick,
 } from '~/store/editor'
-import type {
-  TransportSnapshot,
-  TransportStatus,
-} from '~/utils/transport'
+import type { TransportSnapshot, TransportStatus } from '~/utils/transport'
 
 export function useTransportStatus(playbackEngine: PlaybackEngine): TransportStatus {
-  const subscribe = useCallback(
-    (listener: () => void) => playbackEngine.subscribe(listener),
-    [playbackEngine],
-  )
   const getSnapshot = useCallback(
-    () => playbackEngine.getSnapshot().transport.status,
+    () => playbackEngine.transport.getSnapshot().status,
     [playbackEngine],
   )
 
   return useSyncExternalStore(
-    subscribe,
+    playbackEngine.transport.subscribe,
     getSnapshot,
     getSnapshot,
   )
@@ -38,19 +31,10 @@ export function useTransportStatus(playbackEngine: PlaybackEngine): TransportSta
 export function useTransportSnapshot(
   playbackEngine: PlaybackEngine,
 ): TransportSnapshot {
-  const subscribe = useCallback(
-    (listener: () => void) => playbackEngine.subscribe(listener),
-    [playbackEngine],
-  )
-  const getSnapshot = useCallback(
-    () => playbackEngine.getSnapshot().transport,
-    [playbackEngine],
-  )
-
   return useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getSnapshot,
+    playbackEngine.transport.subscribe,
+    playbackEngine.transport.getSnapshot,
+    playbackEngine.transport.getSnapshot,
   )
 }
 
@@ -64,7 +48,7 @@ export function useTransportPlayhead(
 
   const getSeekTickFromClientX = useCallback((clientX: number) => {
     if (timelineRef.current === null) {
-      return playbackEngine.getSnapshot().transport.playheadTick
+      return playbackEngine.transport.getSnapshot().playheadTick
     }
 
     const rect = timelineRef.current.getBoundingClientRect()
@@ -73,7 +57,7 @@ export function useTransportPlayhead(
     return Math.max(
       0,
       Math.min(
-        playbackEngine.getSnapshot().transport.projectEndTick,
+        playbackEngine.transport.getSnapshot().projectEndTick,
         Math.round(rawTick),
       ),
     )
@@ -117,7 +101,7 @@ export function useTransportPlayhead(
     let frameId = 0
 
     function updatePlayheadTransform() {
-      const playheadTick = playbackEngine.getSnapshot().transport.playheadTick
+      const playheadTick = playbackEngine.transport.getSnapshot().playheadTick
 
       if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
         playheadRef.current.style.transform = `translateX(${tickToX(pixelsPerTick, playheadTick)}px)`
