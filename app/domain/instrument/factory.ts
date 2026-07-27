@@ -31,11 +31,13 @@ export function createDrumInstrument(input: {
 }
 
 export function createDrumPieceSound(input: {
+  durationSeconds?: number
   soundId: InstrumentSoundId
   pitchSemitones?: number
   volumeDb?: number
 }): DrumPieceSound {
   return {
+    durationSeconds: input.durationSeconds,
     pitchSemitones: input.pitchSemitones ?? 0,
     soundId: input.soundId,
     volumeDb: input.volumeDb ?? 0,

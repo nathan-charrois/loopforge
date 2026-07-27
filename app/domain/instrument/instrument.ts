@@ -22,6 +22,7 @@ export type DrumInstrument = {
 }
 
 export type DrumPieceSound = {
+  durationSeconds?: number
   soundId: InstrumentSoundId
   volumeDb: number
   pitchSemitones: number

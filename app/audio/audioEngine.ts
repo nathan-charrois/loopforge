@@ -266,7 +266,11 @@ export class AudioEngine {
     const sound = instrument.pieces[piece]
     const drum = getDrumVoiceSettings(piece)
     const pitchRatio = 2 ** ((sound?.pitchSemitones ?? 0) / 12)
-    const endSeconds = whenSeconds + drum.durationSeconds
+    const durationSeconds = Math.max(
+      0.02,
+      sound?.durationSeconds ?? drum.durationSeconds,
+    )
+    const endSeconds = whenSeconds + durationSeconds
     const peakGain = Math.max(0, Math.min(1, velocity / 127))
       * decibelsToGain(sound?.volumeDb ?? 0)
 
