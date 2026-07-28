@@ -22,6 +22,8 @@ export const INITIAL_TRANSPORT_SNAPSHOT: TransportSnapshot = {
   loopRange: undefined,
 }
 
+export const PLAYBACK_START_DELAY_MS = 20
+
 const SNAPSHOT_INTERVAL_MS = 28
 
 type PlaybackAnchor = {
@@ -163,6 +165,17 @@ export class Transport {
     return toTimelineTick(this.computePlayheadTick())
   }
 
+  public setPlaybackAnchor(): Tick {
+    this.requireClock()
+
+    const tick = this.getPlayheadTick()
+
+    this.setPosition(tick, getNowMs() + PLAYBACK_START_DELAY_MS)
+    this.publishSnapshot()
+
+    return tick
+  }
+
   public getSecondsBetweenTicks(startTick: Tick, endTick: Tick): number {
     return this.requireClock().getSecondsBetweenTicks(startTick, endTick)
   }
@@ -233,12 +246,12 @@ export class Transport {
     )
   }
 
-  private setPosition(tick: Tick): void {
+  private setPosition(tick: Tick, timeMs = getNowMs()): void {
     const nextTick = this.clampTick(tick)
 
     this.anchor = {
       tick: nextTick,
-      timeMs: getNowMs(),
+      timeMs,
     }
   }
 
@@ -312,12 +325,6 @@ export class Transport {
       playheadTick = this.projectEndTick
       this.setPosition(playheadTick)
       this.stopSnapshotTimer()
-    }
-    else {
-      this.anchor = {
-        tick: playheadTick,
-        timeMs: getNowMs(),
-      }
     }
 
     this.replaceSnapshot({

@@ -17,7 +17,6 @@ import {
   Delete01Icon,
   EraserIcon,
   GridIcon,
-  HeadphonesIcon,
   HoldIcon,
   Key01Icon,
   MagnetIcon,
@@ -1301,17 +1300,17 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
                 variant={mixChannel.muted ? 'filled' : 'light'}
                 onClick={event => onClickMute(event, mixChannel)}
               >
-                <HugeiconsIcon icon={MuteIcon} size={14} />
+                <Text size="xs">M</Text>
               </ActionIcon>
               <ActionIcon
                 aria-label={`Solo ${track.name}`}
                 aria-pressed={mixChannel.soloed}
-                color={mixChannel.soloed ? 'yellow' : 'gray'}
+                color={mixChannel.soloed ? 'green' : 'gray'}
                 size="sm"
                 variant={mixChannel.soloed ? 'filled' : 'light'}
                 onClick={event => onClickSolo(event, mixChannel)}
               >
-                <HugeiconsIcon icon={HeadphonesIcon} size={14} />
+                <Text size="xs">S</Text>
               </ActionIcon>
             </Group>
           </StaticTimelineLabel>

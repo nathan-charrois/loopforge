@@ -2,12 +2,11 @@ import { AudioEngine } from '../audio/audioEngine'
 import type { Tick, TickRange } from '~/domain'
 import { buildSchedule, type PlaybackSchedule } from '~/playback/buildSchedule'
 import { PlaybackScheduleCursor } from '~/playback/scheduleCursor'
-import { Transport } from '~/playback/transport'
+import { PLAYBACK_START_DELAY_MS, Transport } from '~/playback/transport'
 import type { Workspace } from '~/store/workspace'
 
 const SCHEDULE_INTERVAL_MS = 25
 const SCHEDULE_LOOKAHEAD_SECONDS = 0.1
-const PLAYBACK_START_DELAY_SECONDS = 0.02
 
 export class PlaybackEngine {
   public readonly audioEngine: AudioEngine
@@ -175,15 +174,17 @@ export class PlaybackEngine {
     this.stopScheduling()
 
     const transportSnapshot = this.transport.getSnapshot()
-    const startAudioTime = this.audioEngine.getCurrentTime() + PLAYBACK_START_DELAY_SECONDS
+    const startAudioTime = this.audioEngine.getCurrentTime() + (PLAYBACK_START_DELAY_MS / 1000)
 
     const loopRange = transportSnapshot.loopEnabled
       ? transportSnapshot.loopRange
       : undefined
 
+    const startTick = this.transport.setPlaybackAnchor()
+
     this.scheduleCursor = new PlaybackScheduleCursor({
       schedule,
-      startTick: this.transport.getPlayheadTick(),
+      startTick,
       startAudioTime,
       loopRange,
       secondsBetweenTicks: (startTick, endTick) =>
