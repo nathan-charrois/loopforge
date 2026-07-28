@@ -2427,8 +2427,13 @@ const InspectorPanel = memo(function InspectorPanel({
                   }))}
                 />
 
-                <Stack gap="sm" mt="sm">
-                  <Text fw={700} size="sm">Chord</Text>
+                <SimpleGrid
+                  cols={{ base: 1, sm: 2 }}
+                  mt="xs"
+                  spacing="xs"
+                  verticalSpacing="xs"
+                >
+                  <Text fw={700} size="sm" style={{ gridColumn: '1 / -1' }}>Chord</Text>
                   <Select
                     allowDeselect={false}
                     data={PITCH_CLASS_OPTIONS}
@@ -2495,10 +2500,15 @@ const InspectorPanel = memo(function InspectorPanel({
                       },
                     }))}
                   />
-                </Stack>
+                </SimpleGrid>
 
-                <Stack gap="sm" mt="sm">
-                  <Text fw={700} size="sm">Voicing</Text>
+                <SimpleGrid
+                  cols={{ base: 1, sm: 2 }}
+                  mt="xs"
+                  spacing="xs"
+                  verticalSpacing="xs"
+                >
+                  <Text fw={700} size="sm" style={{ gridColumn: '1 / -1' }}>Voicing</Text>
                   <Select
                     allowDeselect={false}
                     data={VOICING_TYPES.map(value => ({ label: value, value }))}
@@ -2606,10 +2616,16 @@ const InspectorPanel = memo(function InspectorPanel({
                       }
                     }}
                   />
-                </Stack>
+                </SimpleGrid>
 
-                <Stack gap="sm" mt="sm" mb="md">
-                  <Text fw={700} size="sm">Playback</Text>
+                <SimpleGrid
+                  cols={{ base: 1, sm: 2 }}
+                  mb="sm"
+                  mt="xs"
+                  spacing="xs"
+                  verticalSpacing="xs"
+                >
+                  <Text fw={700} size="sm" style={{ gridColumn: '1 / -1' }}>Playback</Text>
                   <Select
                     allowDeselect={false}
                     data={CHORD_PLAYBACK_STYLES.map(value => ({ label: value, value }))}
@@ -2692,7 +2708,7 @@ const InspectorPanel = memo(function InspectorPanel({
                       },
                     }))}
                   />
-                </Stack>
+                </SimpleGrid>
               </>
             )}
             {draft.patternEventKind === 'note' && (
