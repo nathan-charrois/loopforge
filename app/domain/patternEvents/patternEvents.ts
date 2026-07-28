@@ -7,7 +7,13 @@ import {
   type Velocity,
 } from '../musicPrimitives'
 import type { ChordPlayback } from '../playback'
-import type { ChordVoicing } from '../voicing'
+import {
+  type ChordVoicing,
+  DEFAULT_VOICING_OCTAVE,
+  materializeChordVoicing,
+  materializeNoteVoicing,
+  type VoicedNote,
+} from '../voicing'
 
 export type PatternEventId = string
 export type AutomationValue = boolean | number | string
@@ -48,6 +54,18 @@ export type AutomationEvent = BasePatternEvent & {
 export type PatternEvent = ChordEvent | NoteEvent | DrumHitEvent | AutomationEvent
 
 type TimedEvent = ChordEvent | NoteEvent
+
+export function getVoicedNotesFromPatternEvent(patternEvent: PatternEvent): VoicedNote[] {
+  switch (patternEvent.kind) {
+    case 'chord':
+      return materializeChordVoicing(patternEvent.chord, patternEvent.voicing)
+    case 'note':
+      return materializeNoteVoicing(patternEvent.pitch, DEFAULT_VOICING_OCTAVE)
+    case 'automation':
+    case 'drumHit':
+      return []
+  }
+}
 
 export function isTimedPatternEvent(event: PatternEvent): event is TimedEvent {
   return event.kind === 'chord' || event.kind === 'note'

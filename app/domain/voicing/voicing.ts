@@ -49,6 +49,15 @@ export function materializeChordVoicing(chord: ChordSymbol, voicing: ChordVoicin
     .map(midiNoteToVoicedNote)
 }
 
+export function materializeNoteVoicing(
+  pitch: MidiNote,
+  octave: Octave,
+): VoicedNote[] {
+  const midiNote = midiNoteFromPitchClass(pitchClassFromMidiNote(pitch), octave)
+
+  return [midiNoteToVoicedNote(midiNote, 0)]
+}
+
 function orderPitchClassesFromRoot(pitchClasses: PitchClass[], root: PitchClass): PitchClass[] {
   return [...pitchClasses].sort((left, right) => {
     const leftDistance = (left - root + 12) % 12

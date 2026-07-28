@@ -16,6 +16,7 @@ import {
 
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
+import { Piano } from '~/components/piano/piano'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
   CHORD_ALTERATIONS,
@@ -32,15 +33,12 @@ import {
   formatChordSymbol,
   getChordPitchClasses,
   getNoteNameForPitchClass,
-  getOctaveForMidiNote,
   materializeChordVoicing,
-  type MidiNote,
   type Mode,
   MODES,
   type Octave,
   PITCH_CLASSES,
   type PitchClass,
-  pitchClassFromMidiNote,
   type Register,
   REGISTERS,
   type VoicedNote,
@@ -49,20 +47,9 @@ import {
 } from '~/domain'
 import { parseInteger } from '~/utils/number'
 
-const KEY_COUNT = 60
-const PIANO_ROLL_START_OCTAVE: Octave = 1
 const NO_PITCH_CLASS = 'none'
-const BLACK_PITCH_CLASSES = new Set<PitchClass>([1, 3, 6, 8, 10])
 
 type OptionalPitchClass = typeof NO_PITCH_CLASS | string
-
-type PianoKey = {
-  isBlackKey: boolean
-  midiNote: MidiNote
-  noteName: string
-  octave: Octave
-  pitchClass: PitchClass
-}
 
 const PITCH_CLASS_OPTIONS = PITCH_CLASSES.map(pitchClass => ({
   label: `${getNoteNameForPitchClass(pitchClass)} (${pitchClass})`,
@@ -148,10 +135,13 @@ export default function Chord() {
             </Badge>
           </Group>
 
-          <PianoRoll
-            hasBassNote={voicing.bassNote !== undefined}
-            notes={voicedNotes}
-          />
+          <Paper withBorder radius="sm" p="md">
+            <Piano
+              hasBassNote={voicing.bassNote !== undefined}
+              startOctave={voicing.octave}
+              voicedNotes={voicedNotes}
+            />
+          </Paper>
 
           <SimpleGrid cols={{ base: 1, md: 3 }}>
             <SettingsPanel
@@ -194,119 +184,6 @@ export default function Chord() {
         </Stack>
       </AppLayout>
     </AppProvider>
-  )
-}
-
-function PianoRoll({
-  hasBassNote,
-  notes,
-}: {
-  hasBassNote: boolean
-  notes: VoicedNote[]
-}) {
-  const keys = createPianoKeys(PIANO_ROLL_START_OCTAVE)
-  const notesByMidiNote = new Map(notes.map(note => [note.midiNote, note]))
-  const bassMidiNote = hasBassNote ? notes[0]?.midiNote : undefined
-
-  return (
-    <Paper withBorder radius="sm" p="md">
-      <Stack gap="md">
-        <Group justify="space-between" align="center">
-          <Title order={2} size="h3">Piano Roll</Title>
-          <Badge variant="light">
-            {formatOctaveRange(PIANO_ROLL_START_OCTAVE)}
-          </Badge>
-        </Group>
-
-        <Box style={{ overflowX: 'auto' }}>
-          <Box
-            aria-label="Chord piano roll"
-            role="list"
-            style={{
-              display: 'grid',
-              gap: 2,
-              gridTemplateColumns: `repeat(${KEY_COUNT}, minmax(14px, 1fr))`,
-              minWidth: 960,
-            }}
-          >
-            {keys.map(key => (
-              <PianoRollKey
-                key={key.midiNote}
-                keyData={key}
-                note={notesByMidiNote.get(key.midiNote)}
-                tone={key.midiNote === bassMidiNote ? 'bass' : 'chord'}
-              />
-            ))}
-          </Box>
-        </Box>
-      </Stack>
-    </Paper>
-  )
-}
-
-function PianoRollKey({
-  keyData,
-  note,
-  tone,
-}: {
-  keyData: PianoKey
-  note?: VoicedNote
-  tone: 'bass' | 'chord'
-}) {
-  const highlighted = note !== undefined
-  const background = getKeyBackground(keyData.isBlackKey, highlighted, tone)
-  const borderColor = getKeyBorderColor(keyData.isBlackKey, highlighted, tone)
-  const textColor = getKeyTextColor(keyData.isBlackKey, highlighted)
-  const label = highlighted
-    ? `${keyData.noteName}${keyData.octave}`
-    : ''
-
-  return (
-    <Box
-      aria-label={`${keyData.noteName}${keyData.octave}`}
-      role="listitem"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 172,
-        justifyContent: 'space-between',
-      }}
-    >
-      <Box
-        style={{
-          alignItems: 'flex-end',
-          background,
-          border: `1px solid ${borderColor}`,
-          borderRadius: 3,
-          color: textColor,
-          display: 'flex',
-          height: keyData.isBlackKey ? 108 : 150,
-          justifyContent: 'center',
-          padding: '0 2px 8px',
-        }}
-      >
-        {label.length > 0 && (
-          <Text
-            fw={highlighted ? 700 : 500}
-            size="10px"
-            style={{
-              lineHeight: 1,
-              overflowWrap: 'anywhere',
-              textAlign: 'center',
-            }}
-          >
-            {label}
-          </Text>
-        )}
-      </Box>
-      <Box
-        style={{
-          background: 'transparent',
-          borderRadius: 999,
-          height: 4,
-        }}
-      />
-    </Box>
   )
 }
 
@@ -400,59 +277,6 @@ function SelectField<TValue extends string>({
       onChange={nextValue => onChange((nextValue ?? value) as TValue)}
     />
   )
-}
-
-function createPianoKeys(startOctave: Octave): PianoKey[] {
-  const startMidiNote = ((startOctave + 1) * 12) as MidiNote
-
-  return Array.from({ length: KEY_COUNT }, (_, index) => {
-    const midiNote = (startMidiNote + index) as MidiNote
-    const pitchClass = pitchClassFromMidiNote(midiNote)
-
-    return {
-      isBlackKey: BLACK_PITCH_CLASSES.has(pitchClass),
-      midiNote,
-      noteName: getNoteNameForPitchClass(pitchClass),
-      octave: getOctaveForMidiNote(midiNote),
-      pitchClass,
-    }
-  })
-}
-
-function getKeyBackground(isBlackKey: boolean, highlighted: boolean, tone: 'bass' | 'chord'): string {
-  if (highlighted && tone === 'bass') {
-    return 'var(--mantine-color-blue-3)'
-  }
-
-  if (highlighted) {
-    return 'var(--mantine-color-red-1)'
-  }
-
-  return isBlackKey ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)'
-}
-
-function getKeyBorderColor(isBlackKey: boolean, highlighted: boolean, tone: 'bass' | 'chord'): string {
-  if (highlighted && tone === 'bass') {
-    return 'var(--mantine-color-blue-7)'
-  }
-
-  if (highlighted) {
-    return 'var(--mantine-color-red-5)'
-  }
-
-  return isBlackKey ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-4)'
-}
-
-function getKeyTextColor(isBlackKey: boolean, highlighted: boolean): string {
-  if (highlighted) {
-    return 'var(--mantine-color-dark-8)'
-  }
-
-  return isBlackKey ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-gray-8)'
-}
-
-function formatOctaveRange(startOctave: Octave): string {
-  return `C${startOctave} - B${startOctave + 4}`
 }
 
 function formatVoicedNote(note: VoicedNote): string {

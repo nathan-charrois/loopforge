@@ -63,6 +63,7 @@ import {
 
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
+import { Piano } from '~/components/piano/piano'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import { useSession } from '~/components/Providers/SessionProvider'
@@ -80,12 +81,14 @@ import {
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
   type DrumPiece,
+  formatChordSymbol,
   formatTickAsBars,
   formatTickRangeAsBars,
   getBlockEndTick,
   getNoteNameForPitchClass,
   getRulerMarks,
   getSectionEndTick,
+  getVoicedNotesFromPatternEvent,
   GRID_DIVISIONS,
   type GridDivision,
   isKeyEvent,
@@ -911,6 +914,9 @@ function ArrangementDebugContent() {
               onUpdateTrack={updateSelectedTrackFromInspector}
             />
           </Stack>
+          {selectedPatternEvent !== undefined && (
+            <PatternEventInspector patternEvent={selectedPatternEvent} />
+          )}
         </SimpleGrid>
         <Paper withBorder radius="sm" p="md">
           <Button size="xs" onClick={handleAddTrack}>Add Track</Button>
@@ -919,6 +925,38 @@ function ArrangementDebugContent() {
     </AppLayout>
   )
 }
+
+const PatternEventInspector = memo(function PatternEventInspector({
+  patternEvent,
+}: {
+  patternEvent: PatternEvent
+}) {
+  const voicedNotes = getVoicedNotesFromPatternEvent(patternEvent)
+  const harmony = patternEvent.kind === 'chord'
+    ? formatChordSymbol(patternEvent.chord)
+    : '—'
+  const tones = Array.from(new Set(
+    voicedNotes.map(note => getNoteNameForPitchClass(note.pitchClass)),
+  )).join(' ')
+
+  return (
+    <Paper withBorder radius="sm" p="md" style={{ gridColumn: 'span 3' }}>
+      <Stack gap="md">
+        <InspectorDataList
+          items={[
+            ['Harmony', harmony],
+            ['Tones', tones.length > 0 ? tones : '—'],
+          ]}
+        />
+        <Piano
+          hasBassNote={patternEvent.kind === 'chord' && patternEvent.voicing.bassNote !== undefined}
+          startOctave={patternEvent.kind === 'chord' ? patternEvent.voicing.octave : undefined}
+          voicedNotes={voicedNotes}
+        />
+      </Stack>
+    </Paper>
+  )
+})
 
 const Toolbar = memo(function Toolbar({
   playbackEngine,
