@@ -20,8 +20,10 @@ import {
 } from '~/domain'
 
 const DEFAULT_PIANO_ROLL_START_OCTAVE: Octave = 3
-const PIANO_ROLL_OCTAVE_COUNT = 5
+const PIANO_ROLL_OCTAVE_COUNT = 4
 const PIANO_ROLL_KEY_COUNT = PIANO_ROLL_OCTAVE_COUNT * PITCH_CLASSES.length
+const PIANO_ROLL_WHITE_KEY_COUNT = PIANO_ROLL_OCTAVE_COUNT * 7
+const BLACK_KEY_WIDTH_IN_WHITE_KEYS = 0.6
 const BLACK_PITCH_CLASSES = new Set<PitchClass>([1, 3, 6, 8, 10])
 
 type PianoKeyData = {
@@ -29,6 +31,7 @@ type PianoKeyData = {
   midiNote: MidiNote
   noteName: string
   octave: Octave
+  whiteKeyIndex: number
 }
 
 export const Piano = memo(function Piano({
@@ -57,10 +60,9 @@ export const Piano = memo(function Piano({
           aria-label="Piano roll"
           role="list"
           style={{
-            display: 'grid',
-            gap: 2,
-            gridTemplateColumns: `repeat(${PIANO_ROLL_KEY_COUNT}, minmax(14px, 1fr))`,
-            minWidth: 960,
+            display: 'flex',
+            height: 150,
+            position: 'relative',
           }}
         >
           {keys.map(key => (
@@ -91,46 +93,44 @@ const PianoRollKey = memo(function PianoRollKey({
       aria-label={`${keyData.noteName}${keyData.octave}`}
       role="listitem"
       style={{
+        alignItems: 'flex-end',
+        background: getKeyBackground(keyData.isBlackKey, highlighted, tone),
+        border: `1px solid ${getKeyBorderColor(keyData.isBlackKey, highlighted, tone)}`,
+        borderLeftWidth: keyData.isBlackKey || keyData.whiteKeyIndex === 0 ? 1 : 0,
+        borderRadius: keyData.isBlackKey ? '0 0 3px 3px' : 0,
+        boxSizing: 'border-box',
+        color: getKeyTextColor(keyData.isBlackKey, highlighted),
         display: 'flex',
-        flexDirection: 'column',
-        height: 172,
-        justifyContent: 'space-between',
+        flex: keyData.isBlackKey ? undefined : '1 1 0',
+        height: keyData.isBlackKey ? 108 : 150,
+        justifyContent: 'center',
+        left: keyData.isBlackKey
+          ? `${keyData.whiteKeyIndex / PIANO_ROLL_WHITE_KEY_COUNT * 100}%`
+          : undefined,
+        minWidth: 0,
+        padding: '0 2px 8px',
+        position: keyData.isBlackKey ? 'absolute' : 'relative',
+        top: 0,
+        transform: keyData.isBlackKey ? 'translateX(-50%)' : undefined,
+        width: keyData.isBlackKey
+          ? `${BLACK_KEY_WIDTH_IN_WHITE_KEYS / PIANO_ROLL_WHITE_KEY_COUNT * 100}%`
+          : undefined,
+        zIndex: keyData.isBlackKey ? 2 : 1,
       }}
     >
-      <Box
-        style={{
-          alignItems: 'flex-end',
-          background: getKeyBackground(keyData.isBlackKey, highlighted, tone),
-          border: `1px solid ${getKeyBorderColor(keyData.isBlackKey, highlighted, tone)}`,
-          borderRadius: 3,
-          color: getKeyTextColor(keyData.isBlackKey, highlighted),
-          display: 'flex',
-          height: keyData.isBlackKey ? 108 : 150,
-          justifyContent: 'center',
-          padding: '0 2px 8px',
-        }}
-      >
-        {highlighted && (
-          <Text
-            fw={700}
-            size="10px"
-            style={{
-              lineHeight: 1,
-              overflowWrap: 'anywhere',
-              textAlign: 'center',
-            }}
-          >
-            {keyData.noteName}
-          </Text>
-        )}
-      </Box>
-      <Box
-        style={{
-          background: 'transparent',
-          borderRadius: 999,
-          height: 4,
-        }}
-      />
+      {highlighted && (
+        <Text
+          fw={700}
+          size="10px"
+          style={{
+            lineHeight: 1,
+            overflowWrap: 'anywhere',
+            textAlign: 'center',
+          }}
+        >
+          {keyData.noteName}
+        </Text>
+      )}
     </Box>
   )
 })
@@ -177,17 +177,25 @@ function getKeyTextColor(isBlackKey: boolean, highlighted: boolean): string {
 
 function createPianoKeys(startOctave: Octave): PianoKeyData[] {
   const startMidiNote = ((startOctave + 1) * PITCH_CLASSES.length) as MidiNote
+  let whiteKeyIndex = 0
 
   return Array.from({ length: PIANO_ROLL_KEY_COUNT }, (_, index) => {
     const midiNote = (startMidiNote + index) as MidiNote
     const pitchClass = pitchClassFromMidiNote(midiNote)
-
-    return {
-      isBlackKey: BLACK_PITCH_CLASSES.has(pitchClass),
+    const isBlackKey = BLACK_PITCH_CLASSES.has(pitchClass)
+    const key = {
+      isBlackKey,
       midiNote,
       noteName: getNoteNameForPitchClass(pitchClass),
       octave: getOctaveForMidiNote(midiNote),
+      whiteKeyIndex,
     }
+
+    if (!isBlackKey) {
+      whiteKeyIndex += 1
+    }
+
+    return key
   })
 }
 

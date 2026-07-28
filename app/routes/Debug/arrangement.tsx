@@ -766,8 +766,8 @@ function ArrangementDebugContent() {
           onZoomIn={handleToolbarZoomIn}
           onZoomOut={handleToolbarZoomOut}
         />
-        <SimpleGrid cols={{ base: 1, lg: 4 }} spacing="md">
-          <Paper withBorder radius="sm" p={0} style={{ gridColumn: 'span 3', overflow: 'hidden' }}>
+        <SimpleGrid cols={{ base: 2, lg: 6 }} spacing="md">
+          <Paper withBorder radius="sm" p={0} style={{ gridColumn: 'span 4', overflow: 'hidden' }}>
             <Box
               style={{
                 display: 'grid',
@@ -880,8 +880,9 @@ function ArrangementDebugContent() {
                 />
               </Box>
             </Box>
+            <PatternEventInspector patternEvent={selectedPatternEvent} />
           </Paper>
-          <Stack gap="md">
+          <Stack gap="md" style={{ gridColumn: 'span 2', overflow: 'hidden' }}>
             <Paper withBorder radius="sm" p="md">
               <MasterMixChannelControls
                 master={workspace.mixer.master}
@@ -914,9 +915,6 @@ function ArrangementDebugContent() {
               onUpdateTrack={updateSelectedTrackFromInspector}
             />
           </Stack>
-          {selectedPatternEvent !== undefined && (
-            <PatternEventInspector patternEvent={selectedPatternEvent} />
-          )}
         </SimpleGrid>
         <Paper withBorder radius="sm" p="md">
           <Button size="xs" onClick={handleAddTrack}>Add Track</Button>
@@ -929,10 +927,12 @@ function ArrangementDebugContent() {
 const PatternEventInspector = memo(function PatternEventInspector({
   patternEvent,
 }: {
-  patternEvent: PatternEvent
+  patternEvent?: PatternEvent
 }) {
-  const voicedNotes = getVoicedNotesFromPatternEvent(patternEvent)
-  const harmony = patternEvent.kind === 'chord'
+  const voicedNotes = patternEvent === undefined
+    ? []
+    : getVoicedNotesFromPatternEvent(patternEvent)
+  const harmony = patternEvent?.kind === 'chord'
     ? formatChordSymbol(patternEvent.chord)
     : '—'
   const tones = Array.from(new Set(
@@ -940,21 +940,23 @@ const PatternEventInspector = memo(function PatternEventInspector({
   )).join(' ')
 
   return (
-    <Paper withBorder radius="sm" p="md" style={{ gridColumn: 'span 3' }}>
+    <Stack p="md" style={{ gridColumn: 'span 3' }}>
       <Stack gap="md">
-        <InspectorDataList
-          items={[
-            ['Harmony', harmony],
-            ['Tones', tones.length > 0 ? tones : '—'],
-          ]}
-        />
         <Piano
-          hasBassNote={patternEvent.kind === 'chord' && patternEvent.voicing.bassNote !== undefined}
-          startOctave={patternEvent.kind === 'chord' ? patternEvent.voicing.octave : undefined}
+          hasBassNote={patternEvent?.kind === 'chord' && patternEvent.voicing.bassNote !== undefined}
+          startOctave={patternEvent?.kind === 'chord' ? patternEvent.voicing.octave : undefined}
           voicedNotes={voicedNotes}
         />
+        {patternEvent !== undefined && (
+          <InspectorDataList
+            items={[
+              ['Harmony', harmony],
+              ['Tones', tones.length > 0 ? tones : '—'],
+            ]}
+          />
+        )}
       </Stack>
-    </Paper>
+    </Stack>
   )
 })
 
@@ -2034,7 +2036,7 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
                 : 'none',
               borderRadius: 3,
               cursor: 'pointer',
-              height: 4,
+              height: 5,
               left: `${leftPercent}%`,
               minWidth: 10,
               position: 'absolute',
