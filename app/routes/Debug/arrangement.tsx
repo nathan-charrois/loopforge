@@ -106,6 +106,7 @@ import {
   type PatternId,
   type PatternKind,
   PITCH_CLASSES,
+  pitchClassFromMidiNote,
   REGISTERS,
   type RulerMark,
   type Section,
@@ -1880,14 +1881,14 @@ const BlockView = memo(function BlockView({
         boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? HOVER_BOX_SHADOWS.entity : undefined,
         color: 'white',
         cursor: 'grab',
-        height: isFocused ? 56 : 42,
+        height: isFocused ? viewport.laneHeight : 42,
         left: tickToX(viewport.pixelsPerTick, block.startTick),
         opacity: dimmedByFocus ? 0.22 : block.muted ? 0.58 : 0.96,
         outline: selected ? SELECTED_STYLES.outline : undefined,
         overflow: 'hidden',
         padding: '5px 8px',
         position: 'absolute',
-        top: BLOCK_TOP,
+        top: isFocused ? 0 : BLOCK_TOP,
         width: Math.max(MIN_BLOCK_WIDTH, tickToX(viewport.pixelsPerTick, block.lengthTicks)),
         zIndex: isFocused ? 7 : selected ? 4 : 2,
         userSelect: 'none',
@@ -1951,10 +1952,10 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
           onClick={event => onPatternClick(event, pattern.id)}
           onPointerDown={event => event.stopPropagation()}
           style={{
-            background: 'var(--mantine-color-gray-5)',
+            background: 'var(--mantine-color-gray-4)',
             border: selectedPatternIds.includes(pattern.id)
               ? SELECTED_STYLES.border
-              : '1px solid rgba(0, 0, 0, 0.24)',
+              : 'none',
             cursor: 'pointer',
             position: 'absolute',
             borderRadius: 3,
@@ -1973,6 +1974,10 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
           : 0
         const leftPercent = patternEvent.timeTick / pattern.lengthTicks * 100
         const widthPercent = durationTicks / pattern.lengthTicks * 100
+        const pitchClass = getPatternEventPitchClass(patternEvent)
+        const topPercent = pitchClass === undefined
+          ? 50
+          : (PITCH_CLASSES.length - pitchClass - 0.5) / PITCH_CLASSES.length * 100
         const selected = selectedPatternEventIds.includes(patternEvent.id)
 
         return (
@@ -1988,14 +1993,15 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
               background: getPatternEventColor(patternEvent),
               border: selected
                 ? SELECTED_STYLES.border
-                : '1px solid rgba(0, 0, 0, 0.4)',
+                : 'none',
               borderRadius: 3,
-              bottom: 5,
               cursor: 'pointer',
+              height: 4,
               left: `${leftPercent}%`,
               minWidth: 10,
               position: 'absolute',
-              top: 5,
+              top: `${topPercent}%`,
+              transform: 'translateY(-50%)',
               width: durationTicks === 0 ? 10 : `max(10px, ${widthPercent}%)`,
               zIndex: 2,
             }}
@@ -3077,6 +3083,18 @@ function getPatternEventColor(patternEvent: PatternEvent): string {
       return 'var(--mantine-color-orange-5)'
     case 'note':
       return 'var(--mantine-color-teal-5)'
+  }
+}
+
+function getPatternEventPitchClass(patternEvent: PatternEvent): number | undefined {
+  switch (patternEvent.kind) {
+    case 'chord':
+      return patternEvent.chord.root
+    case 'note':
+      return pitchClassFromMidiNote(patternEvent.pitch)
+    case 'automation':
+    case 'drumHit':
+      return undefined
   }
 }
 
