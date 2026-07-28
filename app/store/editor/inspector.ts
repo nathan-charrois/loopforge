@@ -1,6 +1,9 @@
 import type { InspectorDraft } from './type'
 import {
   type Block,
+  createChordSymbol,
+  createDefaultChordPlayback,
+  createDefaultChordVoicing,
   DEFAULT_TRACK_COLOR,
   isKeyEvent,
   isMeterEvent,
@@ -30,15 +33,19 @@ export function createInspectorDraft(): InspectorDraft {
     mixChannelSoloed: false,
     mixChannelVolumeDb: 0,
     patternKind: 'chord',
+    patternLengthTicks: 1,
     patternName: '',
+    patternEventChord: createChordSymbol({ root: 0 }),
     patternEventDurationTicks: 1,
     patternEventKind: 'note',
     patternEventParameter: '',
     patternEventPiece: 'kick',
     patternEventPitch: 60,
+    patternEventPlayback: createDefaultChordPlayback(),
     patternEventTimeTick: 0,
     patternEventValue: '',
     patternEventVelocity: 96,
+    patternEventVoicing: createDefaultChordVoicing(),
     sectionName: '',
     tempoBpm: 120,
     tempoTick: 0,
@@ -93,8 +100,15 @@ export function updateInspectorDraftFromPatternEvent(
     case 'chord':
       return {
         ...nextDraft,
+        patternEventChord: {
+          ...selectedPatternEvent.chord,
+          alterations: [...selectedPatternEvent.chord.alterations],
+          extensions: [...selectedPatternEvent.chord.extensions],
+        },
         patternEventDurationTicks: selectedPatternEvent.durationTicks,
+        patternEventPlayback: { ...selectedPatternEvent.playback },
         patternEventVelocity: selectedPatternEvent.velocity,
+        patternEventVoicing: { ...selectedPatternEvent.voicing },
       }
     case 'drumHit':
       return {
@@ -120,6 +134,7 @@ export function updateInspectorDraftFromPattern(
     return {
       ...currentDraft,
       patternKind: selectedPattern.kind,
+      patternLengthTicks: selectedPattern.lengthTicks,
       patternName: selectedPattern.name,
     }
   }

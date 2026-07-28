@@ -70,6 +70,12 @@ import {
   type Block,
   BLOCK_PLAYBACK_MODES,
   type BlockPlaybackMode,
+  CHORD_ALTERATIONS,
+  CHORD_EXTENSIONS,
+  CHORD_PLAYBACK_RECIPE_IDS,
+  CHORD_PLAYBACK_RECIPES,
+  CHORD_PLAYBACK_STYLES,
+  CHORD_QUALITIES,
   createTrack,
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
@@ -77,6 +83,7 @@ import {
   formatTickAsBars,
   formatTickRangeAsBars,
   getBlockEndTick,
+  getNoteNameForPitchClass,
   getRulerMarks,
   getSectionEndTick,
   GRID_DIVISIONS,
@@ -98,6 +105,8 @@ import {
   type PatternEventId,
   type PatternId,
   type PatternKind,
+  PITCH_CLASSES,
+  REGISTERS,
   type RulerMark,
   type Section,
   type SectionId,
@@ -110,6 +119,7 @@ import {
   TRACK_ROLES,
   type TrackId,
   type TrackRole,
+  VOICING_TYPES,
 } from '~/domain'
 import { useAnimationFrameThrottle } from '~/hooks/useAnimationFrameThrottle'
 import { useDrag } from '~/hooks/useDrag'
@@ -226,6 +236,19 @@ const TRACK_COLOR_PALETTE = [
 const ROOT_OPTIONS = Array.from({ length: 12 }, (_, value) => ({
   label: `${value}`,
   value: `${value}`,
+}))
+const NONE_OPTION_VALUE = 'none'
+const PITCH_CLASS_OPTIONS = PITCH_CLASSES.map(value => ({
+  label: `${getNoteNameForPitchClass(value)} (${value})`,
+  value: `${value}`,
+}))
+const OPTIONAL_PITCH_CLASS_OPTIONS = [
+  { label: 'None', value: NONE_OPTION_VALUE },
+  ...PITCH_CLASS_OPTIONS,
+]
+const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_IDS.map(value => ({
+  label: CHORD_PLAYBACK_RECIPES[value].name,
+  value,
 }))
 
 const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['drawBlock', 'drawSection', 'tempo', 'meter', 'key']
@@ -2261,7 +2284,7 @@ const InspectorPanel = memo(function InspectorPanel({
             <InspectorDataList
               items={[
                 ['ID', selectedPattern.id],
-                ['Length tick', selectedPattern.lengthTicks],
+                ['Length ticks', selectedPattern.lengthTicks],
                 ['Events', selectedPattern.events.length],
               ]}
             />
@@ -2273,6 +2296,16 @@ const InspectorPanel = memo(function InspectorPanel({
                 const { value } = event.currentTarget
                 setDraft(currentDraft => ({ ...currentDraft, patternName: value }))
               }}
+            />
+            <NumberInput
+              label="Length ticks"
+              min={1}
+              size="xs"
+              value={draft.patternLengthTicks}
+              onChange={value => setDraft(currentDraft => ({
+                ...currentDraft,
+                patternLengthTicks: parseNumber(value.toString(), currentDraft.patternLengthTicks),
+              }))}
             />
             <Select
               allowDeselect={false}
@@ -2318,7 +2351,305 @@ const InspectorPanel = memo(function InspectorPanel({
                 }
               }}
             />
-            {(draft.patternEventKind === 'chord' || draft.patternEventKind === 'note') && (
+            {draft.patternEventKind === 'chord' && (
+              <>
+                <NumberInput
+                  label="Duration ticks"
+                  min={1}
+                  size="xs"
+                  value={draft.patternEventDurationTicks}
+                  onChange={value => setDraft(currentDraft => ({
+                    ...currentDraft,
+                    patternEventDurationTicks: parseNumber(
+                      value.toString(),
+                      currentDraft.patternEventDurationTicks,
+                    ),
+                  }))}
+                />
+                <NumberInput
+                  label="Velocity"
+                  max={127}
+                  min={0}
+                  size="xs"
+                  value={draft.patternEventVelocity}
+                  onChange={value => setDraft(currentDraft => ({
+                    ...currentDraft,
+                    patternEventVelocity: parseNumber(
+                      value.toString(),
+                      currentDraft.patternEventVelocity,
+                    ),
+                  }))}
+                />
+
+                <Stack gap="sm" mt="sm">
+                  <Text fw={700} size="sm">Chord</Text>
+                  <Select
+                    allowDeselect={false}
+                    data={PITCH_CLASS_OPTIONS}
+                    label="Root"
+                    size="xs"
+                    value={`${draft.patternEventChord.root}`}
+                    onChange={(value) => {
+                      const root = PITCH_CLASSES.find(candidate => `${candidate}` === value)
+
+                      if (root !== undefined) {
+                        setDraft(currentDraft => ({
+                          ...currentDraft,
+                          patternEventChord: {
+                            ...currentDraft.patternEventChord,
+                            root,
+                          },
+                        }))
+                      }
+                    }}
+                  />
+                  <Select
+                    allowDeselect={false}
+                    data={CHORD_QUALITIES.map(value => ({ label: value, value }))}
+                    label="Quality"
+                    size="xs"
+                    value={draft.patternEventChord.quality}
+                    onChange={(value) => {
+                      const quality = CHORD_QUALITIES.find(candidate => candidate === value)
+
+                      if (quality !== undefined) {
+                        setDraft(currentDraft => ({
+                          ...currentDraft,
+                          patternEventChord: {
+                            ...currentDraft.patternEventChord,
+                            quality,
+                          },
+                        }))
+                      }
+                    }}
+                  />
+                  <MultiSelect
+                    data={CHORD_EXTENSIONS.map(value => ({ label: value, value }))}
+                    label="Extensions"
+                    size="xs"
+                    value={draft.patternEventChord.extensions}
+                    onChange={values => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventChord: {
+                        ...currentDraft.patternEventChord,
+                        extensions: CHORD_EXTENSIONS.filter(value => values.includes(value)),
+                      },
+                    }))}
+                  />
+                  <MultiSelect
+                    data={CHORD_ALTERATIONS.map(value => ({ label: value, value }))}
+                    label="Alterations"
+                    size="xs"
+                    value={draft.patternEventChord.alterations}
+                    onChange={values => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventChord: {
+                        ...currentDraft.patternEventChord,
+                        alterations: CHORD_ALTERATIONS.filter(value => values.includes(value)),
+                      },
+                    }))}
+                  />
+                </Stack>
+
+                <Stack gap="sm" mt="sm">
+                  <Text fw={700} size="sm">Voicing</Text>
+                  <Select
+                    allowDeselect={false}
+                    data={VOICING_TYPES.map(value => ({ label: value, value }))}
+                    label="Type"
+                    size="xs"
+                    value={draft.patternEventVoicing.type}
+                    onChange={(value) => {
+                      const type = VOICING_TYPES.find(candidate => candidate === value)
+
+                      if (type !== undefined) {
+                        setDraft(currentDraft => ({
+                          ...currentDraft,
+                          patternEventVoicing: {
+                            ...currentDraft.patternEventVoicing,
+                            type,
+                          },
+                        }))
+                      }
+                    }}
+                  />
+                  <NumberInput
+                    label="Inversion"
+                    size="xs"
+                    value={draft.patternEventVoicing.inversion}
+                    onChange={value => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventVoicing: {
+                        ...currentDraft.patternEventVoicing,
+                        inversion: parseNumber(
+                          value.toString(),
+                          currentDraft.patternEventVoicing.inversion,
+                        ),
+                      },
+                    }))}
+                  />
+                  <Select
+                    allowDeselect={false}
+                    data={REGISTERS.map(value => ({ label: value, value }))}
+                    label="Register"
+                    size="xs"
+                    value={draft.patternEventVoicing.register}
+                    onChange={(value) => {
+                      const register = REGISTERS.find(candidate => candidate === value)
+
+                      if (register !== undefined) {
+                        setDraft(currentDraft => ({
+                          ...currentDraft,
+                          patternEventVoicing: {
+                            ...currentDraft.patternEventVoicing,
+                            register,
+                          },
+                        }))
+                      }
+                    }}
+                  />
+                  <NumberInput
+                    label="Spread"
+                    min={0}
+                    size="xs"
+                    value={draft.patternEventVoicing.spread}
+                    onChange={value => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventVoicing: {
+                        ...currentDraft.patternEventVoicing,
+                        spread: parseNumber(
+                          value.toString(),
+                          currentDraft.patternEventVoicing.spread,
+                        ),
+                      },
+                    }))}
+                  />
+                  <NumberInput
+                    label="Octave"
+                    max={8}
+                    min={0}
+                    size="xs"
+                    value={draft.patternEventVoicing.octave ?? ''}
+                    onChange={value => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventVoicing: {
+                        ...currentDraft.patternEventVoicing,
+                        octave: typeof value === 'number' ? value : undefined,
+                      },
+                    }))}
+                  />
+                  <Select
+                    allowDeselect={false}
+                    data={OPTIONAL_PITCH_CLASS_OPTIONS}
+                    label="Bass note"
+                    size="xs"
+                    value={draft.patternEventVoicing.bassNote === undefined
+                      ? NONE_OPTION_VALUE
+                      : `${draft.patternEventVoicing.bassNote}`}
+                    onChange={(value) => {
+                      const bassNote = PITCH_CLASSES.find(candidate => `${candidate}` === value)
+
+                      if (value === NONE_OPTION_VALUE || bassNote !== undefined) {
+                        setDraft(currentDraft => ({
+                          ...currentDraft,
+                          patternEventVoicing: {
+                            ...currentDraft.patternEventVoicing,
+                            bassNote,
+                          },
+                        }))
+                      }
+                    }}
+                  />
+                </Stack>
+
+                <Stack gap="sm" mt="sm" mb="md">
+                  <Text fw={700} size="sm">Playback</Text>
+                  <Select
+                    allowDeselect={false}
+                    data={CHORD_PLAYBACK_STYLES.map(value => ({ label: value, value }))}
+                    label="Style"
+                    size="xs"
+                    value={draft.patternEventPlayback.style}
+                    onChange={(value) => {
+                      const style = CHORD_PLAYBACK_STYLES.find(candidate => candidate === value)
+
+                      if (style !== undefined) {
+                        setDraft(currentDraft => ({
+                          ...currentDraft,
+                          patternEventPlayback: {
+                            ...currentDraft.patternEventPlayback,
+                            style,
+                          },
+                        }))
+                      }
+                    }}
+                  />
+                  <Select
+                    allowDeselect={false}
+                    data={CHORD_PLAYBACK_RECIPE_OPTIONS}
+                    label="Recipe"
+                    size="xs"
+                    value={draft.patternEventPlayback.recipeId}
+                    onChange={(value) => {
+                      const recipeId = CHORD_PLAYBACK_RECIPE_IDS.find(candidate => candidate === value)
+
+                      if (recipeId !== undefined) {
+                        setDraft(currentDraft => ({
+                          ...currentDraft,
+                          patternEventPlayback: {
+                            ...currentDraft.patternEventPlayback,
+                            recipeId,
+                          },
+                        }))
+                      }
+                    }}
+                  />
+                  <NumberInput
+                    decimalScale={2}
+                    label="Gate"
+                    max={1}
+                    min={0}
+                    size="xs"
+                    step={0.05}
+                    value={draft.patternEventPlayback.gate}
+                    onChange={value => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventPlayback: {
+                        ...currentDraft.patternEventPlayback,
+                        gate: parseNumber(value.toString(), currentDraft.patternEventPlayback.gate),
+                      },
+                    }))}
+                  />
+                  <NumberInput
+                    label="Step ticks"
+                    min={1}
+                    size="xs"
+                    value={draft.patternEventPlayback.stepTicks ?? ''}
+                    onChange={value => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventPlayback: {
+                        ...currentDraft.patternEventPlayback,
+                        stepTicks: typeof value === 'number' ? value : undefined,
+                      },
+                    }))}
+                  />
+                  <NumberInput
+                    label="Micro stagger ticks"
+                    min={0}
+                    size="xs"
+                    value={draft.patternEventPlayback.microStaggerTicks ?? ''}
+                    onChange={value => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      patternEventPlayback: {
+                        ...currentDraft.patternEventPlayback,
+                        microStaggerTicks: typeof value === 'number' ? value : undefined,
+                      },
+                    }))}
+                  />
+                </Stack>
+              </>
+            )}
+            {draft.patternEventKind === 'note' && (
               <NumberInput
                 label="Duration ticks"
                 min={1}
@@ -2330,7 +2661,7 @@ const InspectorPanel = memo(function InspectorPanel({
                 }))}
               />
             )}
-            {['chord', 'note', 'drumHit'].includes(draft.patternEventKind) && (
+            {['note', 'drumHit'].includes(draft.patternEventKind) && (
               <NumberInput
                 label="Velocity"
                 max={127}

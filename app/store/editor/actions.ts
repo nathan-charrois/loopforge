@@ -478,13 +478,17 @@ export function updatePatternFromInspectorAction(input: {
 
   return updatePatternAction(createPattern({
     ...pattern,
-    events: createSeedPatternEvents(draft.patternKind, pattern.lengthTicks, {
-      chordQuality: 'sus2',
-      chordRoot: 0,
-      drumPiece: 'clap',
-      notePitch: 0,
-    }),
+    events: {
+      ...createSeedPatternEvents(draft.patternKind, draft.patternLengthTicks, {
+        chordQuality: 'sus2',
+        chordRoot: 0,
+        drumPiece: 'clap',
+        notePitch: 0,
+      }),
+      ...pattern.events,
+    },
     kind: draft.patternKind,
+    lengthTicks: draft.patternLengthTicks,
     name: draft.patternName.trim() || pattern.name,
   }))
 }
@@ -519,8 +523,11 @@ export function updatePatternEventFromInspectorAction(input: {
           ? patternEvent
           : { chord: createChordSymbol({ root: 0 }) }),
         ...common,
+        chord: draft.patternEventChord,
         durationTicks: draft.patternEventDurationTicks,
+        playback: draft.patternEventPlayback,
         velocity: draft.patternEventVelocity,
+        voicing: draft.patternEventVoicing,
       }))
     case 'drumHit':
       return updatePatternEventAction(patternId, createDrumHitEvent({

@@ -11,8 +11,10 @@ import type { MixChannelId } from '~/domain/mixer'
 import type { Tick } from '~/domain/musicPrimitives'
 import type { PatternEventId, PatternEventKind } from '~/domain/patternEvents'
 import type { PatternId, PatternKind } from '~/domain/patterns'
+import type { ChordPlayback } from '~/domain/playback'
 import type { TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
 import type { TrackId, TrackRole } from '~/domain/tracks'
+import type { ChordVoicing } from '~/domain/voicing'
 
 export const ACTIVE_TOOLS = [
   'select',
@@ -151,14 +153,17 @@ export type TimelineEventDraft = {
 }
 
 export type PatternEventDraft = {
+  patternEventChord: ChordSymbol
   patternEventDurationTicks: number
   patternEventKind: PatternEventKind
   patternEventParameter: string
   patternEventPiece: DrumPiece
   patternEventPitch: number
+  patternEventPlayback: ChordPlayback
   patternEventTimeTick: number
   patternEventValue: string
   patternEventVelocity: number
+  patternEventVoicing: ChordVoicing
 }
 
 export type InspectorDraft = PatternEventDraft & TimelineEventDraft & {
@@ -171,6 +176,7 @@ export type InspectorDraft = PatternEventDraft & TimelineEventDraft & {
   mixChannelSoloed: boolean
   mixChannelVolumeDb: number
   patternKind: PatternKind
+  patternLengthTicks: number
   patternName: string
   sectionName: string
   trackAccepts: PatternKind[]
