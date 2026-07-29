@@ -493,18 +493,18 @@ export function createInitialWorkspace(): Workspace {
       channels: createEntityStore([
         createMixChannel({
           id: guitarTrack.mixChannelId,
-          pan: -0.12,
-          volumeDb: -2,
+          pan: -0.20,
+          volumeDb: -1,
         }),
         createMixChannel({
           id: voicingsTrack.mixChannelId,
-          pan: 0.18,
+          pan: 0.20,
           volumeDb: -7,
         }),
         createMixChannel({
           id: bassTrack.mixChannelId,
-          pan: -0.04,
-          volumeDb: -4,
+          pan: 0,
+          volumeDb: -6,
         }),
         createMixChannel({
           id: drumsTrack.mixChannelId,
