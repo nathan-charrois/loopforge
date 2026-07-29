@@ -1946,6 +1946,7 @@ const BlockView = memo(function BlockView({
       <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, block, 'right')} />
       {focusedBlockId === block.id && (
         <FocusedBlockOverlay
+          block={block}
           pattern={pattern}
           selectedPatternEventIds={selectedPatternEventIds}
           selectedPatternIds={selectedPatternIds}
@@ -1958,23 +1959,41 @@ const BlockView = memo(function BlockView({
 })
 
 const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
+  block,
   onPatternClick,
   onPatternEventClick,
   pattern,
   selectedPatternEventIds,
   selectedPatternIds,
 }: {
+  block: Block
   onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
   onPatternEventClick: (event: ReactMouseEvent<HTMLButtonElement>, patternEventId: PatternEventId) => void
   pattern?: Pattern
   selectedPatternEventIds: PatternEventId[]
   selectedPatternIds: PatternId[]
 }) {
+  const patternInstanceCount = useMemo(() => {
+    if (pattern === undefined) {
+      return 0
+    }
+
+    return block.playbackMode === 'loop'
+      ? Math.ceil(block.lengthTicks / pattern.lengthTicks)
+      : 1
+  }, [block, pattern])
+
+  const patternInstanceWidthPercent = useMemo(() => {
+    return pattern === undefined || block.playbackMode === 'stretch'
+      ? 100
+      : pattern.lengthTicks / block.lengthTicks * 100
+  }, [block, pattern])
+
   return (
     <Box
       style={{
         background: 'rgba(255, 255, 255, 0.14)',
-        borderRadius: 3,
+        borderRadius: 4,
         bottom: 6,
         left: 6,
         overflow: 'hidden',
@@ -1983,72 +2002,81 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
         top: 25,
       }}
     >
-      {pattern !== undefined && (
+      {pattern !== undefined && Array.from({ length: patternInstanceCount }, (_, instanceIndex) => (
         <Box
-          aria-label={`Select pattern ${pattern.id}`}
-          aria-pressed={selectedPatternIds.includes(pattern.id)}
-          component="button"
-          type="button"
-          onClick={event => onPatternClick(event, pattern.id)}
-          onPointerDown={event => event.stopPropagation()}
+          key={instanceIndex}
           style={{
-            background: 'var(--mantine-color-gray-4)',
-            border: selectedPatternIds.includes(pattern.id)
-              ? SELECTED_STYLES.border
-              : 'none',
-            cursor: 'pointer',
-            position: 'absolute',
             borderRadius: 3,
-            width: '100%',
-            left: 0,
-            right: 0,
-            top: 0,
             bottom: 0,
-            zIndex: 1,
+            left: `${instanceIndex * patternInstanceWidthPercent}%`,
+            overflow: 'hidden',
+            position: 'absolute',
+            top: 0,
+            width: `${patternInstanceWidthPercent}%`,
           }}
-        />
-      )}
-      {pattern?.events.map((patternEvent) => {
-        const durationTicks = patternEvent.kind === 'chord' || patternEvent.kind === 'note'
-          ? patternEvent.durationTicks
-          : 0
-        const leftPercent = patternEvent.timeTick / pattern.lengthTicks * 100
-        const widthPercent = durationTicks / pattern.lengthTicks * 100
-        const pitchClass = getPatternEventPitchClass(patternEvent)
-        const topPercent = pitchClass === undefined
-          ? 50
-          : (PITCH_CLASSES.length - pitchClass - 0.5) / PITCH_CLASSES.length * 100
-        const selected = selectedPatternEventIds.includes(patternEvent.id)
-
-        return (
+        >
           <Box
-            key={patternEvent.id}
-            aria-label={`Select ${patternEvent.kind} pattern event ${patternEvent.id}`}
-            aria-pressed={selected}
+            aria-label={`Select pattern ${pattern.id}`}
+            aria-pressed={selectedPatternIds.includes(pattern.id)}
             component="button"
             type="button"
-            onClick={event => onPatternEventClick(event, patternEvent.id)}
+            onClick={event => onPatternClick(event, pattern.id)}
             onPointerDown={event => event.stopPropagation()}
             style={{
-              background: getPatternEventColor(patternEvent),
-              border: selected
+              background: 'var(--mantine-color-gray-4)',
+              border: selectedPatternIds.includes(pattern.id)
                 ? SELECTED_STYLES.border
                 : 'none',
               borderRadius: 3,
               cursor: 'pointer',
-              height: 5,
-              left: `${leftPercent}%`,
-              minWidth: 10,
+              inset: 0,
               position: 'absolute',
-              top: `${topPercent}%`,
-              transform: 'translateY(-50%)',
-              width: durationTicks === 0 ? 10 : `max(10px, ${widthPercent}%)`,
-              zIndex: 2,
+              zIndex: 1,
             }}
-            title={`${patternEvent.kind}: ${patternEvent.id}`}
           />
-        )
-      })}
+          {pattern.events.map((patternEvent) => {
+            const durationTicks = patternEvent.kind === 'chord' || patternEvent.kind === 'note'
+              ? patternEvent.durationTicks
+              : 0
+            const leftPercent = patternEvent.timeTick / pattern.lengthTicks * 100
+            const widthPercent = durationTicks / pattern.lengthTicks * 100
+            const pitchClass = getPatternEventPitchClass(patternEvent)
+            const topPercent = pitchClass === undefined
+              ? 50
+              : (PITCH_CLASSES.length - pitchClass - 0.5) / PITCH_CLASSES.length * 100
+            const selected = selectedPatternEventIds.includes(patternEvent.id)
+
+            return (
+              <Box
+                key={patternEvent.id}
+                aria-label={`Select ${patternEvent.kind} pattern event ${patternEvent.id}`}
+                aria-pressed={selected}
+                component="button"
+                type="button"
+                onClick={event => onPatternEventClick(event, patternEvent.id)}
+                onPointerDown={event => event.stopPropagation()}
+                style={{
+                  background: getPatternEventColor(patternEvent),
+                  border: selected
+                    ? SELECTED_STYLES.border
+                    : 'none',
+                  borderRadius: 3,
+                  cursor: 'pointer',
+                  height: 5,
+                  left: `${leftPercent}%`,
+                  minWidth: 10,
+                  position: 'absolute',
+                  top: `${topPercent}%`,
+                  transform: 'translateY(-50%)',
+                  width: durationTicks === 0 ? 10 : `max(10px, ${widthPercent}%)`,
+                  zIndex: 2,
+                }}
+                title={`${patternEvent.kind}: ${patternEvent.id}`}
+              />
+            )
+          })}
+        </Box>
+      ))}
     </Box>
   )
 })

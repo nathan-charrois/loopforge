@@ -479,15 +479,14 @@ export function updatePatternFromInspectorAction(input: {
 
   return updatePatternAction(createPattern({
     ...pattern,
-    events: {
-      ...createSeedPatternEvents(draft.patternKind, draft.patternLengthTicks, {
-        chordQuality: 'sus2',
-        chordRoot: 0,
-        drumPiece: 'clap',
-        notePitch: 0,
-      }),
-      ...pattern.events,
-    },
+    events: pattern.events.length
+      ? pattern.events
+      : createSeedPatternEvents(draft.patternKind, draft.patternLengthTicks, {
+          chordQuality: 'sus2',
+          chordRoot: 0,
+          drumPiece: 'clap',
+          notePitch: 0,
+        }),
     kind: draft.patternKind,
     lengthTicks: draft.patternLengthTicks,
     name: draft.patternName.trim() || pattern.name,
