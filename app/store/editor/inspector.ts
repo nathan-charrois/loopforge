@@ -21,6 +21,7 @@ export function createInspectorDraft(): InspectorDraft {
     blockColor: '#4c6ef5',
     blockMuted: false,
     blockName: '',
+    blockPatternId: '',
     blockPlaybackMode: 'loop',
     keyMode: 'major',
     keyTick: 0,
@@ -186,6 +187,7 @@ export function updateInspectorDraftFromBlock(
       blockColor: selectedBlock?.color ?? currentDraft.blockColor,
       blockMuted: selectedBlock?.muted ?? currentDraft.blockMuted,
       blockName: selectedBlock?.name ?? currentDraft.blockName,
+      blockPatternId: selectedBlock?.patternId ?? currentDraft.blockPatternId,
       blockPlaybackMode: selectedBlock?.playbackMode ?? currentDraft.blockPlaybackMode,
     }
   }

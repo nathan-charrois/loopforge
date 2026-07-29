@@ -16,6 +16,7 @@ export function validateWorkspace(workspace: Workspace): string[] {
   errors.push(...validateEntityStore('mix channel', workspace.mixer.channels))
   errors.push(...validateEntityStore('track', workspace.tracks))
   errors.push(...validateEntityStore('pattern', workspace.patterns))
+  errors.push(...validateEntityStore('instruments', workspace.instruments))
 
   for (const trackId of workspace.tracks.allIds) {
     const track = selectTrack(workspace, trackId)
@@ -42,12 +43,20 @@ export function validateWorkspace(workspace: Workspace): string[] {
   }
 
   for (const block of workspace.arrangement.blocks) {
-    if (selectTrack(workspace, block.trackId) === undefined) {
+    const track = selectTrack(workspace, block.trackId)
+    if (track === undefined) {
       errors.push(`Block ${block.id} references missing track ${block.trackId}.`)
     }
 
-    if (selectPattern(workspace, block.patternId) === undefined) {
+    const pattern = selectPattern(workspace, block.patternId)
+    if (pattern === undefined) {
       errors.push(`Block ${block.id} references missing pattern ${block.patternId}.`)
+    }
+
+    if (track && pattern) {
+      if (track.accepts.includes(pattern.kind) === false) {
+        errors.push(`Block ${block.id} references invalid pattern ${block.patternId}.`)
+      }
     }
   }
 

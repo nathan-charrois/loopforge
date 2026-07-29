@@ -430,6 +430,7 @@ export function updateBlockFromInspectorAction(input: {
     color: draft.blockColor,
     muted: draft.blockMuted,
     name: draft.blockName.trim() || block.name,
+    patternId: draft.blockPatternId,
     playbackMode: draft.blockPlaybackMode,
   })
 }

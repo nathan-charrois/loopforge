@@ -170,6 +170,7 @@ export type InspectorDraft = PatternEventDraft & TimelineEventDraft & {
   blockColor: string
   blockMuted: boolean
   blockName: string
+  blockPatternId: PatternId
   blockPlaybackMode: BlockPlaybackMode
   mixChannelMuted: boolean
   mixChannelPan: number

@@ -2277,7 +2277,6 @@ const InspectorPanel = memo(function InspectorPanel({
               items={[
                 ['ID', selectedBlock.id],
                 ['Track ID', selectedBlock.trackId],
-                ['Pattern ID', selectedBlock.patternId],
                 ['Start tick', selectedBlock.startTick],
                 ['Length ticks', selectedBlock.lengthTicks],
                 ['End tick', getBlockEndTick(selectedBlock)],
@@ -2298,6 +2297,14 @@ const InspectorPanel = memo(function InspectorPanel({
               size="xs"
               value={draft.blockColor}
               onChange={value => setDraft(currentDraft => ({ ...currentDraft, blockColor: value }))}
+            />
+            <Select
+              allowDeselect={false}
+              data={patterns.map(pattern => ({ label: pattern.name, value: pattern.id }))}
+              label="Pattern ID"
+              size="xs"
+              value={draft.blockPatternId}
+              onChange={value => setDraft(currentDraft => ({ ...currentDraft, blockPatternId: value ?? '' }))}
             />
             <Select
               allowDeselect={false}
