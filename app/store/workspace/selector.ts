@@ -91,7 +91,7 @@ export function selectPatternEvent(
   return selectPattern(workspace, patternId)?.events.find(event => event.id === patternEventId)
 }
 
-export function selectPatternIdForEvent(
+export function selectPatternByPatternEventId(
   workspace: Workspace,
   patternEventId: PatternEventId,
 ): PatternId | undefined {
@@ -112,11 +112,16 @@ export function selectBlocksByTrackId(workspace: Workspace, trackId: TrackId): B
   return workspace.arrangement.blocks.filter(block => block.trackId === trackId)
 }
 
+export function selectBlocksForPattern(workspace: Workspace, patternId: PatternId): Block[] {
+  return sortBlocksByStartTick(selectBlocksByPatternId(workspace, patternId))
+}
+
+export function selectBlocksByPatternId(workspace: Workspace, patternId: PatternId): Block[] {
+  return workspace.arrangement.blocks.filter(block => block.patternId === patternId)
+}
+
 export function selectBlocksAtTick(workspace: Workspace, tick: Tick): Block[] {
-  return selectBlocksInRange(workspace, {
-    startTick: tick,
-    endTick: tick + 1,
-  })
+  return selectBlocksInRange(workspace, { startTick: tick, endTick: tick + 1 })
 }
 
 export function selectBlocksInRange(workspace: Workspace, range: TickRange): Block[] {
@@ -148,6 +153,10 @@ export function selectTimelineEvents(workspace: Workspace): TimelineEvent[] {
 
 export function selectTimelineEventIds(workspace: Workspace): TimelineEventId[] {
   return selectTimelineEvents(workspace).map(timelineEvent => timelineEvent.id)
+}
+
+export function selectPatternEventIds(workspace: Workspace): PatternEventId[] {
+  return selectPatterns(workspace).map(event => event.id)
 }
 
 export function selectTempoEvents(workspace: Workspace, tick: Tick): TempoEvent | undefined {

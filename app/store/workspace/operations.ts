@@ -3,8 +3,8 @@ import {
   selectBlock,
   selectMixChannel,
   selectPattern,
+  selectPatternByPatternEventId,
   selectPatternEvent,
-  selectPatternIdForEvent,
   selectSection,
   selectTimelineEvent,
   selectTrack,
@@ -569,7 +569,7 @@ export function deletePatternEvent(
   workspace: Workspace,
   eventId: PatternEventId,
 ): Workspace {
-  const patternId = selectPatternIdForEvent(workspace, eventId)
+  const patternId = selectPatternByPatternEventId(workspace, eventId)
 
   if (patternId === undefined) {
     throw new Error(`Pattern event ${eventId} does not exist.`)

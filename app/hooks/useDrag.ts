@@ -8,6 +8,8 @@ import {
 import type {
   Block,
   BlockId,
+  MidiNote,
+  PatternId,
   Section,
   Tick,
   TimelineEvent,
@@ -33,6 +35,11 @@ type DragIntent
   }
   | {
     kind: 'drawSection'
+  }
+  | {
+    kind: 'drawPatternEvent'
+    pitch: MidiNote
+    patternId: PatternId
   }
   | {
     kind: 'selectRange'
@@ -142,6 +149,16 @@ export function useDrag({
           currentTick: getInitialDrawEndTick(workspace.timeline, tick),
           kind: intent.kind,
           startTick: tick,
+        })
+        return
+      case 'drawPatternEvent':
+        setDragState({
+          ...pointer,
+          currentTick: getInitialDrawEndTick(workspace.timeline, tick),
+          kind: intent.kind,
+          startTick: tick,
+          patternId: intent.patternId,
+          pitch: intent.pitch,
         })
         return
       case 'selectRange':

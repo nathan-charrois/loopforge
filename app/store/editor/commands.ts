@@ -7,6 +7,7 @@ import {
   selectSection,
   selectTimelineEvent,
   selectTrack,
+  setActivePatternPanelTool,
   setActiveTool,
   setClipboard,
   setFocusedBlockId,
@@ -15,6 +16,7 @@ import {
   setSelection,
 } from './operations'
 import type {
+  ActivePatternPanelTool,
   ActiveTool,
   ClipboardState,
   Editor,
@@ -85,6 +87,10 @@ export function applyEditorCommand(
     case 'setActiveTool': {
       const activeTool = getPayloadString(payload, 'activeTool') as ActiveTool | undefined
       return activeTool === undefined ? editor : setActiveTool(editor, activeTool)
+    }
+    case 'setActivePatternPanelTool': {
+      const activeTool = getPayloadString(payload, 'activePatternPanelTool') as ActivePatternPanelTool | undefined
+      return activeTool === undefined ? editor : setActivePatternPanelTool(editor, activeTool)
     }
     case 'setClipboard': {
       const clipboard = getPayloadObject<ClipboardState>(payload, 'clipboard')
@@ -168,6 +174,10 @@ export function createSelectTrackCommand(trackId: TrackId, additive: boolean): E
 
 export function createSetActiveToolCommand(tool: ActiveTool): EditorCommand {
   return createEditorCommandRecord('setActiveTool', `Set active tool to ${tool}`, { activeTool: tool })
+}
+
+export function createSetActivePatternPanelToolCommand(tool: ActivePatternPanelTool): EditorCommand {
+  return createEditorCommandRecord('setActivePatternPanelTool', `Set active pattern panel tool to ${tool}`, { activePatternPanelTool: tool })
 }
 
 export function createSetHoveredChordCommand(hoveredChord: Editor['hoveredChord']): EditorCommand {

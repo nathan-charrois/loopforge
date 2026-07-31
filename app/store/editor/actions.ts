@@ -7,6 +7,7 @@ import {
   createSelectSectionCommand,
   createSelectTimelineEventCommand,
   createSelectTrackCommand,
+  createSetActivePatternPanelToolCommand,
   createSetActiveToolCommand,
   createSetClipboardCommand,
   createSetFocusedBlockIdCommand,
@@ -16,6 +17,7 @@ import {
 } from './commands'
 import {
   createArrangementBlockDraft,
+  createArrangementPatternEventDraft,
   createArrangementSectionDraft,
   createInspectorState,
   createRangeSelectionState,
@@ -23,11 +25,13 @@ import {
 } from './factory'
 import { snapToMinimumTimelineRange } from './snap'
 import type {
+  ActivePatternPanelTool,
   ActiveTool,
   ClipboardState,
   DragState,
   Editor,
   InspectorDraft,
+  PatternEventDraft,
   SelectionState,
   TimelineEventDraft,
 } from './type'
@@ -69,6 +73,7 @@ import {
 import type { Command, EditorCommand } from '~/store/session'
 import {
   addBlockAction,
+  addPatternEventAction,
   addSectionAction,
   addTimelineEventAction,
   deleteBlockAction,
@@ -85,7 +90,7 @@ import {
   resizeBlockAction,
   resizeSectionAction,
   selectBlock,
-  selectPatternIdForEvent,
+  selectPatternByPatternEventId,
   selectTimelineEventIds,
   splitBlockAction,
   splitSectionAction,
@@ -154,6 +159,10 @@ export function copySelectionAction(): EditorCommand {
 
 export function setActiveToolAction(tool: ActiveTool): EditorCommand {
   return createSetActiveToolCommand(tool)
+}
+
+export function setActivePatternPanelToolAction(tool: ActivePatternPanelTool): EditorCommand {
+  return createSetActivePatternPanelToolCommand(tool)
 }
 
 export function setHoveredChordAction(
@@ -301,6 +310,25 @@ export function completeDragAction(input: {
     threshold,
     workspace,
   } = input
+
+  if (dragState.kind === 'drawPatternEvent') {
+    const range = snapToMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
+    const patternEvent = createArrangementPatternEventDraft({
+      workspace,
+      lengthTicks: range.lengthTicks,
+      patternId: dragState.patternId,
+      pitch: dragState.pitch,
+      startTick: range.startTick,
+    })
+
+    return [
+      addPatternEventAction(dragState.patternId, patternEvent),
+      setSelectionAction({
+        ...createSelectionState(),
+        selectedPatternEventIds: [patternEvent.id],
+      }),
+    ]
+  }
 
   if (dragState.kind === 'drawBlock') {
     const range = snapToMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
@@ -499,7 +527,7 @@ export function updatePatternEventFromInspectorAction(input: {
   workspace: Workspace
 }): Command | undefined {
   const { draft, patternEvent, workspace } = input
-  const patternId = selectPatternIdForEvent(workspace, patternEvent.id)
+  const patternId = selectPatternByPatternEventId(workspace, patternEvent.id)
 
   if (patternId === undefined) {
     return undefined
@@ -543,6 +571,32 @@ export function updatePatternEventFromInspectorAction(input: {
         velocity: draft.patternEventVelocity,
       }))
   }
+}
+
+export function updatePatternEventFromDraftAction(input: {
+  patternEvent: PatternEvent
+  draft: Partial<PatternEventDraft>
+  workspace: Workspace
+}): Command | undefined {
+  const { draft, patternEvent, workspace } = input
+  const patternId = selectPatternByPatternEventId(workspace, patternEvent.id)
+
+  if (patternId === undefined) {
+    return undefined
+  }
+
+  if (patternEvent.kind === 'automation') {
+    return
+  }
+
+  if (draft.patternEventVelocity === undefined) {
+    return
+  }
+
+  return updatePatternEventAction(patternId, {
+    ...patternEvent,
+    velocity: draft.patternEventVelocity,
+  })
 }
 
 export function applyTimelineEventToolAction(

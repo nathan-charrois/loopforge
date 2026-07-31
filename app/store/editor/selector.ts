@@ -2,8 +2,8 @@ import {
   selectBlock,
   selectMixChannel,
   selectPattern,
+  selectPatternByPatternEventId,
   selectPatternEvent,
-  selectPatternIdForEvent,
   selectSection,
   selectTimelineEvent,
   selectTrack,
@@ -48,7 +48,7 @@ export function selectFirstSelectedPatternEvent(
   }
 
   const patternEventId = editor.selection.selectedPatternEventIds[0]
-  const patternId = selectPatternIdForEvent(workspace, patternEventId)
+  const patternId = selectPatternByPatternEventId(workspace, patternEventId)
 
   if (!patternId) {
     return undefined

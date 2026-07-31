@@ -62,13 +62,6 @@ export function createPattern(input: CreatePatternInput): Pattern {
   }
 }
 
-export function createEmptyPattern(input: Omit<CreatePatternInput, 'events'>): Pattern {
-  return createPattern({
-    ...input,
-    events: [],
-  })
-}
-
 export function createSeedPatternEvents(
   patternKind: PatternKind,
   lengthTicks: number,

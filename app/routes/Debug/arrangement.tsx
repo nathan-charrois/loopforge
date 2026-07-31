@@ -63,6 +63,7 @@ import {
 
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
+import { PatternPanel } from '~/components/piano/PatternPanel'
 import { Piano } from '~/components/piano/piano'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
@@ -97,6 +98,7 @@ import {
   type Key,
   type MasterMixChannel,
   MAX_MIX_CHANNEL_PAN,
+  type MidiNote,
   MIN_MIX_CHANNEL_PAN,
   type MixChannel,
   type MixChannelId,
@@ -141,17 +143,20 @@ import { useViewport } from '~/hooks/useViewport'
 import type { PlaybackEngine } from '~/playback/playback'
 import {
   ACTIVE_TOOLS,
+  type ActivePatternPanelTool,
   type ActiveTool,
   applyBlockToolAction,
   applySectionToolAction,
   applyTimelineEventToolAction,
   copySelectionAction,
+  createArrangementPatternDraft,
   createInspectorDraft,
   deleteSelectionAction,
   type DragState,
   duplicateSelectionAction,
   type InspectorDraft,
   pasteClipboardAction,
+  type PatternEventDraft,
   selectBlockAction,
   selectFirstSelectedBlock,
   selectFirstSelectedMixChannel,
@@ -167,6 +172,7 @@ import {
   selectSectionAction,
   selectTimelineEventAction,
   selectTrackAction,
+  setActivePatternPanelToolAction,
   setActiveToolAction,
   setFocusedBlockIdAction,
   tickToX,
@@ -174,6 +180,7 @@ import {
   updateBlockFromInspectorAction,
   updateInspectorDraftFromSelection,
   updateMixChannelFromInspectorAction,
+  updatePatternEventFromDraftAction,
   updatePatternEventFromInspectorAction,
   updatePatternFromInspectorAction,
   updateSectionFromInspectorAction,
@@ -183,7 +190,9 @@ import {
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
 import {
+  addPatternAction,
   addTrackAction,
+  deletePatternEventAction,
   deleteTimelineEventAction,
   selectBlocksForTrack,
   selectMixChannel,
@@ -556,6 +565,49 @@ function ArrangementDebugContent() {
     dispatch(selectPatternEventAction(patternEventId, event.shiftKey))
   }, [dispatch])
 
+  const handleCreatePattern = useCallback(() => {
+    const pattern = createArrangementPatternDraft(workspace)
+
+    dispatch([
+      addPatternAction(pattern),
+      selectPatternAction(pattern.id),
+    ])
+  }, [dispatch, workspace])
+
+  const handlePatternRollPointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    patternId: PatternId,
+    pitch: MidiNote,
+  ) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    if (editor.activePatternPanelTool === 'draw') {
+      startDrag(event, { kind: 'drawPatternEvent', patternId, pitch })
+      return
+    }
+  }, [editor.activePatternPanelTool, startDrag])
+
+  const handleSelectPatternEvent = useCallback((patternEventId: PatternEventId, additive: boolean) => {
+    dispatch(selectPatternEventAction(patternEventId, additive))
+  }, [dispatch])
+
+  const handleDeletePatternEvent = useCallback((patternEventId: PatternEventId) => {
+    dispatch(deletePatternEventAction([patternEventId]))
+  }, [dispatch])
+
+  const handleUpdatePatternEventDraft = useCallback((
+    patternEvent: PatternEvent,
+    patternEventDraft: Partial<PatternEventDraft>,
+  ) => {
+    dispatch(updatePatternEventFromDraftAction({
+      draft: patternEventDraft,
+      patternEvent,
+      workspace,
+    }) ?? [])
+  }, [dispatch])
+
   const handleClickMixChannelMute = useCallback((
     event: ReactMouseEvent<HTMLButtonElement>,
     mixChannel: MixChannel,
@@ -598,9 +650,11 @@ function ArrangementDebugContent() {
   }, [dispatch])
 
   const setActiveTool = useCallback((tool: ActiveTool) => {
-    dispatch(setActiveToolAction(
-      tool,
-    ))
+    dispatch(setActiveToolAction(tool))
+  }, [dispatch])
+
+  const handleSetActivePatternPanelTool = useCallback((tool: ActivePatternPanelTool) => {
+    dispatch(setActivePatternPanelToolAction(tool))
   }, [dispatch])
 
   const handlePaste = useCallback(() => {
@@ -880,7 +934,27 @@ function ArrangementDebugContent() {
                 />
               </Box>
             </Box>
-            <PatternEventInspector patternEvent={selectedPatternEvent} />
+            <PatternPanel
+              workspace={workspace}
+              tool={editor.activePatternPanelTool}
+              timeline={workspace.timeline}
+              focusedBlockId={editor.focusedBlockId}
+              selectedPattern={selectedPattern}
+              selectedPatternEvent={selectedPatternEvent}
+              selectedPatternEventIds={editor.selection.selectedPatternEventIds}
+              onCreatePattern={handleCreatePattern}
+              onDeletePatternEvent={handleDeletePatternEvent}
+              onPatternRollPointerCancel={cancelDrag}
+              onPatternRollPointerDown={handlePatternRollPointerDown}
+              onPatternRollPointerMove={updateDrag}
+              onPatternRollPointerUp={finishDrag}
+              onSelectPatternEvent={handleSelectPatternEvent}
+              onSetActiveTool={handleSetActivePatternPanelTool}
+              onUpdatePatternEventDraft={handleUpdatePatternEventDraft}
+            />
+            <PatternEventInspector
+              patternEvent={selectedPatternEvent}
+            />
           </Paper>
           <Stack gap="md" style={{ gridColumn: 'span 2', overflow: 'hidden' }}>
             <Paper withBorder radius="sm" p="md">

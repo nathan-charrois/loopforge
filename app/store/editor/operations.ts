@@ -1,6 +1,7 @@
 import { copySelectionToClipboard } from './clipboard'
 import { createSelectionState } from './factory'
 import type {
+  ActivePatternPanelTool,
   ActiveTool,
   ClipboardState,
   Editor,
@@ -23,6 +24,16 @@ export function setActiveTool(
   return {
     ...editor,
     activeTool: tool,
+  }
+}
+
+export function setActivePatternPanelTool(
+  editor: Editor,
+  tool: ActivePatternPanelTool,
+): Editor {
+  return {
+    ...editor,
+    activePatternPanelTool: tool,
   }
 }
 

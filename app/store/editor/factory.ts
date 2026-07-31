@@ -3,14 +3,25 @@ import type { ClipboardState, Editor, InspectorState, SelectionState, ViewportSt
 import {
   type Block,
   createBlock,
+  createNoteEvent,
+  createPattern,
+  createPositiveDurationTicks,
   createSection,
+  createTick,
   type DurationTicks,
+  getBarLengthTicksAtTick,
+  type MidiNote,
+  type NoteEvent,
+  type Pattern,
+  type PatternId,
   type Section,
   type Tick,
   type TrackId,
 } from '~/domain'
 import {
   selectBlocksInRange,
+  selectPatternEventIds,
+  selectPatterns,
   selectSectionsInRange,
   type Workspace,
 } from '~/store/workspace'
@@ -74,6 +85,7 @@ export function createInspectorState(): InspectorState {
 export function createEditor(input: Partial<Editor> = {}): Editor {
   return {
     activeTool: input.activeTool ?? 'select',
+    activePatternPanelTool: input.activePatternPanelTool ?? 'select',
     clipboard: input.clipboard ?? createClipboardState(),
     focusedBlockId: input.focusedBlockId,
     hoveredChord: input.hoveredChord,
@@ -104,8 +116,7 @@ export function createArrangementBlockDraft(
   },
 ): Block {
   const track = workspace.tracks.byId[input.trackId]
-  const pattern = workspace.patterns.allIds
-    .map(patternId => workspace.patterns.byId[patternId])
+  const pattern = selectPatterns(workspace)
     .find(currentPattern => currentPattern !== undefined && track?.accepts.includes(currentPattern.kind))
 
   if (track === undefined) {
@@ -144,6 +155,60 @@ export function createArrangementSectionDraft(
     lengthTicks: input.lengthTicks,
     name: `Section ${sectionNumber}`,
     startTick: input.startTick,
+  })
+}
+
+export function createArrangementPatternDraft(workspace: Workspace): Pattern {
+  const patternNumber = workspace.patterns.allIds.length + 1
+
+  return createPattern({
+    id: createDraftEntityId('pattern', workspace.patterns.allIds),
+    kind: 'note',
+    lengthTicks: getBarLengthTicksAtTick(workspace.timeline, 0),
+    name: `Pattern ${patternNumber}`,
+  })
+}
+
+export function createArrangementPatternEventDraft({
+  workspace,
+  lengthTicks,
+  patternId,
+  pitch,
+  startTick,
+}: {
+  workspace: Workspace
+  lengthTicks: DurationTicks
+  patternId: PatternId
+  pitch: MidiNote
+  startTick: Tick
+}): NoteEvent {
+  const pattern = workspace.patterns.byId[patternId]
+
+  if (pattern === undefined) {
+    throw new Error(`Pattern ${patternId} does not exist.`)
+  }
+
+  if (pattern.kind !== 'note') {
+    throw new Error(`Pattern ${pattern.id} does not accept note events.`)
+  }
+
+  const timeTick = createTick(Math.min(
+    startTick,
+    pattern.lengthTicks - 1,
+  ))
+
+  const durationTicks = createPositiveDurationTicks(Math.min(
+    lengthTicks,
+    pattern.lengthTicks - timeTick,
+  ))
+
+  const existingEventIds = selectPatternEventIds(workspace)
+
+  return createNoteEvent({
+    id: createDraftEntityId('event_note', existingEventIds),
+    durationTicks,
+    pitch,
+    timeTick,
   })
 }
 

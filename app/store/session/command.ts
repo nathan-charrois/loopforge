@@ -61,6 +61,7 @@ export const EDITOR_COMMAND_KINDS = [
   'selectTimelineEvent',
   'selectTrack',
   'setActiveTool',
+  'setActivePatternPanelTool',
   'setClipboard',
   'setFocusedBlockId',
   'setHoveredChord',

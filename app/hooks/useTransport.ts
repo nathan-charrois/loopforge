@@ -9,8 +9,10 @@ import {
 } from 'react'
 
 import type { PlaybackEngine } from '~/playback/playback'
+import { createDefaultPlayheadMap, type PlayheadMap } from '~/playback/playhead'
 import type { TransportSnapshot, TransportStatus } from '~/playback/transport'
 import {
+  clampTimelineTick,
   tickToX,
   xToTick,
 } from '~/store/editor'
@@ -38,29 +40,36 @@ export function useTransportSnapshot(
   )
 }
 
+const DEFAULT_PLAYHEAD_MAP = createDefaultPlayheadMap()
+
 export function useTransportPlayhead(
   playbackEngine: PlaybackEngine,
   pixelsPerTick: number,
   timelineRef: RefObject<HTMLDivElement | null>,
+  playheadMap: PlayheadMap = DEFAULT_PLAYHEAD_MAP,
 ) {
   const playheadRef = useRef<HTMLDivElement>(null)
+  const playheadMapRef = useRef<PlayheadMap>(playheadMap)
   const isDraggingRef = useRef(false)
 
+  playheadMapRef.current = playheadMap
+
   const getSeekTickFromClientX = useCallback((clientX: number) => {
+    const snapshot = playbackEngine.transport.getSnapshot()
+
     if (timelineRef.current === null) {
-      return playbackEngine.transport.getSnapshot().playheadTick
+      return snapshot.playheadTick
     }
 
     const rect = timelineRef.current.getBoundingClientRect()
-    const rawTick = xToTick(pixelsPerTick, clientX - rect.left)
+    const localTickFloat = xToTick(pixelsPerTick, clientX - rect.left)
 
-    return Math.max(
-      0,
-      Math.min(
-        playbackEngine.transport.getSnapshot().projectEndTick,
-        Math.round(rawTick),
-      ),
+    const transportTick = playheadMapRef.current.getTransportTick(
+      clampTimelineTick(localTickFloat),
+      snapshot.playheadTick,
     )
+
+    return Math.max(0, Math.min(snapshot.projectEndTick, transportTick))
   }, [pixelsPerTick, playbackEngine, timelineRef])
 
   const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
@@ -101,10 +110,21 @@ export function useTransportPlayhead(
     let frameId = 0
 
     function updatePlayheadTransform() {
-      const playheadTick = playbackEngine.transport.getSnapshot().playheadTick
+      const element = playheadRef.current
 
-      if (playheadRef.current !== null && Number.isFinite(playheadTick)) {
-        playheadRef.current.style.transform = `translateX(${tickToX(pixelsPerTick, playheadTick)}px)`
+      if (element === null) {
+        return
+      }
+
+      const transportTick = playbackEngine.transport.getSnapshot().playheadTick
+      const localTick = playheadMapRef.current.getLocalTick(transportTick)
+
+      if (localTick === undefined || !Number.isFinite(localTick)) {
+        element.style.visibility = 'hidden'
+      }
+      else {
+        element.style.visibility = 'visible'
+        element.style.transform = `translateX(${tickToX(pixelsPerTick, localTick)}px)`
       }
 
       frameId = requestAnimationFrame(updatePlayheadTransform)
@@ -112,9 +132,7 @@ export function useTransportPlayhead(
 
     frameId = requestAnimationFrame(updatePlayheadTransform)
 
-    return () => {
-      cancelAnimationFrame(frameId)
-    }
+    return () => cancelAnimationFrame(frameId)
   }, [pixelsPerTick, playbackEngine])
 
   return useMemo(() => ({

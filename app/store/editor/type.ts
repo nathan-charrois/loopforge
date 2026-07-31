@@ -8,7 +8,7 @@ import type {
 import type { ChordSymbol, Key } from '~/domain/harmony'
 import type { DrumPiece } from '~/domain/instrument'
 import type { MixChannelId } from '~/domain/mixer'
-import type { Tick } from '~/domain/musicPrimitives'
+import type { MidiNote, Tick } from '~/domain/musicPrimitives'
 import type { PatternEventId, PatternEventKind } from '~/domain/patternEvents'
 import type { PatternId, PatternKind } from '~/domain/patterns'
 import type { ChordPlayback } from '~/domain/playback'
@@ -31,6 +31,13 @@ export const ACTIVE_TOOLS = [
   'key',
 ] as const
 export type ActiveTool = typeof ACTIVE_TOOLS[number]
+
+export const ACTIVE_PATTERN_PANEL_TOOLS = [
+  'draw',
+  'select',
+  'delete',
+] as const
+export type ActivePatternPanelTool = typeof ACTIVE_PATTERN_PANEL_TOOLS[number]
 
 export const INSPECTOR_PANELS = ['project', 'track', 'block', 'pattern', 'event'] as const
 export type InspectorPanel = typeof INSPECTOR_PANELS[number]
@@ -79,6 +86,16 @@ export type DragState
   | {
     currentTick: Tick
     kind: 'drawSection'
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+  }
+  | {
+    currentTick: Tick
+    kind: 'drawPatternEvent'
+    patternId: PatternId
+    pitch: MidiNote
     pointerId: number
     startClientX: number
     startClientY: number
@@ -188,6 +205,7 @@ export type InspectorDraft = PatternEventDraft & TimelineEventDraft & {
 
 export type Editor = {
   activeTool: ActiveTool
+  activePatternPanelTool: ActivePatternPanelTool
   clipboard: ClipboardState
   focusedBlockId?: BlockId
   hoveredChord?: ChordSymbol
