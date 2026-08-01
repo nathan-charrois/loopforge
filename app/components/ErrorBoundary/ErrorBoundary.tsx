@@ -9,7 +9,7 @@ type ErrorBoundaryState = {
   error: unknown | null
 }
 
-class ErrorBoundary extends Component<
+export const ErrorBoundary = memo(class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
@@ -30,6 +30,4 @@ class ErrorBoundary extends Component<
 
     return this.props.children
   }
-}
-
-export default memo(ErrorBoundary)
+})

@@ -63,8 +63,8 @@ import {
 
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
-import { PatternPanel } from '~/components/piano/PatternPanel'
-import { Piano } from '~/components/piano/piano'
+import { PatternPanel } from '~/components/PatternPanel/PatternPanel'
+import { Piano } from '~/components/Piano/Piano'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import { useSession } from '~/components/Providers/SessionProvider'
@@ -149,7 +149,6 @@ import {
   applySectionToolAction,
   applyTimelineEventToolAction,
   copySelectionAction,
-  createArrangementPatternDraft,
   createInspectorDraft,
   deleteSelectionAction,
   type DragState,
@@ -190,7 +189,6 @@ import {
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
 import {
-  addPatternAction,
   addTrackAction,
   deletePatternEventAction,
   deleteTimelineEventAction,
@@ -565,15 +563,6 @@ function ArrangementDebugContent() {
     dispatch(selectPatternEventAction(patternEventId, event.shiftKey))
   }, [dispatch])
 
-  const handleCreatePattern = useCallback(() => {
-    const pattern = createArrangementPatternDraft(workspace)
-
-    dispatch([
-      addPatternAction(pattern),
-      selectPatternAction(pattern.id),
-    ])
-  }, [dispatch, workspace])
-
   const handlePatternRollPointerDown = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
     patternId: PatternId,
@@ -939,10 +928,8 @@ function ArrangementDebugContent() {
               tool={editor.activePatternPanelTool}
               timeline={workspace.timeline}
               focusedBlockId={editor.focusedBlockId}
-              selectedPattern={selectedPattern}
               selectedPatternEvent={selectedPatternEvent}
               selectedPatternEventIds={editor.selection.selectedPatternEventIds}
-              onCreatePattern={handleCreatePattern}
               onDeletePatternEvent={handleDeletePatternEvent}
               onPatternRollPointerCancel={cancelDrag}
               onPatternRollPointerDown={handlePatternRollPointerDown}

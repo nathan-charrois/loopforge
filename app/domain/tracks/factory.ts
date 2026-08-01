@@ -1,7 +1,8 @@
 import { createMixChannelIdForTrack, type MixChannelId } from '../mixer'
-import type { PatternKind } from '../patterns'
 import { DEFAULT_ACCEPTS_BY_ROLE, DEFAULT_SOUND_BY_ROLE, DEFAULT_TRACK_COLOR } from './constants'
-import type { InstrumentId, Track, TrackId, TrackRole } from './index'
+import type { Track, TrackId, TrackRole } from './index'
+import type { InstrumentId } from '~/domain/instrument'
+import type { PatternKind } from '~/domain/patterns'
 
 export function createTrack(input: {
   id: TrackId

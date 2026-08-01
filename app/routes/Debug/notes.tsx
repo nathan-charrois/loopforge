@@ -512,11 +512,6 @@ function NotesLooper({ model }: { model: NotesModel }) {
             </Badge>
             <Badge color="blue" variant="light">looping</Badge>
             <Badge variant="light">
-              {transportSnapshot.scheduledEventCount}
-              {' '}
-              event
-            </Badge>
-            <Badge variant="light">
               {model.loopLengthTicks}
               {' '}
               ticks
