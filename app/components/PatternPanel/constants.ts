@@ -13,6 +13,5 @@ export const PANEL_ROLL_HEIGHT = PANEL_KEY_COUNT * PANEL_ROW_HEIGHT
 export const PANEL_VIEWPORT_HEIGHT = 440
 
 export const PANEL_PIANO_WIDTH = 88
-export const PANEL_TIMELINE_WIDTH = 840
 
 export const BLACK_PITCH_CLASSES = new Set<PitchClass>([1, 3, 6, 8, 10])

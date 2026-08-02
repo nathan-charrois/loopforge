@@ -13,6 +13,7 @@ import {
   duplicateSections,
   duplicateTrack,
   moveBlock,
+  movePatternEvent,
   moveSection,
   removeMixChannels,
   removePattern,
@@ -39,6 +40,7 @@ import {
   createMixChannel,
   type GridDivision,
   type MasterMixChannel,
+  type MidiNote,
   type MixChannel,
   type MixChannelId,
   type Pattern,
@@ -198,6 +200,19 @@ export function applyWorkspaceCommand(
     }
     case 'deletePatternEvent':
       return deletePatternEvents(workspace, getPayloadStringArray(payload, 'eventIds'))
+    case 'movePatternEvent': {
+      const eventId = getPayloadString(payload, 'eventId')
+      const patternId = getPayloadString(payload, 'patternId')
+      const pitch = getPayloadNumber(payload, 'pitch')
+      const timeTick = getPayloadNumber(payload, 'timeTick')
+
+      return eventId === undefined
+        || patternId === undefined
+        || pitch === undefined
+        || timeTick === undefined
+        ? workspace
+        : movePatternEvent(workspace, patternId, eventId, timeTick, pitch)
+    }
     case 'updatePatternEvent': {
       const patternId = getPayloadString(payload, 'patternId')
       const event = getPayloadObject<PatternEvent>(payload, 'event')
@@ -399,6 +414,20 @@ export function createDeletePatternEventCommand(eventIds: readonly PatternEventI
     `Delete ${eventIds.length} pattern event${eventIds.length === 1 ? '' : 's'}`,
     { eventIds: [...eventIds] },
   )
+}
+
+export function createMovePatternEventCommand(
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  pitch: MidiNote,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('movePatternEvent', 'Move note event', {
+    eventId,
+    patternId,
+    pitch,
+    timeTick,
+  })
 }
 
 export function createUpdatePatternEventCommand(

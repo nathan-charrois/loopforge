@@ -23,7 +23,10 @@ import {
   createRangeSelectionState,
   createSelectionState,
 } from './factory'
-import { snapToMinimumTimelineRange } from './snap'
+import {
+  snapToGridMinimumTimelineRange,
+  snapToMinimumTimelineRange,
+} from './snap'
 import type {
   ActivePatternPanelTool,
   ActiveTool,
@@ -86,6 +89,7 @@ import {
   duplicateBlockAction,
   duplicateSectionAction,
   moveBlockAction,
+  movePatternEventAction,
   moveSectionAction,
   resizeBlockAction,
   resizeSectionAction,
@@ -312,7 +316,7 @@ export function completeDragAction(input: {
   } = input
 
   if (dragState.kind === 'drawPatternEvent') {
-    const range = snapToMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
+    const range = snapToGridMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
     const patternEvent = createArrangementPatternEventDraft({
       workspace,
       lengthTicks: range.lengthTicks,
@@ -373,6 +377,20 @@ export function completeDragAction(input: {
           dragState.currentRow,
         ), 'Select range')]
       : [createSetSelectionCommand(createSelectionState(), 'Clear selection')]
+  }
+
+  if (dragState.kind === 'movePatternEvent') {
+    const timeTick = Math.max(0, dragState.event.timeTick + endTick - dragState.startTick)
+
+    return dragState.currentPitch === dragState.event.pitch
+      && timeTick === dragState.event.timeTick
+      ? []
+      : [movePatternEventAction(
+          dragState.patternId,
+          dragState.event.id,
+          timeTick,
+          dragState.currentPitch,
+        )]
   }
 
   if (!isPointerDrag(movementX, movementY, threshold)) {

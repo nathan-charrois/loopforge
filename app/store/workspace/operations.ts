@@ -19,6 +19,7 @@ import {
   getTimelineEventField,
   type GridDivision,
   type MasterMixChannel,
+  type MidiNote,
   type MixChannel,
   type MixChannelId,
   type PatternEvent,
@@ -588,6 +589,33 @@ export function deletePatternEvents(
   eventIds: readonly PatternEventId[],
 ): Workspace {
   return eventIds.reduce(deletePatternEvent, workspace)
+}
+
+export function movePatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  pitch: MidiNote,
+): Workspace {
+  const { event, pattern } = requirePatternEvent(workspace, patternId, eventId)
+
+  if (pattern.kind !== 'note' || event.kind !== 'note') {
+    throw new Error(`Pattern event ${eventId} is not a note event.`)
+  }
+
+  const maxTimeTick = Math.max(0, pattern.lengthTicks - event.durationTicks)
+  const nextTimeTick = Math.min(maxTimeTick, Math.max(0, Math.round(timeTick)))
+
+  if (event.pitch === pitch && event.timeTick === nextTimeTick) {
+    return workspace
+  }
+
+  return updatePatternEvent(workspace, patternId, {
+    ...event,
+    pitch,
+    timeTick: nextTimeTick,
+  })
 }
 
 export function updatePatternEvent(

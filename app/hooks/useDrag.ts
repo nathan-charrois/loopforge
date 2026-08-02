@@ -9,6 +9,7 @@ import type {
   Block,
   BlockId,
   MidiNote,
+  NoteEvent,
   PatternId,
   Section,
   Tick,
@@ -19,6 +20,7 @@ import {
   completeDragAction,
   type DragState,
   getInitialDrawEndTick,
+  getInitialGridDrawEndTick,
   snapTimelineTick,
   type ViewportState,
   xToTick,
@@ -39,6 +41,12 @@ type DragIntent
   | {
     kind: 'drawPatternEvent'
     pitch: MidiNote
+    patternId: PatternId
+  }
+  | {
+    event: NoteEvent
+    kind: 'movePatternEvent'
+    patternEventPitch: MidiNote
     patternId: PatternId
   }
   | {
@@ -79,7 +87,9 @@ export function useDrag({
   workspace: Workspace
 }) {
   const timelineRef = useRef<HTMLDivElement>(null)
+
   const trackRowsRef = useRef<HTMLDivElement>(null)
+  const pitchRowsRef = useRef<HTMLDivElement>(null)
 
   const [dragState, setDragState] = useState<DragState | undefined>()
 
@@ -103,6 +113,25 @@ export function useDrag({
     return workspace.tracks.allIds[trackIndex]
   }, [viewport.laneHeight, workspace.tracks.allIds])
 
+  const getPointerPitch = useCallback((clientY: number): MidiNote => {
+    if (pitchRowsRef.current === null) {
+      return 0
+    }
+
+    const rect = pitchRowsRef.current.getBoundingClientRect()
+    const pitchRows = pitchRowsRef.current.querySelectorAll<HTMLElement>('[data-midi-note]')
+
+    if (rect.height <= 0 || pitchRows.length === 0) {
+      return 0
+    }
+
+    const y = Math.max(0, Math.min(rect.height - 1, clientY - rect.top))
+    const rowIndex = Math.min(pitchRows.length - 1, Math.floor(y / rect.height * pitchRows.length))
+    const midiNote = Number(pitchRows[rowIndex].dataset.midiNote)
+
+    return Number.isNaN(midiNote) ? 0 : midiNote
+  }, [])
+
   const getPointerRow = useCallback((clientY: number): number => {
     if (trackRowsRef.current === null || workspace.tracks.allIds.length === 0) {
       return 0
@@ -121,7 +150,7 @@ export function useDrag({
   }, [viewport.laneHeight, workspace.tracks.allIds])
 
   const startDrag = useCallback((
-    event: ReactPointerEvent<HTMLDivElement>,
+    event: ReactPointerEvent<HTMLElement>,
     intent: DragIntent,
   ) => {
     const tick = getPointerTick(event.clientX)
@@ -154,11 +183,22 @@ export function useDrag({
       case 'drawPatternEvent':
         setDragState({
           ...pointer,
-          currentTick: getInitialDrawEndTick(workspace.timeline, tick),
+          currentTick: getInitialGridDrawEndTick(workspace.timeline, tick),
           kind: intent.kind,
           startTick: tick,
           patternId: intent.patternId,
           pitch: intent.pitch,
+        })
+        return
+      case 'movePatternEvent':
+        setDragState({
+          ...pointer,
+          currentPitch: intent.patternEventPitch,
+          currentTick: tick,
+          event: intent.event,
+          kind: intent.kind,
+          patternId: intent.patternId,
+          startTick: tick,
         })
         return
       case 'selectRange':
@@ -243,9 +283,17 @@ export function useDrag({
         }
       }
 
+      if (current.kind === 'movePatternEvent') {
+        return {
+          ...current,
+          currentPitch: getPointerPitch(event.clientY),
+          currentTick,
+        }
+      }
+
       return { ...current, currentTick }
     })
-  }, [getPointerRow, getPointerTick, getPointerTrackId])
+  }, [getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId])
 
   const cancelDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     setDragState(current => current?.pointerId === event.pointerId ? undefined : current)
@@ -257,13 +305,23 @@ export function useDrag({
     }
 
     const endTick = getPointerTick(event.clientX)
-    const completedState: DragState = dragState.kind === 'selectRange'
-      ? {
-          ...dragState,
-          currentRow: getPointerRow(event.clientY),
-          currentTick: endTick,
-        }
-      : dragState
+    let completedState: DragState = dragState
+
+    if (dragState.kind === 'selectRange') {
+      completedState = {
+        ...dragState,
+        currentRow: getPointerRow(event.clientY),
+        currentTick: endTick,
+      }
+    }
+
+    if (dragState.kind === 'movePatternEvent') {
+      completedState = {
+        ...dragState,
+        currentPitch: getPointerPitch(event.clientY),
+        currentTick: endTick,
+      }
+    }
 
     dispatch(completeDragAction({
       dragState: completedState,
@@ -276,12 +334,14 @@ export function useDrag({
     }))
 
     setDragState(undefined)
-  }, [dispatch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
+  }, [dispatch, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
 
   return {
     cancelDrag,
     finishDrag,
+    getPointerPitch,
     getPointerTick,
+    pitchRowsRef,
     startDrag,
     dragState,
     timelineRef,

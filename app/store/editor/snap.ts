@@ -2,6 +2,7 @@ import {
   createPositiveDurationTicks,
   createTick,
   type DurationTicks,
+  getGridDivisionTicks,
   getSmallestGridDivisionTicks,
   type GridDivision,
   snapTickToGrid,
@@ -65,6 +66,20 @@ export function snapToMinimumTimelineRange(timeline: Timeline, startTick: Tick, 
   }
 }
 
+export function snapToGridMinimumTimelineRange(timeline: Timeline, startTick: Tick, endTick: Tick): TimelineRange {
+  const range = snapTimelineRange(timeline, startTick, endTick)
+  const minimumLengthTicks = getGridDivisionTicks(timeline, range.startTick)
+
+  return {
+    ...range,
+    lengthTicks: clampPositiveLengthTicks(Math.max(range.lengthTicks, minimumLengthTicks)),
+  }
+}
+
 export function getInitialDrawEndTick(timeline: Timeline, startTick: Tick): Tick {
   return createTick(startTick + getSmallestGridDivisionTicks(timeline, startTick))
+}
+
+export function getInitialGridDrawEndTick(timeline: Timeline, startTick: Tick): Tick {
+  return createTick(startTick + getGridDivisionTicks(timeline, startTick))
 }

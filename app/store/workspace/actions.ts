@@ -16,6 +16,7 @@ import {
   createDuplicateSectionCommand,
   createDuplicateTrackCommand,
   createMoveBlockCommand,
+  createMovePatternEventCommand,
   createMoveSectionCommand,
   createReorderTrackCommand,
   createResizeBlockCommand,
@@ -37,6 +38,7 @@ import type {
   BlockId,
   GridDivision,
   MasterMixChannel,
+  MidiNote,
   MixChannel,
   MixChannelId,
   Pattern,
@@ -177,6 +179,15 @@ export function addPatternEventAction(patternId: PatternId, event: PatternEvent)
 
 export function deletePatternEventAction(patternEventIds: PatternEventId[]): WorkspaceCommand {
   return createDeletePatternEventCommand(patternEventIds)
+}
+
+export function movePatternEventAction(
+  patternId: PatternId,
+  patternEventId: PatternEventId,
+  timeTick: Tick,
+  pitch: MidiNote,
+): WorkspaceCommand {
+  return createMovePatternEventCommand(patternId, patternEventId, timeTick, pitch)
 }
 
 export function updatePatternEventAction(patternId: PatternId, event: PatternEvent): WorkspaceCommand {

@@ -4,6 +4,8 @@ import {
   type Block,
   getBlockEndTick,
   getSectionEndTick,
+  type NoteEvent,
+  type Pattern,
   type Section,
   type Tick,
   type TimelineEvent,
@@ -59,14 +61,17 @@ export function useTimelineEventOverlay(
 
 export function usePatternEventOverlay(
   drag: DragState | undefined,
+  pattern: Pattern,
 ) {
-  return useMemo(() => drag?.kind === 'drawPatternEvent'
-    ? {
-        drawRange: getTickRange(drag),
-        patternId: drag.patternId,
-        pitch: drag.pitch,
-      }
-    : undefined, [drag])
+  return useMemo(() => ({
+    drawRange: drag?.kind === 'drawPatternEvent' && drag.patternId === pattern.id
+      ? getTickRange(drag)
+      : undefined,
+    patternEventPlaceholder: buildPatternEventPlaceholder(drag, pattern),
+    pitch: drag?.kind === 'drawPatternEvent' && drag.patternId === pattern.id
+      ? drag.pitch
+      : undefined,
+  }), [drag, pattern])
 }
 
 function getTickRange(drag: DragState): TickRange {
@@ -165,6 +170,30 @@ function buildSectionPlaceholders(
   }
 
   return []
+}
+
+function buildPatternEventPlaceholder(
+  drag: DragState | undefined,
+  pattern: Pattern,
+): NoteEvent | undefined {
+  if (
+    drag?.kind !== 'movePatternEvent'
+    || drag.patternId !== pattern.id
+
+  ) {
+    return undefined
+  }
+
+  const maxTimeTick = Math.max(0, pattern.lengthTicks - drag.event.durationTicks)
+
+  return {
+    ...drag.event,
+    pitch: drag.currentPitch,
+    timeTick: Math.min(
+      maxTimeTick,
+      Math.max(0, drag.event.timeTick + getDeltaTicks(drag)),
+    ),
+  }
 }
 
 function buildTimelineEventPlaceholder(

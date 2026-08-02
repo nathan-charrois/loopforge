@@ -4,6 +4,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -46,7 +47,6 @@ import {
   PANEL_ROLL_HEIGHT,
   PANEL_ROW_HEIGHT,
   PANEL_RULER_HEIGHT,
-  PANEL_TIMELINE_WIDTH,
   PANEL_VIEWPORT_HEIGHT,
 } from './constants'
 import {
@@ -173,6 +173,7 @@ const PatternPanelContent = memo(function PatternPanelContent({
   const {
     viewport,
     scrollRef,
+    handleViewportResize,
     handleViewportWheel,
     handleZoomBy,
   } = useViewport()
@@ -181,6 +182,8 @@ const PatternPanelContent = memo(function PatternPanelContent({
     cancelDrag,
     dragState,
     finishDrag,
+    getPointerPitch,
+    pitchRowsRef,
     startDrag,
     timelineRef,
     updateDrag,
@@ -200,10 +203,23 @@ const PatternPanelContent = memo(function PatternPanelContent({
     [pattern.lengthTicks, timeline],
   )
 
-  const timelineWidth = useMemo(
-    () => Math.max(PANEL_TIMELINE_WIDTH, Math.ceil(pattern.lengthTicks * viewport.pixelsPerTick)),
-    [pattern.lengthTicks, viewport.pixelsPerTick],
-  )
+  const timelineWidth = pattern.lengthTicks * viewport.pixelsPerTick
+
+  useLayoutEffect(() => {
+    const scrollElement = scrollRef.current
+
+    if (scrollElement === null) {
+      return
+    }
+
+    const fitPattern = () => handleViewportResize(pattern.lengthTicks)
+    const resizeObserver = new ResizeObserver(fitPattern)
+
+    fitPattern()
+    resizeObserver.observe(scrollElement)
+
+    return () => resizeObserver.disconnect()
+  }, [handleViewportResize, pattern.id, pattern.lengthTicks])
 
   const playheadProps = useTransportPlayhead(
     playbackEngine,
@@ -262,14 +278,41 @@ const PatternPanelContent = memo(function PatternPanelContent({
   const handlePatternRollPointerDown = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
     patternId: Pattern['id'],
-    pitch: MidiNote,
   ) => {
     if (event.button !== 0 || tool !== 'draw') {
       return
     }
 
-    startDrag(event, { kind: 'drawPatternEvent', patternId, pitch })
-  }, [startDrag, tool])
+    startDrag(event, {
+      kind: 'drawPatternEvent',
+      patternId,
+      pitch: getPointerPitch(event.clientY),
+    })
+  }, [getPointerPitch, startDrag, tool])
+
+  const handleMovePatternEvent = useCallback((
+    event: ReactPointerEvent<HTMLButtonElement>,
+    patternEvent: PatternEvent,
+  ) => {
+    if (event.button !== 0 || patternEvent.kind !== 'note') {
+      return
+    }
+
+    startDrag(event, {
+      event: patternEvent,
+      kind: 'movePatternEvent',
+      patternEventPitch: getPointerPitch(event.clientY),
+      patternId: pattern.id,
+    })
+  }, [getPointerPitch, pattern.id, startDrag])
+
+  const handlePatternRollPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    updateDrag(event)
+  }, [updateDrag])
+
+  const handlePatternRollPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    finishDrag(event)
+  }, [finishDrag])
 
   return (
     <Stack
@@ -411,6 +454,7 @@ const PatternPanelContent = memo(function PatternPanelContent({
           onScroll={syncScroll}
           onWheel={handleWheel}
           style={{
+            background: 'var(--mantine-color-gray-0)',
             minWidth: 0,
             overflow: 'auto',
             overscrollBehavior: 'contain',
@@ -419,6 +463,7 @@ const PatternPanelContent = memo(function PatternPanelContent({
           <Box
             ref={timelineRef}
             style={{
+              background: 'var(--mantine-color-gray-0)',
               display: 'grid',
               gridTemplateRows: `${PANEL_RULER_HEIGHT}px ${PANEL_ROLL_HEIGHT}px`,
               width: timelineWidth,
@@ -433,6 +478,7 @@ const PatternPanelContent = memo(function PatternPanelContent({
               marks={rulerMarks}
               notes={notes}
               pattern={pattern}
+              pitchRowsRef={pitchRowsRef}
               playheadRef={playheadProps.ref}
               pixelsPerTick={viewport.pixelsPerTick}
               selectedPatternEventIds={selectedPatternEventIds}
@@ -440,10 +486,11 @@ const PatternPanelContent = memo(function PatternPanelContent({
               tool={tool}
               drag={dragState}
               onDeletePatternEvent={onDeletePatternEvent}
+              onMovePatternEvent={handleMovePatternEvent}
               onPointerCancel={cancelDrag}
               onPointerDown={handlePatternRollPointerDown}
-              onPointerMove={updateDrag}
-              onPointerUp={finishDrag}
+              onPointerMove={handlePatternRollPointerMove}
+              onPointerUp={handlePatternRollPointerUp}
               onSelectPatternEvent={onSelectPatternEvent}
             />
           </Box>
@@ -507,7 +554,7 @@ const PatternPanelRuler = memo(function PatternPanelRuler({
   return (
     <Box
       style={{
-        background: 'var(--mantine-color-body)',
+        background: 'var(--mantine-color-white)',
         borderBottom: '1px solid var(--mantine-color-default-border)',
         height: PANEL_RULER_HEIGHT,
         position: 'sticky',
@@ -519,7 +566,7 @@ const PatternPanelRuler = memo(function PatternPanelRuler({
       {marks.filter(mark => mark.kind === 'bar').map(mark => (
         <Text
           key={`${mark.kind}-${mark.tick}`}
-          c="dimmed"
+          c="dark.7"
           fw={700}
           size="10px"
           style={{
@@ -541,12 +588,14 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
   marks,
   notes,
   pattern,
+  pitchRowsRef,
   playheadRef,
   pixelsPerTick,
   selectedPatternEventIds,
   timelineWidth,
   drag,
   onDeletePatternEvent,
+  onMovePatternEvent,
   onPointerCancel,
   onPointerDown,
   onPointerMove,
@@ -557,19 +606,21 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
   marks: RulerMark[]
   notes: PatternPanelNote[]
   pattern: Pattern
+  pitchRowsRef: RefObject<HTMLDivElement | null>
   playheadRef: RefObject<HTMLDivElement | null>
   pixelsPerTick: number
   selectedPatternEventIds?: PatternEventId[]
   timelineWidth: number
   drag?: DragState
   onDeletePatternEvent: (patternEventId: PatternEventId) => void
+  onMovePatternEvent: (event: ReactPointerEvent<HTMLButtonElement>, patternEvent: PatternEvent) => void
   onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, patternId: Pattern['id'], pitch: MidiNote) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, patternId: Pattern['id']) => void
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
   onSelectPatternEvent: (patternEventId: PatternEventId, additive: boolean) => void
 }) {
-  const dragOverlay = usePatternEventOverlay(drag)
+  const dragOverlay = usePatternEventOverlay(drag, pattern)
 
   const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (pattern.kind !== 'note') {
@@ -578,15 +629,12 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
 
     const rect = event.currentTarget.getBoundingClientRect()
     const x = Math.max(0, event.clientX - rect.left)
-    const y = Math.max(0, Math.min(PANEL_ROLL_HEIGHT - 1, event.clientY - rect.top))
 
     if (x >= pattern.lengthTicks * pixelsPerTick) {
       return
     }
 
-    const pitch = (PANEL_MAX_MIDI_NOTE - Math.floor(y / PANEL_ROW_HEIGHT)) as MidiNote
-
-    onPointerDown(event, pattern.id, pitch)
+    onPointerDown(event, pattern.id)
   }, [onPointerDown, pattern.id, pattern.kind, pattern.lengthTicks, pixelsPerTick])
 
   const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -603,15 +651,18 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
 
   return (
     <Box
+      ref={pitchRowsRef}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerCancel={handlePointerCancel}
       onPointerUp={handlePointerUp}
       style={{
+        background: 'var(--mantine-color-gray-0)',
         cursor: tool === 'draw' && pattern.kind === 'note' ? 'crosshair' : 'default',
         height: PANEL_ROLL_HEIGHT,
         position: 'relative',
         width: timelineWidth,
+        userSelect: 'none',
       }}
     >
       <PatternPanelPitchRows />
@@ -619,7 +670,7 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
         marks={marks}
         pixelsPerTick={pixelsPerTick}
       />
-      {dragOverlay !== undefined && dragOverlay.patternId === pattern.id && (
+      {dragOverlay?.drawRange !== undefined && dragOverlay.pitch !== undefined && (
         <Box
           aria-label={`New ${formatMidiNote(dragOverlay.pitch)} note`}
           style={{
@@ -646,10 +697,15 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
         />
       )}
       {notes.map(({ event, midiNote }) => {
+        const movingEvent = dragOverlay.patternEventPlaceholder?.id === event.id
+          ? dragOverlay.patternEventPlaceholder
+          : undefined
+        const renderedEvent = movingEvent ?? event
+        const renderedMidiNote = movingEvent?.pitch ?? midiNote
         const selected = selectedPatternEventIds?.includes(event.id)
         const width = Math.max(
           8,
-          getPatternEventDurationTicks(event) * pixelsPerTick,
+          getPatternEventDurationTicks(renderedEvent) * pixelsPerTick,
         )
 
         return (
@@ -657,7 +713,7 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
             key={`${event.id}-${midiNote}`}
             component="button"
             type="button"
-            aria-label={`${formatMidiNote(midiNote)} at tick ${event.timeTick}`}
+            aria-label={`${formatMidiNote(renderedMidiNote)} at tick ${renderedEvent.timeTick}`}
             onPointerDown={(pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
               pointerEvent.stopPropagation()
 
@@ -668,6 +724,7 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
 
               if (tool === 'select') {
                 onSelectPatternEvent(event.id, pointerEvent.shiftKey)
+                onMovePatternEvent(pointerEvent, event)
               }
             }}
             style={{
@@ -678,22 +735,22 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
                 : '1px solid var(--mantine-color-blue-8)',
               borderRadius: 3,
               color: 'white',
-              cursor: 'pointer',
+              cursor: movingEvent === undefined ? 'pointer' : 'grabbing',
               display: 'flex',
               height: PANEL_ROW_HEIGHT - 2,
-              left: event.timeTick * pixelsPerTick,
-              opacity: getPatternEventOpacity(event),
+              left: renderedEvent.timeTick * pixelsPerTick,
+              opacity: getPatternEventOpacity(renderedEvent),
               overflow: 'hidden',
               paddingInline: 4,
               position: 'absolute',
-              top: ((PANEL_MAX_MIDI_NOTE - midiNote) * PANEL_ROW_HEIGHT) + 1,
+              top: ((PANEL_MAX_MIDI_NOTE - renderedMidiNote) * PANEL_ROW_HEIGHT) + 1,
               width,
               zIndex: selected ? 3 : 2,
             }}
           >
             {width >= 42 && (
               <Text fw={700} size="10px" truncate>
-                {formatMidiNote(midiNote)}
+                {formatMidiNote(renderedMidiNote)}
               </Text>
             )}
           </Box>
@@ -729,11 +786,12 @@ const PatternPanelPitchRows = memo(function PatternPanelPitchRows() {
           <Box
             key={midiNote}
             aria-hidden
+            data-midi-note={midiNote}
             style={{
               background: BLACK_PITCH_CLASSES.has(pitchClass)
-                ? 'color-mix(in srgb, var(--mantine-color-dark-8) 72%, transparent)'
-                : 'color-mix(in srgb, var(--mantine-color-dark-6) 52%, transparent)',
-              borderBottom: '1px solid color-mix(in srgb, var(--mantine-color-gray-6) 24%, transparent)',
+                ? 'var(--mantine-color-gray-2)'
+                : 'var(--mantine-color-white)',
+              borderBottom: '1px solid var(--mantine-color-gray-3)',
               height: PANEL_ROW_HEIGHT,
               left: 0,
               position: 'absolute',
@@ -868,7 +926,13 @@ const PatternPanelVelocityRow = memo(function PatternPanelVelocityRow({
           onChangeEnd={commitVelocity}
         />
       </Stack>
-      <Box pos="relative" style={{ overflow: 'hidden' }}>
+      <Box
+        pos="relative"
+        style={{
+          background: 'var(--mantine-color-gray-0)',
+          overflow: 'hidden',
+        }}
+      >
         <Box
           ref={velocityTimelineRef}
           style={{
@@ -956,11 +1020,11 @@ function formatMidiNote(midiNote: MidiNote): string {
 function getGridLineColor(kind: RulerMark['kind']): string {
   switch (kind) {
     case 'bar':
-      return 'var(--mantine-color-gray-4)'
-    case 'beat':
       return 'var(--mantine-color-gray-5)'
+    case 'beat':
+      return 'var(--mantine-color-gray-4)'
     case 'subdivision':
-      return 'var(--mantine-color-gray-6)'
+      return 'var(--mantine-color-gray-3)'
   }
 }
 

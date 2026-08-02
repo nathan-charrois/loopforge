@@ -9,7 +9,7 @@ import type { ChordSymbol, Key } from '~/domain/harmony'
 import type { DrumPiece } from '~/domain/instrument'
 import type { MixChannelId } from '~/domain/mixer'
 import type { MidiNote, Tick } from '~/domain/musicPrimitives'
-import type { PatternEventId, PatternEventKind } from '~/domain/patternEvents'
+import type { NoteEvent, PatternEventId, PatternEventKind } from '~/domain/patternEvents'
 import type { PatternId, PatternKind } from '~/domain/patterns'
 import type { ChordPlayback } from '~/domain/playback'
 import type { TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
@@ -96,6 +96,17 @@ export type DragState
     kind: 'drawPatternEvent'
     patternId: PatternId
     pitch: MidiNote
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+  }
+  | {
+    currentPitch: MidiNote
+    currentTick: Tick
+    event: NoteEvent
+    kind: 'movePatternEvent'
+    patternId: PatternId
     pointerId: number
     startClientX: number
     startClientY: number
