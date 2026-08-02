@@ -18,7 +18,6 @@ import { createChordEvent } from '~/domain/patternEvents'
 import { createPattern, createSeedPatternEvents, type Pattern } from '~/domain/patterns'
 import { createProject, createProjectMetadata, createProjectVersion, touchProject } from '~/domain/project'
 import {
-  createDefaultTimeline,
   createKeyEvent,
   createMeterEvent,
   createTempoEvent,
@@ -26,19 +25,21 @@ import {
   PPQ,
   type TimeSignatureDenominator,
 } from '~/domain/timeline'
-import { createDefaultTracks, createTrack, getPatternKindForTrack, type Track, type TrackRole } from '~/domain/tracks'
+import { createTrack, getPatternKindForTrack, type Track, type TrackRole } from '~/domain/tracks'
 
 export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
-  const tracks = normalizeEntityStore(input.tracks, createEntityStore(createDefaultTracks()))
+  const tracks = normalizeEntityStore(input.tracks, createEntityStore<Track>())
+  const instruments = normalizeEntityStore(input.instruments, createEmptyEntityStore<Instrument>())
+  const patterns = normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>())
 
   return {
     arrangement: input.arrangement ?? createDefaultArrangement(),
-    mixer: input.mixer ?? createMixerForTracks(tracks),
-    patterns: normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>()),
+    mixer: input.mixer ?? createMixer(),
     project: input.project ?? createProject(),
-    timeline: input.timeline ?? createDefaultTimeline(),
+    timeline: input.timeline ?? createTimeline(),
+    patterns,
     tracks,
-    instruments: normalizeEntityStore(input.instruments, createEmptyEntityStore<Instrument>()),
+    instruments,
   }
 }
 
@@ -206,8 +207,8 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
 
 export function createInitialWorkspace(): Workspace {
   return theHouseIsListening()
-  return lanternsInFive()
   return blueHourBelow()
+  return lanternsInFive()
 }
 
 export function summarizeWorkspaceAction(workspace: Workspace): Record<string, number | string> {
@@ -220,14 +221,6 @@ export function summarizeWorkspaceAction(workspace: Workspace): Record<string, n
     tracks: workspace.tracks.allIds.length,
     updatedAt: workspace.project.updatedAt,
   }
-}
-
-function createMixerForTracks(tracks: EntityStore<Track>) {
-  return createMixer({
-    channels: createEntityStore(tracks.allIds.map(trackId => createMixChannel({
-      id: tracks.byId[trackId].mixChannelId,
-    }))),
-  })
 }
 
 function normalizeEntityStore<TEntity extends { id: string }>(

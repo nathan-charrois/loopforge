@@ -207,14 +207,14 @@ import {
 import { parseNumber } from '~/utils/number'
 
 const TRACK_LABEL_WIDTH = 150
-const MIX_CHANNEL_COLUMN_WIDTH = 96
+const MIX_CHANNEL_COLUMN_WIDTH = 75
 const TIMELINE_PADDING_TICKS = 7680
-const MIN_BLOCK_WIDTH = 18
-const MIN_SECTION_WIDTH = 18
-const MIN_OVERLAY_WIDTH = 6
+const MIN_BLOCK_WIDTH = 2
+const MIN_SECTION_WIDTH = 2
+const MIN_OVERLAY_WIDTH = 2
 const BLOCK_TOP = 14
 const TIMELINE_MARKER_TOP = 10
-const HANDLE_WIDTH = 8
+const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
@@ -390,16 +390,19 @@ function ArrangementDebugContent() {
   ])
 
   const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const tick = getPointerTick(event.clientX)
+    playbackEngine.seek(tick)
+
     const commands = applyTimelineEventToolAction(
       workspace,
       editor.activeTool,
-      getPointerTick(event.clientX),
+      tick,
     )
 
     if (commands.length > 0) {
       dispatch(commands)
     }
-  }, [dispatch, editor.activeTool, getPointerTick, workspace])
+  }, [dispatch, editor.activeTool, getPointerTick, playbackEngine, workspace])
 
   const handleSectionLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
@@ -1371,7 +1374,7 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
         <Text fw={700} size="sm">Mix</Text>
       </StaticTimelineLabel>
       <StaticTimelineLabel height={viewport.sectionLaneHeight}>
-        <Text c="dimmed" size="xs">Mute / Solo</Text>
+        <Text c="dimmed" size="xs"></Text>
       </StaticTimelineLabel>
       {tracks.map((track) => {
         const mixChannel = selectMixChannel(workspace, track.mixChannelId)
@@ -1454,7 +1457,7 @@ const StaticTimelineLabel = memo(function StaticTimelineLabel({
       onMouseLeave={onMouseLeave}
       style={{
         alignItems: 'center',
-        background: getTrackTint(tintColor, 18),
+        background: getTrackTint(tintColor, 20),
         borderBottom: '1px solid var(--mantine-color-gray-3)',
         boxShadow: selected && hovered
           ? `${SELECTED_STYLES.shadow}, ${HOVER_BOX_SHADOWS.label}`
@@ -1849,7 +1852,7 @@ const TrackLane = memo(function TrackLane({
       onDoubleClick={onEmptyDoubleClick}
       onPointerDown={event => onPointerDown(event, track.id)}
       style={{
-        background: getTrackTint(track.color, 5),
+        background: getTrackTint(track.color, 10),
         borderBottom: '1px solid var(--mantine-color-gray-3)',
         height: viewport.laneHeight,
         position: 'relative',

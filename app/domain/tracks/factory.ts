@@ -24,15 +24,6 @@ export function createTrack(input: {
   }
 }
 
-export function createDefaultTracks(): Track[] {
-  return [
-    createTrack({ id: 'track_chords', name: 'Chords', role: 'chords' }),
-    createTrack({ id: 'track_bass', name: 'Bass', role: 'bass' }),
-    createTrack({ id: 'track_melody', name: 'Melody', role: 'melody' }),
-    createTrack({ id: 'track_drums', name: 'Drums', role: 'drums' }),
-  ]
-}
-
 export function getPatternKindForTrack(track: Track): PatternKind {
   if (track.accepts.includes('chord')) {
     return 'chord'

@@ -12,10 +12,6 @@ import {
   type TimeSignature,
 } from './timeline'
 
-export function createDefaultTimeline(): Timeline {
-  return createTimeline()
-}
-
 export function createTimeline(input: Partial<Timeline> = {}): Timeline {
   return {
     grid: input.grid ?? 'sixteenthNote',

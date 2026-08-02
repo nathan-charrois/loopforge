@@ -1,0 +1,3 @@
+export const DEFAULT_PIXELS_PER_TICK = 0.05
+export const DEFAULT_MIN_PIXELS_PER_TICK = 0.025
+export const DEFAULT_MAX_PIXELS_PER_TICK = 0.42

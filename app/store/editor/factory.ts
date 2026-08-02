@@ -1,3 +1,4 @@
+import { DEFAULT_MAX_PIXELS_PER_TICK, DEFAULT_MIN_PIXELS_PER_TICK, DEFAULT_PIXELS_PER_TICK } from './constants'
 import { snapTimelineRange } from './snap'
 import type { ClipboardState, Editor, InspectorState, SelectionState, ViewportState } from './type'
 import {
@@ -98,9 +99,9 @@ export function createViewportState(input: Partial<ViewportState> = {}): Viewpor
   return {
     scrollX: input.scrollX ?? 0,
     scrollY: input.scrollY ?? 0,
-    pixelsPerTick: input.pixelsPerTick ?? 0.1,
-    minPixelsPerTick: input.minPixelsPerTick ?? 0.035,
-    maxPixelsPerTick: input.maxPixelsPerTick ?? 0.42,
+    pixelsPerTick: input.pixelsPerTick ?? DEFAULT_PIXELS_PER_TICK,
+    minPixelsPerTick: input.minPixelsPerTick ?? DEFAULT_MIN_PIXELS_PER_TICK,
+    maxPixelsPerTick: input.maxPixelsPerTick ?? DEFAULT_MAX_PIXELS_PER_TICK,
     laneHeight: input.laneHeight ?? 72,
     sectionLaneHeight: input.sectionLaneHeight ?? 44,
     rulerHeight: input.rulerHeight ?? 82,

@@ -1,12 +1,13 @@
 import { createWorkspace } from '../factory'
 import type { Workspace } from '../type'
-import { createBlock, createChordEvent, createChordSymbol, createDrumHitEvent, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMelodicInstrument, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createTimeline, createTrack, type DrumPiece, type DurationTicks, type Instrument, type MidiNote, PPQ, type Tick, type Velocity } from '~/domain'
+import { createBlock, createChordEvent, createChordSymbol, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMelodicInstrument, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createTimeline, createTrack, type Instrument, PPQ } from '~/domain'
 import { createEntityStore } from '~/store/type'
 
 export function lanternsInFive(): Workspace {
   const fourFourBarTicks = PPQ * 4
   const fiveFourBarTicks = PPQ * 5
   const threeFourBarTicks = PPQ * 3
+  const eighthNoteTicks = PPQ / 2
   const openingStartTick = 0
   const fiveStartTick = fourFourBarTicks * 2
   const releaseStartTick = fiveStartTick + (fiveFourBarTicks * 2)
@@ -48,7 +49,7 @@ export function lanternsInFive(): Workspace {
           color: '#f08c46',
           id: 'lanterns_block_guitar_opening',
           lengthTicks: fiveStartTick,
-          name: 'Guitar — Lantern Theme',
+          name: 'Lantern Theme',
           patternId: 'lanterns_pattern_guitar_opening',
           playbackMode: 'oneShot',
           startTick: openingStartTick,
@@ -58,7 +59,7 @@ export function lanternsInFive(): Workspace {
           color: '#e8590c',
           id: 'lanterns_block_guitar_five',
           lengthTicks: releaseStartTick - fiveStartTick,
-          name: 'Guitar — Crooked Answer',
+          name: 'Crooked Answer',
           patternId: 'lanterns_pattern_guitar_five',
           playbackMode: 'oneShot',
           startTick: fiveStartTick,
@@ -68,7 +69,7 @@ export function lanternsInFive(): Workspace {
           color: '#f76707',
           id: 'lanterns_block_guitar_release',
           lengthTicks: turnStartTick - releaseStartTick,
-          name: 'Guitar — Open Sky',
+          name: 'Open Sky',
           patternId: 'lanterns_pattern_guitar_release',
           playbackMode: 'oneShot',
           startTick: releaseStartTick,
@@ -78,7 +79,7 @@ export function lanternsInFive(): Workspace {
           color: '#d9480f',
           id: 'lanterns_block_guitar_turn',
           lengthTicks: homeStartTick + fourFourBarTicks - turnStartTick,
-          name: 'Guitar — Turn and Home',
+          name: 'Turn and Home',
           patternId: 'lanterns_pattern_guitar_turn',
           playbackMode: 'oneShot',
           startTick: turnStartTick,
@@ -88,7 +89,7 @@ export function lanternsInFive(): Workspace {
           color: '#845ef7',
           id: 'lanterns_block_voicings_opening',
           lengthTicks: fiveStartTick,
-          name: 'Voicings — Lantern Theme',
+          name: 'Lantern Theme',
           patternId: 'lanterns_pattern_voicings_opening',
           playbackMode: 'oneShot',
           startTick: openingStartTick,
@@ -98,7 +99,7 @@ export function lanternsInFive(): Workspace {
           color: '#7950f2',
           id: 'lanterns_block_voicings_five',
           lengthTicks: releaseStartTick - fiveStartTick,
-          name: 'Voicings — Five',
+          name: 'Five',
           patternId: 'lanterns_pattern_voicings_five',
           playbackMode: 'oneShot',
           startTick: fiveStartTick,
@@ -108,7 +109,7 @@ export function lanternsInFive(): Workspace {
           color: '#7048e8',
           id: 'lanterns_block_voicings_release',
           lengthTicks: turnStartTick - releaseStartTick,
-          name: 'Voicings — Release',
+          name: 'Release',
           patternId: 'lanterns_pattern_voicings_release',
           playbackMode: 'oneShot',
           startTick: releaseStartTick,
@@ -118,7 +119,7 @@ export function lanternsInFive(): Workspace {
           color: '#6741d9',
           id: 'lanterns_block_voicings_turn',
           lengthTicks: homeStartTick + fourFourBarTicks - turnStartTick,
-          name: 'Voicings — Turn and Home',
+          name: 'Turn and Home',
           patternId: 'lanterns_pattern_voicings_turn',
           playbackMode: 'oneShot',
           startTick: turnStartTick,
@@ -128,7 +129,7 @@ export function lanternsInFive(): Workspace {
           color: '#20c997',
           id: 'lanterns_block_bass_opening',
           lengthTicks: fiveStartTick,
-          name: 'Bass — Warm Floor',
+          name: 'Warm Floor',
           patternId: 'lanterns_pattern_bass_opening',
           playbackMode: 'oneShot',
           startTick: openingStartTick,
@@ -138,7 +139,7 @@ export function lanternsInFive(): Workspace {
           color: '#12b886',
           id: 'lanterns_block_bass_five',
           lengthTicks: releaseStartTick - fiveStartTick,
-          name: 'Bass — Five Walk',
+          name: 'Five Walk',
           patternId: 'lanterns_pattern_bass_five',
           playbackMode: 'oneShot',
           startTick: fiveStartTick,
@@ -148,7 +149,7 @@ export function lanternsInFive(): Workspace {
           color: '#0ca678',
           id: 'lanterns_block_bass_release',
           lengthTicks: turnStartTick - releaseStartTick,
-          name: 'Bass — Release',
+          name: 'Release',
           patternId: 'lanterns_pattern_bass_release',
           playbackMode: 'oneShot',
           startTick: releaseStartTick,
@@ -158,7 +159,7 @@ export function lanternsInFive(): Workspace {
           color: '#099268',
           id: 'lanterns_block_bass_turn',
           lengthTicks: homeStartTick + fourFourBarTicks - turnStartTick,
-          name: 'Bass — Turn and Home',
+          name: 'Turn and Home',
           patternId: 'lanterns_pattern_bass_turn',
           playbackMode: 'oneShot',
           startTick: turnStartTick,
@@ -178,7 +179,7 @@ export function lanternsInFive(): Workspace {
           color: '#fcc419',
           id: 'lanterns_block_drums_five',
           lengthTicks: releaseStartTick - fiveStartTick,
-          name: 'Hats — Three Plus Two',
+          name: 'Three Plus Two',
           patternId: 'lanterns_pattern_drums_five',
           playbackMode: 'oneShot',
           startTick: fiveStartTick,
@@ -188,7 +189,7 @@ export function lanternsInFive(): Workspace {
           color: '#fab005',
           id: 'lanterns_block_drums_release',
           lengthTicks: turnStartTick - releaseStartTick,
-          name: 'Hats — Open Sky',
+          name: 'Open Sky',
           patternId: 'lanterns_pattern_drums_release',
           playbackMode: 'oneShot',
           startTick: releaseStartTick,
@@ -198,7 +199,7 @@ export function lanternsInFive(): Workspace {
           color: '#f59f00',
           id: 'lanterns_block_drums_turn',
           lengthTicks: homeStartTick + fourFourBarTicks - turnStartTick,
-          name: 'Drums — Short Bar, Long Landing',
+          name: 'Short Bar, Long Landing',
           patternId: 'lanterns_pattern_drums_turn',
           playbackMode: 'oneShot',
           startTick: turnStartTick,
@@ -314,69 +315,69 @@ export function lanternsInFive(): Workspace {
     patterns: createEntityStore([
       createPattern({
         events: createNoteEvents('lanterns_event_guitar_opening', [
-          [PPQ / 2, 66, PPQ * 3 / 4, 92],
-          [PPQ + (PPQ / 2), 69, PPQ, 84],
-          [(PPQ * 2) + (PPQ * 3 / 4), 64, PPQ * 3 / 4, 88],
-          [fourFourBarTicks - (PPQ / 4), 62, PPQ, 94],
-          [fourFourBarTicks + PPQ, 71, PPQ / 2, 82],
-          [fourFourBarTicks + PPQ + (PPQ * 3 / 4), 61, PPQ * 3 / 4, 90],
-          [fourFourBarTicks + (PPQ * 2) + (PPQ * 3 / 4), 64, PPQ / 2, 86],
-          [fiveStartTick - (PPQ / 2), 66, PPQ / 2, 96],
+          createNoteEvent({ timeTick: PPQ / 2, pitch: 66, durationTicks: PPQ * 3 / 4, velocity: 92, id: 'lanterns_event_guitar_opening_1' }),
+          createNoteEvent({ timeTick: PPQ + (PPQ / 2), pitch: 69, durationTicks: PPQ, velocity: 84, id: 'lanterns_event_guitar_opening_2' }),
+          createNoteEvent({ timeTick: (PPQ * 2) + (PPQ * 3 / 4), pitch: 64, durationTicks: PPQ * 3 / 4, velocity: 88, id: 'lanterns_event_guitar_opening_3' }),
+          createNoteEvent({ timeTick: fourFourBarTicks - (PPQ / 4), pitch: 62, durationTicks: PPQ, velocity: 94, id: 'lanterns_event_guitar_opening_4' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + PPQ, pitch: 71, durationTicks: PPQ / 2, velocity: 82, id: 'lanterns_event_guitar_opening_5' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + PPQ + (PPQ * 3 / 4), pitch: 61, durationTicks: PPQ * 3 / 4, velocity: 90, id: 'lanterns_event_guitar_opening_6' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + (PPQ * 2) + (PPQ * 3 / 4), pitch: 64, durationTicks: PPQ / 2, velocity: 86, id: 'lanterns_event_guitar_opening_7' }),
+          createNoteEvent({ timeTick: fiveStartTick - (PPQ / 2), pitch: 66, durationTicks: PPQ / 2, velocity: 96, id: 'lanterns_event_guitar_opening_8' }),
         ]),
         id: 'lanterns_pattern_guitar_opening',
         kind: 'note',
         lengthTicks: fiveStartTick,
-        name: 'Guitar — Lantern Theme',
+        name: 'Lantern Theme',
       }),
       createPattern({
         events: createNoteEvents('lanterns_event_guitar_five', [
-          [0, 67, PPQ, 94],
-          [PPQ + (PPQ / 2), 71, PPQ / 2, 84],
-          [(PPQ * 2) + (PPQ / 4), 66, PPQ, 90],
-          [(PPQ * 3) + (PPQ * 3 / 4), 61, PPQ * 3 / 4, 86],
-          [fiveFourBarTicks - (PPQ / 2), 62, PPQ / 2, 92],
-          [fiveFourBarTicks + (PPQ / 2), 66, PPQ * 3 / 4, 94],
-          [fiveFourBarTicks + PPQ + (PPQ * 3 / 4), 69, PPQ / 2, 88],
-          [fiveFourBarTicks + (PPQ * 2) + (PPQ * 3 / 4), 64, PPQ, 90],
-          [fiveFourBarTicks + (PPQ * 3) + (PPQ * 3 / 4), 71, PPQ * 3 / 4, 84],
-          [(fiveFourBarTicks * 2) - (PPQ / 2), 61, PPQ / 2, 96],
+          createNoteEvent({ timeTick: 0, pitch: 67, durationTicks: PPQ, velocity: 94, id: 'lanterns_event_guitar_five_1' }),
+          createNoteEvent({ timeTick: PPQ + (PPQ / 2), pitch: 71, durationTicks: PPQ / 2, velocity: 84, id: 'lanterns_event_guitar_five_2' }),
+          createNoteEvent({ timeTick: (PPQ * 2) + (PPQ / 4), pitch: 66, durationTicks: PPQ, velocity: 90, id: 'lanterns_event_guitar_five_3' }),
+          createNoteEvent({ timeTick: (PPQ * 3) + (PPQ * 3 / 4), pitch: 61, durationTicks: PPQ * 3 / 4, velocity: 86, id: 'lanterns_event_guitar_five_4' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks - (PPQ / 2), pitch: 62, durationTicks: PPQ / 2, velocity: 92, id: 'lanterns_event_guitar_five_5' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks + (PPQ / 2), pitch: 66, durationTicks: PPQ * 3 / 4, velocity: 94, id: 'lanterns_event_guitar_five_6' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks + PPQ + (PPQ * 3 / 4), pitch: 69, durationTicks: PPQ / 2, velocity: 88, id: 'lanterns_event_guitar_five_7' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks + (PPQ * 2) + (PPQ * 3 / 4), pitch: 64, durationTicks: PPQ, velocity: 90, id: 'lanterns_event_guitar_five_8' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks + (PPQ * 3) + (PPQ * 3 / 4), pitch: 71, durationTicks: PPQ * 3 / 4, velocity: 84, id: 'lanterns_event_guitar_five_9' }),
+          createNoteEvent({ timeTick: (fiveFourBarTicks * 2) - (PPQ / 2), pitch: 61, durationTicks: PPQ / 2, velocity: 96, id: 'lanterns_event_guitar_five_10' }),
         ]),
         id: 'lanterns_pattern_guitar_five',
         kind: 'note',
         lengthTicks: fiveFourBarTicks * 2,
-        name: 'Guitar — Crooked Answer',
+        name: 'Crooked Answer',
       }),
       createPattern({
         events: createNoteEvents('lanterns_event_guitar_release', [
-          [0, 64, PPQ / 2, 90],
-          [PPQ, 66, PPQ * 3 / 4, 86],
-          [PPQ * 2, 69, PPQ, 94],
-          [(PPQ * 3) + (PPQ / 2), 61, PPQ / 2, 82],
-          [fourFourBarTicks + (PPQ / 2), 62, PPQ + (PPQ / 2), 98],
-          [fourFourBarTicks + (PPQ * 2) + (PPQ / 4), 66, PPQ * 3 / 4, 88],
-          [fourFourBarTicks + (PPQ * 3), 69, PPQ / 2, 92],
-          [(fourFourBarTicks * 2) - (PPQ / 4), 64, PPQ / 4, 84],
+          createNoteEvent({ timeTick: 0, pitch: 64, durationTicks: PPQ / 2, velocity: 90, id: 'lanterns_event_guitar_release_1' }),
+          createNoteEvent({ timeTick: PPQ, pitch: 66, durationTicks: PPQ * 3 / 4, velocity: 86, id: 'lanterns_event_guitar_release_2' }),
+          createNoteEvent({ timeTick: PPQ * 2, pitch: 69, durationTicks: PPQ, velocity: 94, id: 'lanterns_event_guitar_release_3' }),
+          createNoteEvent({ timeTick: (PPQ * 3) + (PPQ / 2), pitch: 61, durationTicks: PPQ / 2, velocity: 82, id: 'lanterns_event_guitar_release_4' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + (PPQ / 2), pitch: 62, durationTicks: PPQ + (PPQ / 2), velocity: 98, id: 'lanterns_event_guitar_release_5' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + (PPQ * 2) + (PPQ / 4), pitch: 66, durationTicks: PPQ * 3 / 4, velocity: 88, id: 'lanterns_event_guitar_release_6' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + (PPQ * 3), pitch: 69, durationTicks: PPQ / 2, velocity: 92, id: 'lanterns_event_guitar_release_7' }),
+          createNoteEvent({ timeTick: (fourFourBarTicks * 2) - (PPQ / 4), pitch: 64, durationTicks: PPQ / 4, velocity: 84, id: 'lanterns_event_guitar_release_8' }),
         ]),
         id: 'lanterns_pattern_guitar_release',
         kind: 'note',
         lengthTicks: fourFourBarTicks * 2,
-        name: 'Guitar — Open Sky',
+        name: 'Open Sky',
       }),
       createPattern({
         events: createNoteEvents('lanterns_event_guitar_turn', [
-          [0, 70, PPQ * 3 / 4, 90],
-          [PPQ, 69, PPQ / 2, 84],
-          [PPQ + (PPQ * 3 / 4), 66, PPQ * 3 / 4, 92],
-          [(PPQ * 2) + (PPQ / 2), 64, PPQ / 2, 86],
-          [threeFourBarTicks, 62, PPQ + (PPQ / 2), 100],
-          [threeFourBarTicks + (PPQ * 2), 66, PPQ * 3 / 4, 90],
-          [threeFourBarTicks + (PPQ * 3), 69, PPQ / 2, 86],
-          [threeFourBarTicks + (PPQ * 3) + (PPQ * 3 / 4), 61, PPQ / 4, 82],
+          createNoteEvent({ timeTick: 0, pitch: 70, durationTicks: PPQ * 3 / 4, velocity: 90, id: 'lanterns_event_guitar_turn_1' }),
+          createNoteEvent({ timeTick: PPQ, pitch: 69, durationTicks: PPQ / 2, velocity: 84, id: 'lanterns_event_guitar_turn_2' }),
+          createNoteEvent({ timeTick: PPQ + (PPQ * 3 / 4), pitch: 66, durationTicks: PPQ * 3 / 4, velocity: 92, id: 'lanterns_event_guitar_turn_3' }),
+          createNoteEvent({ timeTick: (PPQ * 2) + (PPQ / 2), pitch: 64, durationTicks: PPQ / 2, velocity: 86, id: 'lanterns_event_guitar_turn_4' }),
+          createNoteEvent({ timeTick: threeFourBarTicks, pitch: 62, durationTicks: PPQ + (PPQ / 2), velocity: 100, id: 'lanterns_event_guitar_turn_5' }),
+          createNoteEvent({ timeTick: threeFourBarTicks + (PPQ * 2), pitch: 66, durationTicks: PPQ * 3 / 4, velocity: 90, id: 'lanterns_event_guitar_turn_6' }),
+          createNoteEvent({ timeTick: threeFourBarTicks + (PPQ * 3), pitch: 69, durationTicks: PPQ / 2, velocity: 86, id: 'lanterns_event_guitar_turn_7' }),
+          createNoteEvent({ timeTick: threeFourBarTicks + (PPQ * 3) + (PPQ * 3 / 4), pitch: 61, durationTicks: PPQ / 4, velocity: 82, id: 'lanterns_event_guitar_turn_8' }),
         ]),
         id: 'lanterns_pattern_guitar_turn',
         kind: 'note',
         lengthTicks: threeFourBarTicks + fourFourBarTicks,
-        name: 'Guitar — Turn and Home',
+        name: 'Turn and Home',
       }),
       createPattern({
         events: [
@@ -437,7 +438,7 @@ export function lanternsInFive(): Workspace {
         id: 'lanterns_pattern_voicings_opening',
         kind: 'chord',
         lengthTicks: fiveStartTick,
-        name: 'Voicings — Lantern Theme',
+        name: 'Lantern Theme',
       }),
       createPattern({
         events: [
@@ -499,7 +500,7 @@ export function lanternsInFive(): Workspace {
         id: 'lanterns_pattern_voicings_five',
         kind: 'chord',
         lengthTicks: fiveFourBarTicks * 2,
-        name: 'Voicings — Five',
+        name: 'Five',
       }),
       createPattern({
         events: [
@@ -560,7 +561,7 @@ export function lanternsInFive(): Workspace {
         id: 'lanterns_pattern_voicings_release',
         kind: 'chord',
         lengthTicks: fourFourBarTicks * 2,
-        name: 'Voicings — Release',
+        name: 'Release',
       }),
       createPattern({
         events: [
@@ -622,76 +623,86 @@ export function lanternsInFive(): Workspace {
         id: 'lanterns_pattern_voicings_turn',
         kind: 'chord',
         lengthTicks: threeFourBarTicks + fourFourBarTicks,
-        name: 'Voicings — Turn and Home',
+        name: 'Turn and Home',
       }),
       createPattern({
         events: createNoteEvents('lanterns_event_bass_opening', [
-          [0, 38, PPQ + (PPQ / 2), 96],
-          [PPQ * 2, 45, PPQ * 3 / 4, 82],
-          [PPQ * 3, 37, PPQ * 3 / 4, 86],
-          [fourFourBarTicks, 47, PPQ, 94],
-          [fourFourBarTicks + PPQ + (PPQ / 2), 42, PPQ / 2, 80],
-          [fourFourBarTicks + (PPQ * 2), 40, PPQ, 92],
-          [fiveStartTick - (PPQ / 2), 39, PPQ / 2, 78],
+          createNoteEvent({ timeTick: 0, pitch: 38, durationTicks: PPQ + (PPQ / 2), velocity: 96, id: 'lanterns_event_bass_opening_1' }),
+          createNoteEvent({ timeTick: PPQ * 2, pitch: 45, durationTicks: PPQ * 3 / 4, velocity: 82, id: 'lanterns_event_bass_opening_2' }),
+          createNoteEvent({ timeTick: PPQ * 3, pitch: 37, durationTicks: PPQ * 3 / 4, velocity: 86, id: 'lanterns_event_bass_opening_3' }),
+          createNoteEvent({ timeTick: fourFourBarTicks, pitch: 47, durationTicks: PPQ, velocity: 94, id: 'lanterns_event_bass_opening_4' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + PPQ + (PPQ / 2), pitch: 42, durationTicks: PPQ / 2, velocity: 80, id: 'lanterns_event_bass_opening_5' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + (PPQ * 2), pitch: 40, durationTicks: PPQ, velocity: 92, id: 'lanterns_event_bass_opening_6' }),
+          createNoteEvent({ timeTick: fiveStartTick - (PPQ / 2), pitch: 39, durationTicks: PPQ / 2, velocity: 78, id: 'lanterns_event_bass_opening_7' }),
         ]),
         id: 'lanterns_pattern_bass_opening',
         kind: 'note',
         lengthTicks: fiveStartTick,
-        name: 'Bass — Warm Floor',
+        name: 'Warm Floor',
       }),
       createPattern({
         events: createNoteEvents('lanterns_event_bass_five', [
-          [0, 43, PPQ + (PPQ / 2), 96],
-          [PPQ * 2, 38, PPQ / 2, 80],
-          [PPQ * 3, 37, PPQ, 90],
-          [PPQ * 4, 40, PPQ * 3 / 4, 82],
-          [fiveFourBarTicks, 42, PPQ + (PPQ / 2), 94],
-          [fiveFourBarTicks + (PPQ * 2), 37, PPQ / 2, 80],
-          [fiveFourBarTicks + (PPQ * 3), 47, PPQ, 92],
-          [fiveFourBarTicks + (PPQ * 4), 45, PPQ * 3 / 4, 84],
+          createNoteEvent({ timeTick: 0, pitch: 43, durationTicks: PPQ + (PPQ / 2), velocity: 96, id: 'lanterns_event_bass_five_1' }),
+          createNoteEvent({ timeTick: PPQ * 2, pitch: 38, durationTicks: PPQ / 2, velocity: 80, id: 'lanterns_event_bass_five_2' }),
+          createNoteEvent({ timeTick: PPQ * 3, pitch: 37, durationTicks: PPQ, velocity: 90, id: 'lanterns_event_bass_five_3' }),
+          createNoteEvent({ timeTick: PPQ * 4, pitch: 40, durationTicks: PPQ * 3 / 4, velocity: 82, id: 'lanterns_event_bass_five_4' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks, pitch: 42, durationTicks: PPQ + (PPQ / 2), velocity: 94, id: 'lanterns_event_bass_five_5' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks + (PPQ * 2), pitch: 37, durationTicks: PPQ / 2, velocity: 80, id: 'lanterns_event_bass_five_6' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks + (PPQ * 3), pitch: 47, durationTicks: PPQ, velocity: 92, id: 'lanterns_event_bass_five_7' }),
+          createNoteEvent({ timeTick: fiveFourBarTicks + (PPQ * 4), pitch: 45, durationTicks: PPQ * 3 / 4, velocity: 84, id: 'lanterns_event_bass_five_8' }),
         ]),
         id: 'lanterns_pattern_bass_five',
         kind: 'note',
         lengthTicks: fiveFourBarTicks * 2,
-        name: 'Bass — Five Walk',
+        name: 'Five Walk',
       }),
       createPattern({
         events: createNoteEvents('lanterns_event_bass_release', [
-          [0, 40, PPQ, 94],
-          [PPQ + (PPQ / 2), 47, PPQ / 2, 80],
-          [PPQ * 2, 45, PPQ, 92],
-          [PPQ * 3, 37, PPQ * 3 / 4, 82],
-          [fourFourBarTicks, 38, PPQ + (PPQ / 2), 98],
-          [fourFourBarTicks + (PPQ * 2), 45, PPQ * 3 / 4, 82],
-          [fourFourBarTicks + (PPQ * 3), 42, PPQ * 3 / 4, 88],
+          createNoteEvent({ timeTick: 0, pitch: 40, durationTicks: PPQ, velocity: 94, id: 'lanterns_event_bass_release_1' }),
+          createNoteEvent({ timeTick: PPQ + (PPQ / 2), pitch: 47, durationTicks: PPQ / 2, velocity: 80, id: 'lanterns_event_bass_release_2' }),
+          createNoteEvent({ timeTick: PPQ * 2, pitch: 45, durationTicks: PPQ, velocity: 92, id: 'lanterns_event_bass_release_3' }),
+          createNoteEvent({ timeTick: PPQ * 3, pitch: 37, durationTicks: PPQ * 3 / 4, velocity: 82, id: 'lanterns_event_bass_release_4' }),
+          createNoteEvent({ timeTick: fourFourBarTicks, pitch: 38, durationTicks: PPQ + (PPQ / 2), velocity: 98, id: 'lanterns_event_bass_release_5' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + (PPQ * 2), pitch: 45, durationTicks: PPQ * 3 / 4, velocity: 82, id: 'lanterns_event_bass_release_6' }),
+          createNoteEvent({ timeTick: fourFourBarTicks + (PPQ * 3), pitch: 42, durationTicks: PPQ * 3 / 4, velocity: 88, id: 'lanterns_event_bass_release_7' }),
         ]),
         id: 'lanterns_pattern_bass_release',
         kind: 'note',
         lengthTicks: fourFourBarTicks * 2,
-        name: 'Bass — Release',
+        name: 'Release',
       }),
       createPattern({
         events: createNoteEvents('lanterns_event_bass_turn', [
-          [0, 46, PPQ, 92],
-          [PPQ + (PPQ / 2), 40, PPQ / 2, 78],
-          [PPQ * 2, 45, PPQ * 3 / 4, 88],
-          [threeFourBarTicks, 38, PPQ + (PPQ / 2), 100],
-          [threeFourBarTicks + (PPQ * 2), 45, PPQ * 3 / 4, 84],
-          [threeFourBarTicks + (PPQ * 3), 37, PPQ * 3 / 4, 80],
+          createNoteEvent({ timeTick: 0, pitch: 46, durationTicks: PPQ, velocity: 92, id: 'lanterns_event_bass_turn_1' }),
+          createNoteEvent({ timeTick: PPQ + (PPQ / 2), pitch: 40, durationTicks: PPQ / 2, velocity: 78, id: 'lanterns_event_bass_turn_2' }),
+          createNoteEvent({ timeTick: PPQ * 2, pitch: 45, durationTicks: PPQ * 3 / 4, velocity: 88, id: 'lanterns_event_bass_turn_3' }),
+          createNoteEvent({ timeTick: threeFourBarTicks, pitch: 38, durationTicks: PPQ + (PPQ / 2), velocity: 100, id: 'lanterns_event_bass_turn_4' }),
+          createNoteEvent({ timeTick: threeFourBarTicks + (PPQ * 2), pitch: 45, durationTicks: PPQ * 3 / 4, velocity: 84, id: 'lanterns_event_bass_turn_5' }),
+          createNoteEvent({ timeTick: threeFourBarTicks + (PPQ * 3), pitch: 37, durationTicks: PPQ * 3 / 4, velocity: 80, id: 'lanterns_event_bass_turn_6' }),
         ]),
         id: 'lanterns_pattern_bass_turn',
         kind: 'note',
         lengthTicks: threeFourBarTicks + fourFourBarTicks,
-        name: 'Bass — Turn and Home',
+        name: 'Turn and Home',
       }),
       createPattern({
         events: createDrumHitEvents('lanterns_event_drums_opening', [
-          [0, 'kick', 94],
-          [PPQ * 2, 'snare', 48],
-          [fourFourBarTicks, 'kick', 88],
-          [fourFourBarTicks + (PPQ * 2), 'snare', 54],
-          [fourFourBarTicks + (PPQ * 2) + (PPQ / 2), 'kick', 78],
-          ...createClosedHatPulse(fiveStartTick, true),
+          createDrumHitEvent({ timeTick: 0, piece: 'kick', velocity: 94, id: 'lanterns_event_drums_opening_1' }),
+          createDrumHitEvent({ timeTick: PPQ * 2, piece: 'snare', velocity: 48, id: 'lanterns_event_drums_opening_2' }),
+          createDrumHitEvent({ timeTick: fourFourBarTicks, piece: 'kick', velocity: 88, id: 'lanterns_event_drums_opening_3' }),
+          createDrumHitEvent({ timeTick: fourFourBarTicks + (PPQ * 2), piece: 'snare', velocity: 54, id: 'lanterns_event_drums_opening_4' }),
+          createDrumHitEvent({ timeTick: fourFourBarTicks + (PPQ * 2) + (PPQ / 2), piece: 'kick', velocity: 78, id: 'lanterns_event_drums_opening_5' }),
+          ...Array.from(
+            { length: Math.floor(fiveStartTick / eighthNoteTicks) },
+            (_, index) => createDrumHitEvent({
+              timeTick: index * eighthNoteTicks,
+              piece: index === Math.floor(fiveStartTick / eighthNoteTicks) - 1
+                ? 'openHat'
+                : 'closedHat',
+              velocity: index % 2 === 0 ? 36 : 46,
+              id: `lanterns_event_drums_opening_hat_${index + 1}`,
+            }),
+          ),
         ]),
         id: 'lanterns_pattern_drums_opening',
         kind: 'drum',
@@ -700,49 +711,94 @@ export function lanternsInFive(): Workspace {
       }),
       createPattern({
         events: createDrumHitEvents('lanterns_event_drums_five', [
-          [0, 'kick', 96],
-          [PPQ * 2, 'snare', 54],
-          [PPQ * 3, 'kick', 84],
-          [fiveFourBarTicks, 'kick', 92],
-          [fiveFourBarTicks + (PPQ * 2), 'snare', 58],
-          [fiveFourBarTicks + (PPQ * 3), 'kick', 82],
-          ...createClosedHatPulse(fiveFourBarTicks * 2, true),
+          createDrumHitEvent({ timeTick: 0, piece: 'kick', velocity: 96, id: 'lanterns_event_drums_five_1' }),
+          createDrumHitEvent({ timeTick: PPQ * 2, piece: 'snare', velocity: 54, id: 'lanterns_event_drums_five_2' }),
+          createDrumHitEvent({ timeTick: PPQ * 3, piece: 'kick', velocity: 84, id: 'lanterns_event_drums_five_3' }),
+          createDrumHitEvent({ timeTick: fiveFourBarTicks, piece: 'kick', velocity: 92, id: 'lanterns_event_drums_five_4' }),
+          createDrumHitEvent({ timeTick: fiveFourBarTicks + (PPQ * 2), piece: 'snare', velocity: 58, id: 'lanterns_event_drums_five_5' }),
+          createDrumHitEvent({ timeTick: fiveFourBarTicks + (PPQ * 3), piece: 'kick', velocity: 82, id: 'lanterns_event_drums_five_6' }),
+          ...Array.from(
+            {
+              length: Math.floor(
+                (fiveFourBarTicks * 2) / eighthNoteTicks,
+              ),
+            },
+            (_, index) => createDrumHitEvent({
+              timeTick: index * eighthNoteTicks,
+              piece: index === Math.floor(
+                (fiveFourBarTicks * 2) / eighthNoteTicks,
+              ) - 1
+                ? 'openHat'
+                : 'closedHat',
+              velocity: index % 2 === 0 ? 36 : 46,
+              id: `lanterns_event_drums_five_hat_${index + 1}`,
+            }),
+          ),
         ]),
         id: 'lanterns_pattern_drums_five',
         kind: 'drum',
         lengthTicks: fiveFourBarTicks * 2,
-        name: 'Hats — Three Plus Two',
+        name: 'Three Plus Two',
       }),
       createPattern({
         events: createDrumHitEvents('lanterns_event_drums_release', [
-          [0, 'kick', 100],
-          [PPQ * 2, 'snare', 60],
-          [fourFourBarTicks, 'kick', 94],
-          [fourFourBarTicks + (PPQ * 2), 'snare', 62],
-          [fourFourBarTicks + (PPQ * 3) + (PPQ / 2), 'kick', 80],
-          ...createClosedHatPulse(fourFourBarTicks * 2, true),
+          createDrumHitEvent({ timeTick: 0, piece: 'kick', velocity: 100, id: 'lanterns_event_drums_release_1' }),
+          createDrumHitEvent({ timeTick: PPQ * 2, piece: 'snare', velocity: 60, id: 'lanterns_event_drums_release_2' }),
+          createDrumHitEvent({ timeTick: fourFourBarTicks, piece: 'kick', velocity: 94, id: 'lanterns_event_drums_release_3' }),
+          createDrumHitEvent({ timeTick: fourFourBarTicks + (PPQ * 2), piece: 'snare', velocity: 62, id: 'lanterns_event_drums_release_4' }),
+          createDrumHitEvent({ timeTick: fourFourBarTicks + (PPQ * 3) + (PPQ / 2), piece: 'kick', velocity: 80, id: 'lanterns_event_drums_release_5' }),
+          ...Array.from(
+            {
+              length: Math.floor(
+                (fourFourBarTicks * 2) / eighthNoteTicks,
+              ),
+            },
+            (_, index) => createDrumHitEvent({
+              timeTick: index * eighthNoteTicks,
+              piece: index === Math.floor(
+                (fourFourBarTicks * 2) / eighthNoteTicks,
+              ) - 1
+                ? 'openHat'
+                : 'closedHat',
+              velocity: index % 2 === 0 ? 36 : 46,
+              id: `lanterns_event_drums_release_hat_${index + 1}`,
+            }),
+          ),
         ]),
         id: 'lanterns_pattern_drums_release',
         kind: 'drum',
         lengthTicks: fourFourBarTicks * 2,
-        name: 'Hats — Open Sky',
+        name: 'Open Sky',
       }),
       createPattern({
         events: createDrumHitEvents('lanterns_event_drums_turn', [
-          [0, 'kick', 94],
-          [PPQ * 2, 'snare', 52],
-          [threeFourBarTicks, 'kick', 102],
-          [threeFourBarTicks + (PPQ * 2), 'snare', 64],
-          [threeFourBarTicks + (PPQ * 3) + (PPQ / 2), 'kick', 82],
-          ...createClosedHatPulse(
-            threeFourBarTicks + fourFourBarTicks,
-            true,
+          createDrumHitEvent({ timeTick: 0, piece: 'kick', velocity: 94, id: 'lanterns_event_drums_turn_1' }),
+          createDrumHitEvent({ timeTick: PPQ * 2, piece: 'snare', velocity: 52, id: 'lanterns_event_drums_turn_2' }),
+          createDrumHitEvent({ timeTick: threeFourBarTicks, piece: 'kick', velocity: 102, id: 'lanterns_event_drums_turn_3' }),
+          createDrumHitEvent({ timeTick: threeFourBarTicks + (PPQ * 2), piece: 'snare', velocity: 64, id: 'lanterns_event_drums_turn_4' }),
+          createDrumHitEvent({ timeTick: threeFourBarTicks + (PPQ * 3) + (PPQ / 2), piece: 'kick', velocity: 82, id: 'lanterns_event_drums_turn_5' }),
+          ...Array.from(
+            {
+              length: Math.floor(
+                (threeFourBarTicks + fourFourBarTicks) / eighthNoteTicks,
+              ),
+            },
+            (_, index) => createDrumHitEvent({
+              timeTick: index * eighthNoteTicks,
+              piece: index === Math.floor(
+                (threeFourBarTicks + fourFourBarTicks) / eighthNoteTicks,
+              ) - 1
+                ? 'openHat'
+                : 'closedHat',
+              velocity: index % 2 === 0 ? 36 : 46,
+              id: `lanterns_event_drums_turn_hat_${index + 1}`,
+            }),
           ),
         ]),
         id: 'lanterns_pattern_drums_turn',
         kind: 'drum',
         lengthTicks: threeFourBarTicks + fourFourBarTicks,
-        name: 'Drums — Short Bar, Long Landing',
+        name: 'Short Bar, Long Landing',
       }),
     ]),
     project: createProject({
@@ -795,58 +851,4 @@ export function lanternsInFive(): Workspace {
     }),
     tracks: createEntityStore(tracks),
   })
-}
-
-type DrumHitSeed = readonly [
-  timeTick: Tick,
-  piece: DrumPiece,
-  velocity: Velocity,
-]
-
-function createDrumHitEvents(
-  idPrefix: string,
-  hits: readonly DrumHitSeed[],
-) {
-  return hits.map(([timeTick, piece, velocity], index) => createDrumHitEvent({
-    id: `${idPrefix}_${index + 1}`,
-    piece,
-    timeTick,
-    velocity,
-  }))
-}
-
-type NoteSeed = readonly [
-  timeTick: Tick,
-  pitch: MidiNote,
-  durationTicks: DurationTicks,
-  velocity: Velocity,
-]
-
-function createNoteEvents(
-  idPrefix: string,
-  notes: readonly NoteSeed[],
-) {
-  return notes.map(([timeTick, pitch, durationTicks, velocity], index) => createNoteEvent({
-    durationTicks,
-    id: `${idPrefix}_${index + 1}`,
-    pitch,
-    timeTick,
-    velocity,
-  }))
-}
-
-function createClosedHatPulse(
-  lengthTicks: DurationTicks,
-  openFinalHit = false,
-): DrumHitSeed[] {
-  const stepTicks = PPQ / 2
-  const hitCount = Math.floor(lengthTicks / stepTicks)
-
-  return Array.from({ length: hitCount }, (_, index) => [
-    index * stepTicks,
-    openFinalHit && index === hitCount - 1
-      ? 'openHat'
-      : 'closedHat',
-    index % 2 === 0 ? 36 : 46,
-  ])
 }

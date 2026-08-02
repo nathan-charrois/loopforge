@@ -60,6 +60,16 @@ export function createNoteEvent(input: {
   }
 }
 
+export function createNoteEvents(
+  id: string,
+  notes: readonly NoteEvent[],
+): NoteEvent[] {
+  return notes.map((noteEvent, index) => createNoteEvent({
+    ...noteEvent,
+    id: `${id}_${index + 1}`,
+  }))
+}
+
 export function createDrumHitEvent(input: {
   id: PatternEventId
   timeTick?: Tick
@@ -75,6 +85,16 @@ export function createDrumHitEvent(input: {
   }
 }
 
+export function createDrumHitEvents(
+  id: string,
+  hits: readonly DrumHitEvent[],
+): DrumHitEvent[] {
+  return hits.map((drumHitEvent, index) => createDrumHitEvent({
+    ...drumHitEvent,
+    id: `${id}_${index + 1}`,
+  }))
+}
+
 export function createAutomationEvent(input: {
   id: PatternEventId
   timeTick?: Tick
@@ -88,4 +108,14 @@ export function createAutomationEvent(input: {
     timeTick: createTick(input.timeTick ?? 0),
     value: input.value,
   }
+}
+
+export function createAutomationEvents(
+  id: string,
+  events: readonly AutomationEvent[],
+): AutomationEvent[] {
+  return events.map((automationEvent, index) => createAutomationEvent({
+    ...automationEvent,
+    id: `${id}_${index + 1}`,
+  }))
 }
