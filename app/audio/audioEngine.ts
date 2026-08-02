@@ -384,6 +384,10 @@ function getAudioEngineState(
 function getOscillatorType(
   instrument: MelodicInstrument,
 ): OscillatorType {
+  if (instrument.soundId.includes('sine')) {
+    return 'sine'
+  }
+
   if (instrument.soundId.includes('bass')) {
     return 'sawtooth'
   }

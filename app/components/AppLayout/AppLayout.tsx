@@ -7,7 +7,7 @@ type AppLayoutProps = {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
-    <Container size="lg">
+    <Container size="xl">
       {children}
     </Container>
   )

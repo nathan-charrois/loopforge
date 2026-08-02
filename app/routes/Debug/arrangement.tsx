@@ -216,8 +216,8 @@ const BLOCK_TOP = 14
 const TIMELINE_MARKER_TOP = 10
 const HANDLE_WIDTH = 8
 const ANGLE_SLIDER_MAX = 359
-const MIN_MIX_CHANNEL_VOLUME_DB = -60
-const MAX_MIX_CHANNEL_VOLUME_DB = 12
+const MIN_MIX_CHANNEL_VOLUME_DB = -20
+const MAX_MIX_CHANNEL_VOLUME_DB = 20
 
 const HOVER_BOX_SHADOWS = {
   entity: '0 0 0 3px var(--mantine-color-gray-5)',
