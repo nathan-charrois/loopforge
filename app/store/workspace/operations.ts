@@ -1,6 +1,7 @@
 import { addEntity, removeEntity, updateEntity } from '../type'
 import {
   selectBlock,
+  selectInstrument,
   selectMixChannel,
   selectPattern,
   selectPatternByPatternEventId,
@@ -18,6 +19,8 @@ import {
   createMixChannel,
   getTimelineEventField,
   type GridDivision,
+  type Instrument,
+  type InstrumentId,
   type MasterMixChannel,
   type MidiNote,
   type MixChannel,
@@ -101,6 +104,16 @@ export function updateTrack(workspace: Workspace, track: Track): Workspace {
   }
 }
 
+export function updateInstrument(workspace: Workspace, instrument: Instrument): Workspace {
+  requireInstrument(workspace, instrument.id)
+
+  return {
+    ...workspace,
+    instruments: updateEntity(workspace.instruments, instrument),
+    project: touchProject(workspace.project),
+  }
+}
+
 export function updateMixChannel(workspace: Workspace, mixChannel: MixChannel): Workspace {
   requireMixChannel(workspace, mixChannel.id)
 
@@ -141,6 +154,17 @@ export function removeMixChannels(
       ...workspace.mixer,
       channels: mixChannelIds.reduce(removeEntity, workspace.mixer.channels),
     },
+    project: touchProject(workspace.project),
+  }
+}
+
+export function removeInstruments(
+  workspace: Workspace,
+  instrumentIds: readonly InstrumentId[],
+): Workspace {
+  return {
+    ...workspace,
+    instruments: instrumentIds.reduce(removeEntity, workspace.instruments),
     project: touchProject(workspace.project),
   }
 }
@@ -748,6 +772,16 @@ function requireTrack(workspace: Workspace, trackId: TrackId): Track {
   }
 
   return track
+}
+
+function requireInstrument(workspace: Workspace, instrumentId: InstrumentId): Instrument {
+  const instrument = selectInstrument(workspace, instrumentId)
+
+  if (instrument === undefined) {
+    throw new Error(`Instrument ${instrumentId} does not exist.`)
+  }
+
+  return instrument
 }
 
 function requireMixChannel(workspace: Workspace, mixChannelId: MixChannelId): MixChannel {

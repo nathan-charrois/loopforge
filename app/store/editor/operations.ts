@@ -10,6 +10,7 @@ import type {
   SelectionState,
 } from './type'
 import type { BlockId, SectionId } from '~/domain/arrangement'
+import type { InstrumentId } from '~/domain/instrument'
 import type { MixChannelId } from '~/domain/mixer'
 import type { PatternEventId } from '~/domain/patternEvents'
 import type { PatternId } from '~/domain/patterns'
@@ -115,6 +116,35 @@ export function selectBlock(
       ...createSelectionState(),
       selectedBlockIds: [
         blockId,
+      ],
+    },
+  }
+}
+
+export function selectInstrument(
+  editor: Editor,
+  instrumentId: InstrumentId,
+  additive = false,
+): Editor {
+  if (additive) {
+    return {
+      ...editor,
+      selection: {
+        ...editor.selection,
+        selectedInstrumentIds: toggleInArray(
+          editor.selection.selectedInstrumentIds,
+          instrumentId,
+        ),
+      },
+    }
+  }
+
+  return {
+    ...editor,
+    selection: {
+      ...createSelectionState(),
+      selectedInstrumentIds: [
+        instrumentId,
       ],
     },
   }

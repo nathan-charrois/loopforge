@@ -1,6 +1,7 @@
 import {
   createCopySelectionCommand,
   createSelectBlockCommand,
+  createSelectInstrumentCommand,
   createSelectMixChannelCommand,
   createSelectPatternCommand,
   createSelectPatternEventCommand,
@@ -56,6 +57,8 @@ import {
   getMeterAtTick,
   getSectionEndTick,
   getTempoAtTick,
+  type Instrument,
+  type InstrumentId,
   isMeterEvent,
   isTempoEvent,
   type Key,
@@ -80,6 +83,7 @@ import {
   addSectionAction,
   addTimelineEventAction,
   deleteBlockAction,
+  deleteInstrumentAction,
   deleteMixChannelAction,
   deletePatternAction,
   deletePatternEventAction,
@@ -99,6 +103,7 @@ import {
   splitBlockAction,
   splitSectionAction,
   updateBlockAction,
+  updateInstrumentAction,
   updateMixChannelAction,
   updatePatternAction,
   updatePatternEventAction,
@@ -113,6 +118,13 @@ export function selectBlockAction(
   additive = false,
 ): EditorCommand {
   return createSelectBlockCommand(blockId, additive)
+}
+
+export function selectInstrumentAction(
+  instrumentId: InstrumentId,
+  additive = false,
+): EditorCommand {
+  return createSelectInstrumentCommand(instrumentId, additive)
 }
 
 export function selectMixChannelAction(
@@ -206,6 +218,10 @@ export function deleteSelectionAction(selection: SelectionState): readonly Comma
 
   if (selection.selectedTrackIds.length > 0) {
     commands.push(deleteTrackAction(selection.selectedTrackIds))
+  }
+
+  if (selection.selectedInstrumentIds.length > 0) {
+    commands.push(deleteInstrumentAction(selection.selectedInstrumentIds))
   }
 
   if (selection.selectedMixChannelIds.length > 0) {
@@ -501,6 +517,16 @@ export function updateTrackFromInspectorAction(input: {
     color: input.draft.trackColor,
     name: input.draft.trackName.trim() || input.track.name,
     role: input.draft.trackRole,
+  })
+}
+
+export function updateInstrumentFromInspectorAction(input: {
+  draft: InspectorDraft
+  instrument: Instrument
+}): Command {
+  return updateInstrumentAction({
+    ...input.instrument,
+    name: input.draft.instrumentName.trim() || input.instrument.name,
   })
 }
 

@@ -1,6 +1,7 @@
 import {
   copySelection,
   selectBlock,
+  selectInstrument,
   selectMixChannel,
   selectPattern,
   selectPatternEvent,
@@ -23,7 +24,7 @@ import type {
   InspectorState,
   SelectionState,
 } from './type'
-import type { BlockId, MixChannelId, PatternEventId, PatternId, SectionId, TimelineEventId, TrackId } from '~/domain'
+import type { BlockId, InstrumentId, MixChannelId, PatternEventId, PatternId, SectionId, TimelineEventId, TrackId } from '~/domain'
 import type {
   CommandPayload,
   EditorCommand,
@@ -47,6 +48,12 @@ export function applyEditorCommand(
       return blockId === undefined
         ? editor
         : selectBlock(editor, blockId, getPayloadBoolean(payload, 'additive') ?? false)
+    }
+    case 'selectInstrument': {
+      const instrumentId = getPayloadString(payload, 'instrumentId')
+      return instrumentId === undefined
+        ? editor
+        : selectInstrument(editor, instrumentId, getPayloadBoolean(payload, 'additive') ?? false)
     }
     case 'selectMixChannel': {
       const mixChannelId = getPayloadString(payload, 'mixChannelId')
@@ -125,6 +132,10 @@ export function createCopySelectionCommand(): EditorCommand {
 
 export function createSelectBlockCommand(blockId: BlockId, additive: boolean): EditorCommand {
   return createEditorCommandRecord('selectBlock', 'Select block', { additive, blockId })
+}
+
+export function createSelectInstrumentCommand(instrumentId: InstrumentId, additive: boolean): EditorCommand {
+  return createEditorCommandRecord('selectInstrument', 'Select instrument', { additive, instrumentId })
 }
 
 export function createSelectMixChannelCommand(

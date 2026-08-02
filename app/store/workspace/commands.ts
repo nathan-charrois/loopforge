@@ -15,6 +15,7 @@ import {
   moveBlock,
   movePatternEvent,
   moveSection,
+  removeInstruments,
   removeMixChannels,
   removePattern,
   removeTracks,
@@ -25,6 +26,7 @@ import {
   splitBlock,
   splitSection,
   updateBlock,
+  updateInstrument,
   updateMixChannel,
   updateMixer,
   updatePattern,
@@ -39,6 +41,8 @@ import {
   type BlockId,
   createMixChannel,
   type GridDivision,
+  type Instrument,
+  type InstrumentId,
   type MasterMixChannel,
   type MidiNote,
   type MixChannel,
@@ -166,6 +170,12 @@ export function applyWorkspaceCommand(
     case 'updateTrack': {
       const track = getPayloadObject<Track>(payload, 'track')
       return track === undefined ? workspace : updateTrack(workspace, track)
+    }
+    case 'deleteInstrument':
+      return removeInstruments(workspace, getPayloadStringArray(payload, 'instrumentIds'))
+    case 'updateInstrument': {
+      const instrument = getPayloadObject<Instrument>(payload, 'instrument')
+      return instrument === undefined ? workspace : updateInstrument(workspace, instrument)
     }
     case 'reorderTrack':
       return reorderTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
@@ -357,6 +367,16 @@ export function createDuplicateTrackCommand(trackId: TrackId): WorkspaceCommand 
 
 export function createUpdateTrackCommand(track: Track): WorkspaceCommand {
   return createWorkspaceCommandRecord('updateTrack', `Update track ${track.name}`, { track: toJsonValue(track) })
+}
+
+export function createDeleteInstrumentCommand(
+  instrumentIds: readonly InstrumentId[],
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteInstrument', `Delete ${instrumentIds.length} instrument${instrumentIds.length === 1 ? '' : 's'}`, { instrumentIds: [...instrumentIds] })
+}
+
+export function createUpdateInstrumentCommand(instrument: Instrument): WorkspaceCommand {
+  return createWorkspaceCommandRecord('updateInstrument', `Update instrument ${instrument.name}`, { instrument: toJsonValue(instrument) })
 }
 
 export function createReorderTrackCommand(trackIds: readonly TrackId[]): WorkspaceCommand {

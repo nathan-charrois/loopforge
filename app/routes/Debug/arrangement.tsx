@@ -92,6 +92,8 @@ import {
   getVoicedNotesFromPatternEvent,
   GRID_DIVISIONS,
   type GridDivision,
+  type Instrument,
+  type InstrumentId,
   isKeyEvent,
   isMeterEvent,
   isTempoEvent,
@@ -157,12 +159,14 @@ import {
   type PatternEventDraft,
   selectBlockAction,
   selectFirstSelectedBlock,
+  selectFirstSelectedInstrument,
   selectFirstSelectedMixChannel,
   selectFirstSelectedPattern,
   selectFirstSelectedPatternEvent,
   selectFirstSelectedSection,
   selectFirstSelectedTimelineEvent,
   selectFirstSelectedTrack,
+  selectInstrumentAction,
   type SelectionState,
   selectMixChannelAction,
   selectPatternAction,
@@ -177,6 +181,7 @@ import {
   unfocusSelectionAction,
   updateBlockFromInspectorAction,
   updateInspectorDraftFromSelection,
+  updateInstrumentFromInspectorAction,
   updateMixChannelFromInspectorAction,
   updatePatternEventFromDraftAction,
   updatePatternEventFromInspectorAction,
@@ -192,6 +197,7 @@ import {
   deletePatternEventAction,
   deleteTimelineEventAction,
   selectBlocksForTrack,
+  selectInstrument,
   selectMixChannel,
   selectPattern,
   selectPatterns,
@@ -207,6 +213,7 @@ import {
 import { parseNumber } from '~/utils/number'
 
 const TRACK_LABEL_WIDTH = 150
+const INSTRUMENT_COLUMN_WIDTH = 120
 const MIX_CHANNEL_COLUMN_WIDTH = 75
 const TIMELINE_PADDING_TICKS = 7680
 const MIN_BLOCK_WIDTH = 2
@@ -328,6 +335,7 @@ function ArrangementDebugContent() {
   const [inspectorDraft, setInspectorDraft] = useState<InspectorDraft>(() => createInspectorDraft())
 
   const [hoveredBlockId, setHoveredBlockId] = useState<string | undefined>(undefined)
+  const [hoveredInstrumentId, setHoveredInstrumentId] = useState<InstrumentId | undefined>(undefined)
   const [hoveredMixChannelId, setHoveredMixChannelId] = useState<MixChannelId | undefined>(undefined)
   const [hoveredSectionId, setHoveredSectionId] = useState<SectionId | undefined>(undefined)
   const [hoveredTimelineEventId, setHoveredTimelineEventId] = useState<string | undefined>(undefined)
@@ -336,6 +344,7 @@ function ArrangementDebugContent() {
   const tracks = useMemo(() => selectTracks(workspace), [workspace])
   const patterns = useMemo(() => selectPatterns(workspace), [workspace])
   const selectedBlock = useMemo(() => selectFirstSelectedBlock(editor, workspace), [editor, workspace])
+  const selectedInstrument = useMemo(() => selectFirstSelectedInstrument(editor, workspace), [editor, workspace])
   const selectedMixChannel = useMemo(() => selectFirstSelectedMixChannel(editor, workspace), [editor, workspace])
   const selectedPattern = useMemo(() => selectFirstSelectedPattern(editor, workspace), [editor, workspace])
   const selectedPatternEvent = useMemo(() => selectFirstSelectedPatternEvent(editor, workspace), [editor, workspace])
@@ -372,6 +381,7 @@ function ArrangementDebugContent() {
     setInspectorDraft(currentDraft => updateInspectorDraftFromSelection(
       currentDraft,
       selectedTrack,
+      selectedInstrument,
       selectedMixChannel,
       selectedBlock,
       selectedPattern,
@@ -381,6 +391,7 @@ function ArrangementDebugContent() {
     ))
   }, [
     selectedBlock,
+    selectedInstrument,
     selectedMixChannel,
     selectedPattern,
     selectedPatternEvent,
@@ -539,6 +550,14 @@ function ArrangementDebugContent() {
     event.stopPropagation()
 
     dispatch(selectTrackAction(trackId, event.shiftKey))
+  }, [dispatch])
+
+  const handleClickInstrument = useCallback((
+    event: ReactMouseEvent<HTMLDivElement>,
+    instrumentId: InstrumentId,
+  ) => {
+    event.stopPropagation()
+    dispatch(selectInstrumentAction(instrumentId, event.shiftKey))
   }, [dispatch])
 
   const handleClickMixChannel = useCallback((
@@ -713,6 +732,17 @@ function ArrangementDebugContent() {
     }))
   }, [dispatch, inspectorDraft, selectedTrack])
 
+  const updateSelectedInstrumentFromInspector = useCallback(() => {
+    if (selectedInstrument === undefined) {
+      return
+    }
+
+    dispatch(updateInstrumentFromInspectorAction({
+      draft: inspectorDraft,
+      instrument: selectedInstrument,
+    }))
+  }, [dispatch, inspectorDraft, selectedInstrument])
+
   const updateSelectedMixChannelFromInspector = useCallback(() => {
     if (selectedMixChannel === undefined) {
       return
@@ -801,7 +831,7 @@ function ArrangementDebugContent() {
             <Box
               style={{
                 display: 'grid',
-                gridTemplateColumns: `${TRACK_LABEL_WIDTH}px ${MIX_CHANNEL_COLUMN_WIDTH}px minmax(0, 1fr)`,
+                gridTemplateColumns: `${TRACK_LABEL_WIDTH}px ${INSTRUMENT_COLUMN_WIDTH}px ${MIX_CHANNEL_COLUMN_WIDTH}px minmax(0, 1fr)`,
               }}
             >
               <TimelineLabelColumn
@@ -812,6 +842,15 @@ function ArrangementDebugContent() {
                 viewport={viewport}
                 onClickTrackLabel={handleTimelineLabelPointerDown}
                 onSetHoveredTrack={setHoveredTrackId}
+              />
+              <TimelineInstrumentColumn
+                hoveredInstrumentId={hoveredInstrumentId}
+                selectedInstrumentIds={editor.selection.selectedInstrumentIds}
+                tracks={tracks}
+                viewport={viewport}
+                workspace={workspace}
+                onClick={handleClickInstrument}
+                onSetHoveredInstrument={setHoveredInstrumentId}
               />
               <TimelineMixChannelColumn
                 hoveredMixChannelId={hoveredMixChannelId}
@@ -940,6 +979,7 @@ function ArrangementDebugContent() {
               draft={inspectorDraft}
               patterns={patterns}
               selectedBlock={selectedBlock}
+              selectedInstrument={selectedInstrument}
               selectedMixChannel={selectedMixChannel}
               selectedPattern={selectedPattern}
               selectedPatternEvent={selectedPatternEvent}
@@ -952,6 +992,7 @@ function ArrangementDebugContent() {
               workspaceErrors={workspaceErrors}
               onDeleteSelected={deleteSelection}
               onUpdateBlock={updateSelectedBlockFromInspector}
+              onUpdateInstrument={updateSelectedInstrumentFromInspector}
               onUpdateMixChannel={updateSelectedMixChannelFromInspector}
               onUpdatePattern={updateSelectedPatternFromInspector}
               onUpdatePatternEvent={updateSelectedPatternEventFromInspector}
@@ -1337,6 +1378,72 @@ const TimelineTrackLabel = memo(function TimelineTrackLabel({
         </Group>
       </Stack>
     </StaticTimelineLabel>
+  )
+})
+
+const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
+  hoveredInstrumentId,
+  onClick: onClickInstrument,
+  onSetHoveredInstrument,
+  selectedInstrumentIds,
+  tracks,
+  viewport,
+  workspace,
+}: {
+  hoveredInstrumentId?: InstrumentId
+  onClick: (event: ReactMouseEvent<HTMLDivElement>, instrumentId: InstrumentId) => void
+  onSetHoveredInstrument: (instrumentId: InstrumentId | undefined) => void
+  selectedInstrumentIds: InstrumentId[]
+  tracks: Track[]
+  viewport: ViewportState
+  workspace: Workspace
+}) {
+  return (
+    <Box
+      style={{
+        background: 'white',
+        borderRight: '1px solid var(--mantine-color-gray-3)',
+        position: 'relative',
+        zIndex: 2,
+      }}
+    >
+      <StaticTimelineLabel height={viewport.rulerHeight}>
+        <Text fw={700} size="sm">Instrument</Text>
+      </StaticTimelineLabel>
+      <StaticTimelineLabel height={viewport.sectionLaneHeight}>
+        <Text c="dimmed" size="xs"></Text>
+      </StaticTimelineLabel>
+      {tracks.map((track) => {
+        const instrument = selectInstrument(workspace, track.instrumentId)
+
+        if (instrument === undefined) {
+          return (
+            <StaticTimelineLabel
+              key={`missing:${track.id}`}
+              height={viewport.laneHeight}
+              tintColor={track.color}
+            />
+          )
+        }
+
+        return (
+          <StaticTimelineLabel
+            key={`${track.id}:${instrument.id}`}
+            height={viewport.laneHeight}
+            hovered={hoveredInstrumentId === instrument.id}
+            selected={selectedInstrumentIds.includes(instrument.id)}
+            tintColor={track.color}
+            onClick={event => onClickInstrument(event, instrument.id)}
+            onMouseEnter={() => onSetHoveredInstrument(instrument.id)}
+            onMouseLeave={() => onSetHoveredInstrument(undefined)}
+          >
+            <Stack gap={1} style={{ minWidth: 0 }}>
+              <Text fw={700} size="xs" truncate>{instrument.name}</Text>
+            </Stack>
+          </StaticTimelineLabel>
+        )
+      })}
+    </Box>
   )
 })
 
@@ -2131,6 +2238,7 @@ const InspectorPanel = memo(function InspectorPanel({
   draft,
   onDeleteSelected,
   onUpdateBlock,
+  onUpdateInstrument,
   onUpdateMixChannel,
   onUpdatePattern,
   onUpdatePatternEvent,
@@ -2139,6 +2247,7 @@ const InspectorPanel = memo(function InspectorPanel({
   onUpdateTrack,
   patterns,
   selectedBlock,
+  selectedInstrument,
   selectedMixChannel,
   selectedPattern,
   selectedPatternEvent,
@@ -2154,6 +2263,7 @@ const InspectorPanel = memo(function InspectorPanel({
   draft: InspectorDraft
   onDeleteSelected: () => void
   onUpdateBlock: () => void
+  onUpdateInstrument: () => void
   onUpdateMixChannel: () => void
   onUpdatePattern: () => void
   onUpdatePatternEvent: () => void
@@ -2162,6 +2272,7 @@ const InspectorPanel = memo(function InspectorPanel({
   onUpdateTrack: () => void
   patterns: ReturnType<typeof selectPatterns>
   selectedBlock?: Block
+  selectedInstrument?: Instrument
   selectedMixChannel?: MixChannel
   selectedPattern?: Pattern
   selectedPatternEvent?: PatternEvent
@@ -2180,6 +2291,7 @@ const InspectorPanel = memo(function InspectorPanel({
           <Title order={2} size="h3">Inspector</Title>
           <Badge color="gray" variant="light">
             {selection.selectedBlockIds.length
+              + selection.selectedInstrumentIds.length
               + selection.selectedMixChannelIds.length
               + selection.selectedPatternIds.length
               + selection.selectedPatternEventIds.length
@@ -2256,6 +2368,29 @@ const InspectorPanel = memo(function InspectorPanel({
               </Group>
             </Stack>
             <Button size="xs" onClick={onUpdateTrack}>Apply Track</Button>
+          </Stack>
+        )}
+
+        {selectedInstrument !== undefined && (
+          <Stack gap="sm">
+            <Text fw={700} size="sm">Instrument</Text>
+            <InspectorDataList
+              items={[
+                ['ID', selectedInstrument.id],
+                ['Kind', selectedInstrument.kind],
+              ]}
+            />
+            <TextInput
+              label="Name"
+              size="xs"
+              value={draft.instrumentName}
+              onChange={(event) => {
+                const { value } = event.currentTarget
+
+                setDraft(currentDraft => ({ ...currentDraft, instrumentName: value }))
+              }}
+            />
+            <Button size="xs" onClick={onUpdateInstrument}>Apply Instrument</Button>
           </Stack>
         )}
 

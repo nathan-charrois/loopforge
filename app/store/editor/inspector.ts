@@ -5,6 +5,7 @@ import {
   createDefaultChordPlayback,
   createDefaultChordVoicing,
   DEFAULT_TRACK_COLOR,
+  type Instrument,
   isKeyEvent,
   isMeterEvent,
   isTempoEvent,
@@ -23,6 +24,7 @@ export function createInspectorDraft(): InspectorDraft {
     blockName: '',
     blockPatternId: '',
     blockPlaybackMode: 'loop',
+    instrumentName: '',
     keyMode: 'major',
     keyTick: 0,
     keyTonic: 0,
@@ -60,6 +62,7 @@ export function createInspectorDraft(): InspectorDraft {
 export function updateInspectorDraftFromSelection(
   currentDraft: InspectorDraft,
   selectedTrack?: Track,
+  selectedInstrument?: Instrument,
   selectedMixChannel?: MixChannel,
   selectedBlock?: Block,
   selectedPattern?: Pattern,
@@ -68,13 +71,28 @@ export function updateInspectorDraftFromSelection(
   selectionTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
   const withTrack = updateInspectorDraftFromTrack(currentDraft, selectedTrack)
-  const withMixChannel = updateInspectorDraftFromMixChannel(withTrack, selectedMixChannel)
+  const withInstrument = updateInspectorDraftFromInstrument(withTrack, selectedInstrument)
+  const withMixChannel = updateInspectorDraftFromMixChannel(withInstrument, selectedMixChannel)
   const withBlock = updateInspectorDraftFromBlock(withMixChannel, selectedBlock)
   const withPattern = updateInspectorDraftFromPattern(withBlock, selectedPattern)
   const withPatternEvent = updateInspectorDraftFromPatternEvent(withPattern, selectedPatternEvent)
   const withSection = updateInspectorDraftFromSection(withPatternEvent, selectedSection)
 
   return updateInspectorDraftFromTimelineEvent(withSection, selectionTimelineEvent)
+}
+
+export function updateInspectorDraftFromInstrument(
+  currentDraft: InspectorDraft,
+  selectedInstrument?: Instrument,
+): InspectorDraft {
+  if (selectedInstrument) {
+    return {
+      ...currentDraft,
+      instrumentName: selectedInstrument.name,
+    }
+  }
+
+  return currentDraft
 }
 
 export function updateInspectorDraftFromPatternEvent(

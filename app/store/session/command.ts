@@ -36,6 +36,8 @@ export const WORKSPACE_COMMAND_KINDS = [
   'duplicateTrack',
   'reorderTrack',
   'updateTrack',
+  'deleteInstrument',
+  'updateInstrument',
   'deleteMixChannel',
   'updateMixChannel',
   'updateMixer',
@@ -55,6 +57,7 @@ export const WORKSPACE_COMMAND_KINDS = [
 export const EDITOR_COMMAND_KINDS = [
   'copySelection',
   'selectBlock',
+  'selectInstrument',
   'selectMixChannel',
   'selectPattern',
   'selectPatternEvent',

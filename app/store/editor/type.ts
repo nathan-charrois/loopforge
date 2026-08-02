@@ -6,7 +6,7 @@ import type {
   SectionId,
 } from '~/domain/arrangement'
 import type { ChordSymbol, Key } from '~/domain/harmony'
-import type { DrumPiece } from '~/domain/instrument'
+import type { DrumPiece, InstrumentId } from '~/domain/instrument'
 import type { MixChannelId } from '~/domain/mixer'
 import type { MidiNote, Tick } from '~/domain/musicPrimitives'
 import type { NoteEvent, PatternEventId, PatternEventKind } from '~/domain/patternEvents'
@@ -39,11 +39,12 @@ export const ACTIVE_PATTERN_PANEL_TOOLS = [
 ] as const
 export type ActivePatternPanelTool = typeof ACTIVE_PATTERN_PANEL_TOOLS[number]
 
-export const INSPECTOR_PANELS = ['project', 'track', 'block', 'pattern', 'event'] as const
+export const INSPECTOR_PANELS = ['project', 'track', 'instrument', 'block', 'pattern', 'event'] as const
 export type InspectorPanel = typeof INSPECTOR_PANELS[number]
 
 export type SelectionState = {
   selectedBlockIds: BlockId[]
+  selectedInstrumentIds: InstrumentId[]
   selectedMixChannelIds: MixChannelId[]
   selectedPatternIds: PatternId[]
   selectedPatternEventIds: PatternEventId[]
@@ -169,6 +170,14 @@ export type DragState
     startTick: Tick
   }
 
+export type BlockDraft = {
+  blockColor: string
+  blockMuted: boolean
+  blockName: string
+  blockPatternId: PatternId
+  blockPlaybackMode: BlockPlaybackMode
+}
+
 export type TimelineEventDraft = {
   keyMode: Key['mode']
   keyTick: number
@@ -194,12 +203,11 @@ export type PatternEventDraft = {
   patternEventVoicing: ChordVoicing
 }
 
-export type InspectorDraft = PatternEventDraft & TimelineEventDraft & {
-  blockColor: string
-  blockMuted: boolean
-  blockName: string
-  blockPatternId: PatternId
-  blockPlaybackMode: BlockPlaybackMode
+export type InstrumentDraft = {
+  instrumentName: string
+}
+
+export type InspectorDraft = BlockDraft & InstrumentDraft & PatternEventDraft & TimelineEventDraft & {
   mixChannelMuted: boolean
   mixChannelPan: number
   mixChannelSoloed: boolean

@@ -30,6 +30,7 @@ import {
 export function createSelectionState(): SelectionState {
   return {
     selectedBlockIds: [],
+    selectedInstrumentIds: [],
     selectedMixChannelIds: [],
     selectedPatternIds: [],
     selectedPatternEventIds: [],

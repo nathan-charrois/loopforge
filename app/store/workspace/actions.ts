@@ -6,6 +6,7 @@ import {
   createAddTimelineEventCommand,
   createAddTrackCommand,
   createDeleteBlockCommand,
+  createDeleteInstrumentCommand,
   createDeleteMixChannelCommand,
   createDeletePatternCommand,
   createDeletePatternEventCommand,
@@ -25,6 +26,7 @@ import {
   createSplitBlockCommand,
   createSplitSectionCommand,
   createUpdateBlockCommand,
+  createUpdateInstrumentCommand,
   createUpdateMixChannelCommand,
   createUpdateMixerCommand,
   createUpdatePatternCommand,
@@ -37,6 +39,8 @@ import type {
   Block,
   BlockId,
   GridDivision,
+  Instrument,
+  InstrumentId,
   MasterMixChannel,
   MidiNote,
   MixChannel,
@@ -143,6 +147,14 @@ export function duplicateTrackAction(trackId: TrackId): WorkspaceCommand {
 
 export function updateTrackAction(track: Track): WorkspaceCommand {
   return createUpdateTrackCommand(track)
+}
+
+export function deleteInstrumentAction(instrumentIds: readonly InstrumentId[]): WorkspaceCommand {
+  return createDeleteInstrumentCommand(instrumentIds)
+}
+
+export function updateInstrumentAction(instrument: Instrument): WorkspaceCommand {
+  return createUpdateInstrumentCommand(instrument)
 }
 
 export function reorderTrackAction(trackIds: readonly TrackId[]): WorkspaceCommand {
