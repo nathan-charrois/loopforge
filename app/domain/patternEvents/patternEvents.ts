@@ -9,7 +9,6 @@ import {
 import type { ChordPlayback } from '../playback'
 import {
   type ChordVoicing,
-  DEFAULT_VOICING_OCTAVE,
   materializeChordVoicing,
   materializeNoteVoicing,
   type VoicedNote,
@@ -60,7 +59,7 @@ export function getVoicedNotesFromPatternEvent(patternEvent: PatternEvent): Voic
     case 'chord':
       return materializeChordVoicing(patternEvent.chord, patternEvent.voicing)
     case 'note':
-      return materializeNoteVoicing(patternEvent.pitch, DEFAULT_VOICING_OCTAVE)
+      return materializeNoteVoicing(patternEvent.pitch)
     case 'automation':
     case 'drumHit':
       return []

@@ -156,7 +156,9 @@ export function selectTimelineEventIds(workspace: Workspace): TimelineEventId[] 
 }
 
 export function selectPatternEventIds(workspace: Workspace): PatternEventId[] {
-  return selectPatterns(workspace).map(event => event.id)
+  return selectPatterns(workspace).flatMap(
+    pattern => pattern.events.map(event => event.id),
+  )
 }
 
 export function selectTempoEvents(workspace: Workspace, tick: Tick): TempoEvent | undefined {

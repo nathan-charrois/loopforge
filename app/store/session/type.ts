@@ -9,8 +9,12 @@ export type Session = {
   workspace: Workspace
 }
 
+export type Dispatch = (
+  commandOrCommands: Command | readonly Command[],
+) => void
+
 export type SessionStore = {
-  dispatch: (command: Command | readonly Command[]) => void
+  dispatch: Dispatch
   getSnapshot: () => Session
   redo: () => void
   subscribe: (listener: () => void) => () => void

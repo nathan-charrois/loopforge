@@ -57,6 +57,18 @@ export function useTimelineEventOverlay(
   return useMemo(() => buildTimelineEventPlaceholder(drag), [drag])
 }
 
+export function usePatternEventOverlay(
+  drag: DragState | undefined,
+) {
+  return useMemo(() => drag?.kind === 'drawPatternEvent'
+    ? {
+        drawRange: getTickRange(drag),
+        patternId: drag.patternId,
+        pitch: drag.pitch,
+      }
+    : undefined, [drag])
+}
+
 function getTickRange(drag: DragState): TickRange {
   return {
     endTick: drag.currentTick,

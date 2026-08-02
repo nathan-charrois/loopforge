@@ -98,7 +98,6 @@ import {
   type Key,
   type MasterMixChannel,
   MAX_MIX_CHANNEL_PAN,
-  type MidiNote,
   MIN_MIX_CHANNEL_PAN,
   type MixChannel,
   type MixChannelId,
@@ -563,21 +562,6 @@ function ArrangementDebugContent() {
     dispatch(selectPatternEventAction(patternEventId, event.shiftKey))
   }, [dispatch])
 
-  const handlePatternRollPointerDown = useCallback((
-    event: ReactPointerEvent<HTMLDivElement>,
-    patternId: PatternId,
-    pitch: MidiNote,
-  ) => {
-    if (event.button !== 0) {
-      return
-    }
-
-    if (editor.activePatternPanelTool === 'draw') {
-      startDrag(event, { kind: 'drawPatternEvent', patternId, pitch })
-      return
-    }
-  }, [editor.activePatternPanelTool, startDrag])
-
   const handleSelectPatternEvent = useCallback((patternEventId: PatternEventId, additive: boolean) => {
     dispatch(selectPatternEventAction(patternEventId, additive))
   }, [dispatch])
@@ -924,6 +908,7 @@ function ArrangementDebugContent() {
               </Box>
             </Box>
             <PatternPanel
+              dispatch={dispatch}
               workspace={workspace}
               tool={editor.activePatternPanelTool}
               timeline={workspace.timeline}
@@ -931,10 +916,6 @@ function ArrangementDebugContent() {
               selectedPatternEvent={selectedPatternEvent}
               selectedPatternEventIds={editor.selection.selectedPatternEventIds}
               onDeletePatternEvent={handleDeletePatternEvent}
-              onPatternRollPointerCancel={cancelDrag}
-              onPatternRollPointerDown={handlePatternRollPointerDown}
-              onPatternRollPointerMove={updateDrag}
-              onPatternRollPointerUp={finishDrag}
               onSelectPatternEvent={handleSelectPatternEvent}
               onSetActiveTool={handleSetActivePatternPanelTool}
               onUpdatePatternEventDraft={handleUpdatePatternEventDraft}

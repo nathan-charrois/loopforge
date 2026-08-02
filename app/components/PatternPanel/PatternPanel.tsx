@@ -49,7 +49,9 @@ import {
   PANEL_TIMELINE_WIDTH,
   PANEL_VIEWPORT_HEIGHT,
 } from './constants'
-import { Piano } from '~/components/Piano/Piano'
+import {
+  Piano,
+} from '~/components/Piano/Piano'
 import {
   usePlaybackEngine,
 } from '~/components/Providers/PlaybackProvider'
@@ -65,12 +67,17 @@ import {
   type Pattern,
   type PatternEvent,
   type PatternEventId,
-  type PatternId,
   pitchClassFromMidiNote,
   type RulerMark,
   type Timeline,
   type Velocity,
 } from '~/domain'
+import {
+  useDrag,
+} from '~/hooks/useDrag'
+import {
+  usePatternEventOverlay,
+} from '~/hooks/useDragOverlay'
 import {
   useTransportPlayhead,
 } from '~/hooks/useTransport'
@@ -82,8 +89,12 @@ import {
 } from '~/playback/playhead'
 import type {
   ActivePatternPanelTool,
+  DragState,
   PatternEventDraft,
 } from '~/store/editor'
+import type {
+  Dispatch,
+} from '~/store/session'
 import {
   selectBlock,
   selectPatternForBlock,
@@ -96,6 +107,7 @@ type PatternPanelNote = {
 }
 
 type Props = {
+  dispatch: Dispatch
   workspace: Workspace
   tool: ActivePatternPanelTool
   timeline: Timeline
@@ -103,10 +115,6 @@ type Props = {
   selectedPatternEvent?: PatternEvent
   selectedPatternEventIds?: PatternEventId[]
   onDeletePatternEvent: (patternEventId: PatternEventId) => void
-  onPatternRollPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onPatternRollPointerDown: (event: ReactPointerEvent<HTMLDivElement>, patternId: PatternId, pitch: MidiNote) => void
-  onPatternRollPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onPatternRollPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
   onSelectPatternEvent: (patternEventId: PatternEventId, additive: boolean) => void
   onSetActiveTool: (tool: ActivePatternPanelTool) => void
   onUpdatePatternEventDraft: (patternEvent: PatternEvent, patternEventDraft: Partial<PatternEventDraft>) => void
@@ -144,6 +152,8 @@ type ContentProps = Props & {
 }
 
 const PatternPanelContent = memo(function PatternPanelContent({
+  dispatch,
+  workspace,
   tool,
   timeline,
   focusedBlock,
@@ -151,10 +161,6 @@ const PatternPanelContent = memo(function PatternPanelContent({
   selectedPatternEvent,
   selectedPatternEventIds,
   onDeletePatternEvent,
-  onPatternRollPointerCancel,
-  onPatternRollPointerDown,
-  onPatternRollPointerMove,
-  onPatternRollPointerUp,
   onSelectPatternEvent,
   onSetActiveTool,
   onUpdatePatternEventDraft,
@@ -170,6 +176,19 @@ const PatternPanelContent = memo(function PatternPanelContent({
     handleViewportWheel,
     handleZoomBy,
   } = useViewport()
+
+  const {
+    cancelDrag,
+    dragState,
+    finishDrag,
+    startDrag,
+    timelineRef,
+    updateDrag,
+  } = useDrag({
+    dispatch,
+    viewport,
+    workspace,
+  })
 
   const notes = useMemo(
     () => createPatternPanelNotes(pattern),
@@ -239,6 +258,18 @@ const PatternPanelContent = memo(function PatternPanelContent({
 
     handleViewportWheel(event)
   }, [handleViewportWheel])
+
+  const handlePatternRollPointerDown = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    patternId: Pattern['id'],
+    pitch: MidiNote,
+  ) => {
+    if (event.button !== 0 || tool !== 'draw') {
+      return
+    }
+
+    startDrag(event, { kind: 'drawPatternEvent', patternId, pitch })
+  }, [startDrag, tool])
 
   return (
     <Stack
@@ -386,6 +417,7 @@ const PatternPanelContent = memo(function PatternPanelContent({
           }}
         >
           <Box
+            ref={timelineRef}
             style={{
               display: 'grid',
               gridTemplateRows: `${PANEL_RULER_HEIGHT}px ${PANEL_ROLL_HEIGHT}px`,
@@ -406,11 +438,12 @@ const PatternPanelContent = memo(function PatternPanelContent({
               selectedPatternEventIds={selectedPatternEventIds}
               timelineWidth={timelineWidth}
               tool={tool}
+              drag={dragState}
               onDeletePatternEvent={onDeletePatternEvent}
-              onPointerCancel={onPatternRollPointerCancel}
-              onPointerDown={onPatternRollPointerDown}
-              onPointerMove={onPatternRollPointerMove}
-              onPointerUp={onPatternRollPointerUp}
+              onPointerCancel={cancelDrag}
+              onPointerDown={handlePatternRollPointerDown}
+              onPointerMove={updateDrag}
+              onPointerUp={finishDrag}
               onSelectPatternEvent={onSelectPatternEvent}
             />
           </Box>
@@ -512,6 +545,7 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
   pixelsPerTick,
   selectedPatternEventIds,
   timelineWidth,
+  drag,
   onDeletePatternEvent,
   onPointerCancel,
   onPointerDown,
@@ -527,19 +561,16 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
   pixelsPerTick: number
   selectedPatternEventIds?: PatternEventId[]
   timelineWidth: number
+  drag?: DragState
   onDeletePatternEvent: (patternEventId: PatternEventId) => void
-  onPointerCancel: (
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) => void
-  onPointerDown: (
-    event: ReactPointerEvent<HTMLDivElement>,
-    patternId: Pattern['id'],
-    pitch: MidiNote,
-  ) => void
+  onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, patternId: Pattern['id'], pitch: MidiNote) => void
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
   onSelectPatternEvent: (patternEventId: PatternEventId, additive: boolean) => void
 }) {
+  const dragOverlay = usePatternEventOverlay(drag)
+
   const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (pattern.kind !== 'note') {
       return
@@ -588,6 +619,32 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
         marks={marks}
         pixelsPerTick={pixelsPerTick}
       />
+      {dragOverlay !== undefined && dragOverlay.patternId === pattern.id && (
+        <Box
+          aria-label={`New ${formatMidiNote(dragOverlay.pitch)} note`}
+          style={{
+            background: 'color-mix(in srgb, var(--mantine-color-blue-6) 60%, transparent)',
+            border: '1px dashed var(--mantine-color-blue-2)',
+            borderRadius: 3,
+            height: PANEL_ROW_HEIGHT - 2,
+            left: Math.min(
+              dragOverlay.drawRange.startTick,
+              dragOverlay.drawRange.endTick,
+            ) * pixelsPerTick,
+            pointerEvents: 'none',
+            position: 'absolute',
+            top: ((PANEL_MAX_MIDI_NOTE - dragOverlay.pitch) * PANEL_ROW_HEIGHT) + 1,
+            width: Math.max(
+              8,
+              Math.abs(
+                dragOverlay.drawRange.endTick
+                - dragOverlay.drawRange.startTick,
+              ) * pixelsPerTick,
+            ),
+            zIndex: 3,
+          }}
+        />
+      )}
       {notes.map(({ event, midiNote }) => {
         const selected = selectedPatternEventIds?.includes(event.id)
         const width = Math.max(
