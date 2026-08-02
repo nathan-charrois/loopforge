@@ -54,10 +54,15 @@ export type PatternEvent = ChordEvent | NoteEvent | DrumHitEvent | AutomationEve
 
 type TimedEvent = ChordEvent | NoteEvent
 
-export function getVoicedNotesFromPatternEvent(patternEvent: PatternEvent): VoicedNote[] {
+export function getVoicedNotesFromPatternEvent(
+  patternEvent: PatternEvent,
+): VoicedNote[] {
   switch (patternEvent.kind) {
     case 'chord':
-      return materializeChordVoicing(patternEvent.chord, patternEvent.voicing)
+      return materializeChordVoicing(
+        patternEvent.chord,
+        patternEvent.voicing,
+      )
     case 'note':
       return materializeNoteVoicing(patternEvent.pitch)
     case 'automation':

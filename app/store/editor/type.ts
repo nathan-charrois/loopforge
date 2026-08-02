@@ -175,7 +175,7 @@ export type PatternEventDraft = {
   patternEventKind: PatternEventKind
   patternEventParameter: string
   patternEventPiece: DrumPiece
-  patternEventPitch: number
+  patternEventPitch: MidiNote
   patternEventPlayback: ChordPlayback
   patternEventTimeTick: number
   patternEventValue: string

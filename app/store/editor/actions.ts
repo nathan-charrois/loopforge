@@ -513,7 +513,7 @@ export function updatePatternFromInspectorAction(input: {
           chordQuality: 'sus2',
           chordRoot: 0,
           drumPiece: 'clap',
-          notePitch: 0,
+          notePitch: 60,
         }),
     kind: draft.patternKind,
     lengthTicks: draft.patternLengthTicks,

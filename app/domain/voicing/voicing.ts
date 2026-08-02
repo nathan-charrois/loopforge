@@ -51,11 +51,10 @@ export function materializeChordVoicing(chord: ChordSymbol, voicing: ChordVoicin
 
 export function materializeNoteVoicing(
   pitch: MidiNote,
-  octave: Octave,
 ): VoicedNote[] {
-  const midiNote = midiNoteFromPitchClass(pitchClassFromMidiNote(pitch), octave)
-
-  return [midiNoteToVoicedNote(midiNote, 0)]
+  return [
+    midiNoteToVoicedNote(pitch),
+  ]
 }
 
 function orderPitchClassesFromRoot(pitchClasses: PitchClass[], root: PitchClass): PitchClass[] {
@@ -154,7 +153,10 @@ function getBassNotes(voicing: ChordVoicing, baseOctave: Octave, notes: MidiNote
   return [bassNote]
 }
 
-function midiNoteToVoicedNote(midiNote: MidiNote, voiceIndex: VoiceIndex): VoicedNote {
+function midiNoteToVoicedNote(
+  midiNote: MidiNote,
+  voiceIndex: VoiceIndex = 0,
+): VoicedNote {
   return {
     voiceIndex,
     midiNote,

@@ -3,6 +3,7 @@ import type { DrumPiece } from '../instrument'
 import {
   createPositiveDurationTicks,
   type DurationTicks,
+  type MidiNote,
   type PitchClass,
 } from '../musicPrimitives'
 import {
@@ -69,7 +70,7 @@ export function createSeedPatternEvents(
     chordQuality: ChordQuality
     chordRoot: PitchClass
     drumPiece: DrumPiece
-    notePitch: number
+    notePitch: MidiNote
   },
 ): PatternEvent[] {
   const halfLengthTicks = Math.max(120, Math.floor(lengthTicks / 2))

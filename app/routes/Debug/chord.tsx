@@ -16,7 +16,7 @@ import {
 
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
-import { Piano } from '~/components/PatternPanel/Piano'
+import { Piano } from '~/components/Piano/Piano'
 import AppProvider from '~/components/Providers/AppProvider'
 import {
   CHORD_ALTERATIONS,
