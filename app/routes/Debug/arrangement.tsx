@@ -28,7 +28,6 @@ import {
   PlayIcon,
   Redo03Icon,
   Resize01Icon,
-  RulerIcon,
   ScissorIcon,
   StopIcon,
   TimeSetting01Icon,
@@ -64,7 +63,6 @@ import {
 import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import { PatternPanel } from '~/components/PatternPanel/PatternPanel'
-import { Piano } from '~/components/Piano/Piano'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import { useSession } from '~/components/Providers/SessionProvider'
@@ -82,14 +80,12 @@ import {
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
   type DrumPiece,
-  formatChordSymbol,
   formatTickAsBars,
   formatTickRangeAsBars,
   getBlockEndTick,
   getNoteNameForPitchClass,
   getRulerMarks,
   getSectionEndTick,
-  getVoicedNotesFromPatternEvent,
   GRID_DIVISIONS,
   type GridDivision,
   type Instrument,
@@ -212,9 +208,9 @@ import {
 } from '~/store/workspace'
 import { parseNumber } from '~/utils/number'
 
-const TRACK_LABEL_WIDTH = 150
-const INSTRUMENT_COLUMN_WIDTH = 120
-const MIX_CHANNEL_COLUMN_WIDTH = 75
+const TRACK_LABEL_WIDTH = 128
+const INSTRUMENT_COLUMN_WIDTH = 148
+const MIX_CHANNEL_COLUMN_WIDTH = 73
 const TIMELINE_PADDING_TICKS = 7680
 const MIN_BLOCK_WIDTH = 2
 const MIN_SECTION_WIDTH = 2
@@ -826,8 +822,8 @@ function ArrangementDebugContent() {
           onZoomIn={handleToolbarZoomIn}
           onZoomOut={handleToolbarZoomOut}
         />
-        <SimpleGrid cols={{ base: 2, lg: 6 }} spacing="md">
-          <Paper withBorder radius="sm" p={0} style={{ gridColumn: 'span 4', overflow: 'hidden' }}>
+        <SimpleGrid cols={{ base: 2, lg: 8 }} spacing="md">
+          <Paper withBorder radius="sm" p={0} style={{ gridColumn: 'span 6', overflow: 'hidden' }}>
             <Box
               style={{
                 display: 'grid',
@@ -962,9 +958,6 @@ function ArrangementDebugContent() {
               onSetActiveTool={handleSetActivePatternPanelTool}
               onUpdatePatternEventDraft={handleUpdatePatternEventDraft}
             />
-            <PatternEventInspector
-              patternEvent={selectedPatternEvent}
-            />
           </Paper>
           <Stack gap="md" style={{ gridColumn: 'span 2', overflow: 'hidden' }}>
             <Paper withBorder radius="sm" p="md">
@@ -1009,42 +1002,6 @@ function ArrangementDebugContent() {
     </AppLayout>
   )
 }
-
-const PatternEventInspector = memo(function PatternEventInspector({
-  patternEvent,
-}: {
-  patternEvent?: PatternEvent
-}) {
-  const voicedNotes = patternEvent === undefined
-    ? []
-    : getVoicedNotesFromPatternEvent(patternEvent)
-  const harmony = patternEvent?.kind === 'chord'
-    ? formatChordSymbol(patternEvent.chord)
-    : '—'
-  const tones = Array.from(new Set(
-    voicedNotes.map(note => getNoteNameForPitchClass(note.pitchClass)),
-  )).join(' ')
-
-  return (
-    <Stack p="md" style={{ gridColumn: 'span 3' }}>
-      <Stack gap="md">
-        <Piano
-          hasBassNote={patternEvent?.kind === 'chord' && patternEvent.voicing.bassNote !== undefined}
-          startOctave={patternEvent?.kind === 'chord' ? patternEvent.voicing.octave : undefined}
-          voicedNotes={voicedNotes}
-        />
-        {patternEvent !== undefined && (
-          <InspectorDataList
-            items={[
-              ['Harmony', harmony],
-              ['Tones', tones.length > 0 ? tones : '—'],
-            ]}
-          />
-        )}
-      </Stack>
-    </Stack>
-  )
-})
 
 const Toolbar = memo(function Toolbar({
   playbackEngine,
@@ -1324,12 +1281,11 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
     >
       <StaticTimelineLabel height={viewport.rulerHeight}>
         <Group gap={6}>
-          <HugeiconsIcon icon={RulerIcon} size={18} />
-          <Text fw={700} size="sm">Timeline</Text>
+          <Text fw={700} size="sm"></Text>
         </Group>
       </StaticTimelineLabel>
       <StaticTimelineLabel height={viewport.sectionLaneHeight} opacity={focusedBlockId === undefined ? 1 : 0.4}>
-        <Text fw={700} size="sm">Sections</Text>
+        <Text c="dimmed" size="xs">Track</Text>
       </StaticTimelineLabel>
       {tracks.map(track => (
         <TimelineTrackLabel
@@ -1372,7 +1328,7 @@ const TimelineTrackLabel = memo(function TimelineTrackLabel({
       onMouseLeave={() => onSetHoveredTrack(undefined)}
     >
       <Stack gap={1}>
-        <Text fw={700} size="sm" truncate>{track.name}</Text>
+        <Text fw={600} size="sm" truncate>{track.name}</Text>
         <Group gap={4}>
           <Badge size="xs" variant="light">{track.role}</Badge>
         </Group>
@@ -1408,10 +1364,10 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
       }}
     >
       <StaticTimelineLabel height={viewport.rulerHeight}>
-        <Text fw={700} size="sm">Instrument</Text>
+        <Text fw={700} size="sm"></Text>
       </StaticTimelineLabel>
       <StaticTimelineLabel height={viewport.sectionLaneHeight}>
-        <Text c="dimmed" size="xs"></Text>
+        <Text c="dimmed" size="xs">Instrument</Text>
       </StaticTimelineLabel>
       {tracks.map((track) => {
         const instrument = selectInstrument(workspace, track.instrumentId)
@@ -1437,8 +1393,11 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
             onMouseEnter={() => onSetHoveredInstrument(instrument.id)}
             onMouseLeave={() => onSetHoveredInstrument(undefined)}
           >
-            <Stack gap={1} style={{ minWidth: 0 }}>
-              <Text fw={700} size="xs" truncate>{instrument.name}</Text>
+            <Stack gap={1}>
+              <Text fw={600} size="sm" truncate>{instrument.name}</Text>
+              <Group gap={4}>
+                <Badge size="xs" variant="light">{instrument.kind}</Badge>
+              </Group>
             </Stack>
           </StaticTimelineLabel>
         )
@@ -1478,10 +1437,10 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
       }}
     >
       <StaticTimelineLabel height={viewport.rulerHeight}>
-        <Text fw={700} size="sm">Mix</Text>
+        <Text fw={700} size="sm"></Text>
       </StaticTimelineLabel>
       <StaticTimelineLabel height={viewport.sectionLaneHeight}>
-        <Text c="dimmed" size="xs"></Text>
+        <Text c="dimmed" size="xs">Mix</Text>
       </StaticTimelineLabel>
       {tracks.map((track) => {
         const mixChannel = selectMixChannel(workspace, track.mixChannelId)
@@ -1577,7 +1536,7 @@ const StaticTimelineLabel = memo(function StaticTimelineLabel({
         display: 'flex',
         height,
         opacity,
-        paddingInline: 12,
+        paddingInline: 9,
       }}
     >
       {children}

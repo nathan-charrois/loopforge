@@ -207,9 +207,9 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
 }
 
 export function createInitialWorkspace(): Workspace {
-  return prismCurrent()
-  return theHouseIsListening()
   return blueHourBelow()
+  return theHouseIsListening()
+  return prismCurrent()
   return lanternsInFive()
 }
 

@@ -22,14 +22,12 @@ import {
 } from '@hugeicons/react'
 import {
   ActionIcon,
-  Badge,
   Box,
   Group,
   NumberInput,
   Slider,
   Stack,
   Text,
-  Title,
   Tooltip,
 } from '@mantine/core'
 
@@ -316,21 +314,12 @@ const PatternPanelContent = memo(function PatternPanelContent({
 
   return (
     <Stack
-      gap="sm"
+      gap="md"
       p="md"
       style={{
         borderTop: '1px solid var(--mantine-color-default-border)',
       }}
     >
-      <Group justify="space-between" align="center">
-        <Group gap="xs">
-          <Title order={2} size="h3">Pattern</Title>
-          <Badge variant="light">{pattern.name}</Badge>
-        </Group>
-        <Text c="dimmed" size="xs">
-          Ctrl/⌘ + wheel to zoom
-        </Text>
-      </Group>
       <Group justify="space-between" align="center">
         <Group gap={4}>
           <PatternPanelToolButton
@@ -354,29 +343,24 @@ const PatternPanelContent = memo(function PatternPanelContent({
           />
         </Group>
         <Group gap="xs">
-          <Badge color="gray" variant="light">
-            Snap:
-            {' '}
-            {timeline.grid}
-          </Badge>
           <Tooltip label="Zoom out">
             <ActionIcon
               aria-label="Zoom pattern panel out"
-              size="sm"
-              variant="subtle"
+              size="lg"
+              variant="light"
               onClick={() => handleZoomBy(0.8)}
             >
-              <HugeiconsIcon icon={ZoomOutAreaIcon} size={15} />
+              <HugeiconsIcon icon={ZoomOutAreaIcon} size={19} />
             </ActionIcon>
           </Tooltip>
           <Tooltip label="Zoom in">
             <ActionIcon
               aria-label="Zoom pattern panel in"
-              size="sm"
-              variant="subtle"
+              size="lg"
+              variant="light"
               onClick={() => handleZoomBy(1.25)}
             >
-              <HugeiconsIcon icon={ZoomInAreaIcon} size={15} />
+              <HugeiconsIcon icon={ZoomInAreaIcon} size={19} />
             </ActionIcon>
           </Tooltip>
         </Group>
