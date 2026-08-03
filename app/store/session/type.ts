@@ -17,6 +17,7 @@ export type SessionStore = {
   dispatch: Dispatch
   getSnapshot: () => Session
   redo: () => void
+  replace: (session: Session) => void
   subscribe: (listener: () => void) => () => void
   undo: () => void
 }

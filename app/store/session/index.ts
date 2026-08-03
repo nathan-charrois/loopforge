@@ -1,5 +1,7 @@
 export * from './command'
 export * from './commandHistory'
 export * from './factory'
+export * from './file'
+export * from './serialize'
 export * from './store'
 export * from './type'

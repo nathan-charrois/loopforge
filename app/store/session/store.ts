@@ -42,6 +42,9 @@ export function createSessionStore(initialSession: Session): SessionStore {
     redo() {
       commit(redoCommand(snapshot))
     },
+    replace(session) {
+      commit(session)
+    },
     subscribe(listener) {
       listeners.add(listener)
 

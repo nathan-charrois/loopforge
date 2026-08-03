@@ -6,7 +6,10 @@ import type { CommandHistory } from './commandHistory'
 import type { Session } from './type'
 
 export function createInitialSession(): Session {
-  return createSession(createInitialWorkspace(), createEditor())
+  return createSession(
+    createInitialWorkspace(),
+    createEditor(),
+  )
 }
 
 export function createSession(workspace: Workspace, editor: Editor): Session {
@@ -16,6 +19,7 @@ export function createSession(workspace: Workspace, editor: Editor): Session {
     workspace,
   }
 }
+
 export function createCommandHistory(): CommandHistory {
   return {
     redoStack: [],
