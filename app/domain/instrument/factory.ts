@@ -19,17 +19,25 @@ export function createThorInstrument(input: {
   return {
     ...input,
     kind: 'thor',
-    oscillators: input.oscilators ?? [],
+    oscillators: input.oscilators ?? [
+      {
+        waveform: 'sine',
+        octave: 0,
+        semitone: 0,
+        detuneCents: 0,
+        level: 1,
+      },
+    ],
     filter: input.filter ?? {
       type: 'lowpass',
       cutoffHz: 2000,
       resonance: 10,
     },
     envelope: input.envelope ?? {
-      attack: 1,
-      decay: 4,
-      sustain: 2,
-      release: 5,
+      attack: 0,
+      decay: 0,
+      sustain: 0,
+      release: 0,
     },
   }
 }

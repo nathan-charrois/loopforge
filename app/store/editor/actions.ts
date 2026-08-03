@@ -529,10 +529,7 @@ export function updateInstrumentFromInspectorAction(input: {
       return updateInstrumentAction({
         ...input.instrument,
         envelope: input.draft.instrumentSynthEnvelope
-          ? {
-              ...input.instrument.envelope,
-              ...input.draft.instrumentSynthEnvelope,
-            }
+          ? input.draft.instrumentSynthEnvelope
           : input.instrument.envelope,
         name: input.draft.instrumentName.trim() || input.instrument.name,
       })

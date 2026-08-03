@@ -263,6 +263,12 @@ export function theHouseIsListening(): Workspace {
         id: 'voice.ghost',
         name: 'Breath Choir',
         soundId: 'voice.ghost',
+        envelope: {
+          attack: 0.1,
+          decay: 0.6,
+          sustain: 0.3,
+          release: 1.2,
+        },
       }),
       createDrumInstrument({
         id: 'drums.default',
@@ -300,22 +306,22 @@ export function theHouseIsListening(): Workspace {
         createMixChannel({
           id: pianoTrack.mixChannelId,
           pan: -0.20,
-          volumeDb: -4,
+          volumeDb: -1,
         }),
         createMixChannel({
           id: melodyTrack.mixChannelId,
           pan: 0.20,
-          volumeDb: -8,
+          volumeDb: -12,
         }),
         createMixChannel({
           id: ghostVoiceTrack.mixChannelId,
           pan: -0.40,
-          volumeDb: -5,
+          volumeDb: -3,
         }),
         createMixChannel({
           id: drumsTrack.mixChannelId,
           pan: 0,
-          volumeDb: 6,
+          volumeDb: 4,
         }),
       ]),
       master: {

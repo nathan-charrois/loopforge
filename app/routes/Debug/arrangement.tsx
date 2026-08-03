@@ -221,7 +221,7 @@ const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
-const MAX_SYNTH_ENVELOPE_VALUE = 20
+const MAX_SYNTH_ENVELOPE_VALUE = 3
 
 const HOVER_BOX_SHADOWS = {
   entity: '0 0 0 3px var(--mantine-color-gray-5)',
@@ -2384,7 +2384,7 @@ const InspectorPanel = memo(function InspectorPanel({
                         label={null}
                         max={MAX_SYNTH_ENVELOPE_VALUE}
                         min={0}
-                        step={1}
+                        step={0.1}
                         value={draft.instrumentSynthEnvelope?.attack}
                         onChange={value => updateInstrumentSynthEnvelopeDraft('attack', value)}
                       />
@@ -2399,7 +2399,7 @@ const InspectorPanel = memo(function InspectorPanel({
                         label={null}
                         max={MAX_SYNTH_ENVELOPE_VALUE}
                         min={0}
-                        step={1}
+                        step={0.1}
                         value={draft.instrumentSynthEnvelope?.decay}
                         onChange={value => updateInstrumentSynthEnvelopeDraft('decay', value)}
                       />
@@ -2414,7 +2414,7 @@ const InspectorPanel = memo(function InspectorPanel({
                         label={null}
                         max={MAX_SYNTH_ENVELOPE_VALUE}
                         min={0}
-                        step={1}
+                        step={0.1}
                         value={draft.instrumentSynthEnvelope?.sustain}
                         onChange={value => updateInstrumentSynthEnvelopeDraft('sustain', value)}
                       />
@@ -2429,7 +2429,7 @@ const InspectorPanel = memo(function InspectorPanel({
                         label={null}
                         max={MAX_SYNTH_ENVELOPE_VALUE}
                         min={0}
-                        step={1}
+                        step={0.1}
                         value={draft.instrumentSynthEnvelope?.release}
                         onChange={value => updateInstrumentSynthEnvelopeDraft('release', value)}
                       />

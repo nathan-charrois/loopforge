@@ -3,8 +3,12 @@ import {
   decibelsToGain,
   type DrumInstrument,
   type DrumPiece,
+  type Instrument,
+  type MidiNote,
   type ThorInstrument,
+  type Velocity,
 } from '~/domain'
+import type { SynthEnvelope } from '~/domain/instrument/synth'
 import type { PlaybackTrigger } from '~/playback/buildSchedule'
 import {
   selectInstrument,
@@ -103,16 +107,19 @@ export class AudioEngine {
   ): void {
     const context = this.requiredRunningContext()
     const workspace = this.requiredWorkspace()
-    const track = selectTrack(workspace, input.trigger.source.trackId)
-    const instrument = track === undefined
-      ? undefined
-      : selectInstrument(workspace, track.instrumentId)
     const mixerGraph = this.requiredMixerGraph()
-    const destination = mixerGraph.getChannelInput(
-      input.trigger.source.mixChannelId,
-    )
 
-    if (track === undefined || instrument === undefined || destination === undefined) {
+    const track = selectTrack(workspace, input.trigger.source.trackId)
+    if (track === undefined) {
+      return
+    }
+    const instrument = selectInstrument(workspace, track.instrumentId)
+    if (instrument === undefined) {
+      return
+    }
+
+    const destination = mixerGraph.getChannelInput(input.trigger.source.mixChannelId)
+    if (destination === undefined) {
       return
     }
 
@@ -140,14 +147,13 @@ export class AudioEngine {
         return
       case 'note':
         if (instrument.kind === 'thor') {
-          this.scheduleNoteVoice(
+          this.scheduleInstrumentNoteVoice(
             destination,
             instrument,
             input.trigger.pitch,
             input.trigger.velocity,
             whenSeconds,
             input.durationSeconds,
-            track.role === 'bass',
           )
         }
     }
@@ -205,52 +211,172 @@ export class AudioEngine {
     this.updateSnapshot()
   }
 
-  private scheduleNoteVoice(
+  private scheduleInstrumentNoteVoice(
     destination: GainNode,
-    instrument: ThorInstrument,
-    pitch: number,
-    velocity: number,
+    instrument: Instrument,
+    pitch: MidiNote,
+    velocity: Velocity,
     whenSeconds: number,
     requestedDurationSeconds: number | undefined,
-    isBass: boolean,
+  ): void {
+    switch (instrument.kind) {
+      case 'thor':
+        this.scheduleThorVoice(
+          destination,
+          instrument,
+          pitch,
+          velocity,
+          whenSeconds,
+          requestedDurationSeconds,
+        )
+        return
+    }
+  }
+
+  private scheduleThorVoice(
+    destination: GainNode,
+    instrument: ThorInstrument,
+    pitch: MidiNote,
+    velocity: Velocity,
+    whenSeconds: number,
+    requestedDurationSeconds: number | undefined,
   ): void {
     const context = this.requiredRunningContext()
-    const oscillator = context.createOscillator()
-    const envelope = context.createGain()
     const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
-    const attackSeconds = Math.min(0.01, durationSeconds / 4)
-    const releaseStartSeconds = whenSeconds + Math.max(
-      attackSeconds,
-      durationSeconds - 0.03,
-    )
-    const endSeconds = whenSeconds + durationSeconds
-    const midiNote = pitch < 12
-      ? pitch + (isBass ? 36 : 60)
-      : pitch
-    const peakGain = Math.max(0, Math.min(1, velocity / 127))
 
-    oscillator.type = getOscillatorType(instrument)
-    oscillator.frequency.setValueAtTime(
-      midiNoteToFrequency(midiNote),
+    const oscillators = instrument.oscillators.filter(
+      oscillator => oscillator.level > 0,
+    )
+
+    if (oscillators.length === 0) {
+      return
+    }
+
+    const filter = context.createBiquadFilter()
+    const envelope = context.createGain()
+
+    filter.type = instrument.filter.type
+    filter.frequency.setValueAtTime(instrument.filter.cutoffHz, whenSeconds)
+    filter.Q.setValueAtTime(instrument.filter.resonance, whenSeconds)
+
+    const endSeconds = this.scheduleSynthEnvelope(
+      envelope.gain,
+      instrument.envelope,
+      velocity,
       whenSeconds,
+      durationSeconds,
     )
 
-    envelope.gain.setValueAtTime(0, whenSeconds)
-    envelope.gain.linearRampToValueAtTime(
-      peakGain,
-      whenSeconds + attackSeconds,
-    )
-    envelope.gain.setValueAtTime(
-      peakGain * 0.85,
-      releaseStartSeconds,
-    )
-    envelope.gain.linearRampToValueAtTime(0, endSeconds)
-
-    oscillator.connect(envelope)
+    filter.connect(envelope)
     envelope.connect(destination)
-    oscillator.start(whenSeconds)
-    oscillator.stop(endSeconds + 0.01)
-    this.registerVoice(oscillator, () => envelope.disconnect())
+
+    const totalLevel = oscillators.reduce((sum, oscillator) => sum + oscillator.level, 0)
+
+    const levelNormalization = 1 / Math.max(1, totalLevel)
+    let remainingOscillators = oscillators.length
+    let sharedNodesDisconnected = false
+
+    for (const oscillatorSettings of oscillators) {
+      const oscillator = context.createOscillator()
+      const oscillatorGain = context.createGain()
+
+      const oscillatorPitch = pitch
+        + oscillatorSettings.octave * 12
+        + oscillatorSettings.semitone
+
+      oscillator.type = oscillatorSettings.waveform
+      oscillator.frequency.setValueAtTime(
+        midiNoteToFrequency(oscillatorPitch),
+        whenSeconds,
+      )
+      oscillator.detune.setValueAtTime(
+        oscillatorSettings.detuneCents,
+        whenSeconds,
+      )
+
+      oscillatorGain.gain.setValueAtTime(
+        oscillatorSettings.level * levelNormalization,
+        whenSeconds,
+      )
+
+      oscillator.connect(oscillatorGain)
+      oscillatorGain.connect(filter)
+
+      oscillator.start(whenSeconds)
+      oscillator.stop(endSeconds + 0.01)
+
+      let oscillatorCleanedUp = false
+
+      this.registerVoice(oscillator, () => {
+        if (oscillatorCleanedUp) {
+          return
+        }
+
+        oscillatorCleanedUp = true
+        oscillator.disconnect()
+        oscillatorGain.disconnect()
+        remainingOscillators -= 1
+
+        if (
+          remainingOscillators === 0
+          && !sharedNodesDisconnected
+        ) {
+          sharedNodesDisconnected = true
+          filter.disconnect()
+          envelope.disconnect()
+        }
+      })
+    }
+  }
+
+  private scheduleSynthEnvelope(
+    gain: AudioParam,
+    envelope: SynthEnvelope,
+    velocity: Velocity,
+    whenSeconds: number,
+    durationSeconds: number,
+  ): number {
+    const peakGain = Math.max(0, velocity / 127)
+    const sustainGain = peakGain * Math.max(0, envelope.sustain)
+    const noteOffSeconds = whenSeconds + durationSeconds
+    const attack = Math.min(Math.max(0, envelope.attack), durationSeconds)
+    const attackEnd = whenSeconds + attack
+    const availableDecay = Math.max(0, noteOffSeconds - attackEnd)
+    const decay = Math.min(Math.max(0, envelope.decay), availableDecay)
+    const decayEnd = attackEnd + decay
+    const release = Math.max(0.01, envelope.release)
+    const endSeconds = noteOffSeconds + release
+
+    gain.cancelScheduledValues(whenSeconds)
+    gain.setValueAtTime(0, whenSeconds)
+
+    if (attack === 0) {
+      gain.setValueAtTime(peakGain, whenSeconds)
+    }
+    else {
+      gain.linearRampToValueAtTime(
+        peakGain,
+        attackEnd,
+      )
+    }
+
+    if (decay > 0) {
+      gain.linearRampToValueAtTime(
+        sustainGain,
+        decayEnd,
+      )
+    }
+
+    if (noteOffSeconds > decayEnd) {
+      gain.setValueAtTime(
+        decay > 0 ? sustainGain : peakGain,
+        noteOffSeconds,
+      )
+    }
+
+    gain.linearRampToValueAtTime(0, endSeconds)
+
+    return endSeconds
   }
 
   private scheduleDrumVoice(
@@ -379,24 +505,6 @@ function getAudioEngineState(
   }
 
   return 'suspended'
-}
-
-function getOscillatorType(
-  instrument: ThorInstrument,
-): OscillatorType {
-  if (instrument.soundId.includes('sine')) {
-    return 'sine'
-  }
-
-  if (instrument.soundId.includes('bass')) {
-    return 'sawtooth'
-  }
-
-  if (instrument.soundId.includes('lead')) {
-    return 'square'
-  }
-
-  return 'triangle'
 }
 
 function getDrumVoiceSettings(
