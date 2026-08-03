@@ -305,7 +305,7 @@ export function theHouseIsListening(): Workspace {
         createMixChannel({
           id: melodyTrack.mixChannelId,
           pan: 0.20,
-          volumeDb: -10,
+          volumeDb: -8,
         }),
         createMixChannel({
           id: ghostVoiceTrack.mixChannelId,

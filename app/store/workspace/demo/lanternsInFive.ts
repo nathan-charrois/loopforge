@@ -289,7 +289,7 @@ export function lanternsInFive(): Workspace {
         createMixChannel({
           id: guitarTrack.mixChannelId,
           pan: -0.25,
-          volumeDb: -1,
+          volumeDb: -2,
         }),
         createMixChannel({
           id: voicingsTrack.mixChannelId,
@@ -299,7 +299,7 @@ export function lanternsInFive(): Workspace {
         createMixChannel({
           id: bassTrack.mixChannelId,
           pan: -0.25,
-          volumeDb: -7,
+          volumeDb: -8,
         }),
         createMixChannel({
           id: drumsTrack.mixChannelId,

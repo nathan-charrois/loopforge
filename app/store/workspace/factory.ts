@@ -1,6 +1,7 @@
 import { createEmptyEntityStore, createEntityStore, type EntityStore } from '../type'
 import { blueHourBelow } from './demo/blueHourBelow'
 import { lanternsInFive } from './demo/lanternsInFive'
+import { prismCurrent } from './demo/prismCurrent'
 import { theHouseIsListening } from './demo/theHouseIsListening'
 import { addBlock, addPattern } from './operations'
 import { selectTracks } from './selector'
@@ -206,6 +207,7 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
 }
 
 export function createInitialWorkspace(): Workspace {
+  return prismCurrent()
   return theHouseIsListening()
   return blueHourBelow()
   return lanternsInFive()

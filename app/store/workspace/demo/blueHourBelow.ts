@@ -180,7 +180,7 @@ export function blueHourBelow(): Workspace {
       createPattern({
         events: createNoteEvents('blue_hour_event_keys', [
           // Bar 1: Cm9 — open fifth, seventh, ninth, and a close D/Eb glow.
-          createNoteEvent({ timeTick: 0, pitch: 36, durationTicks: sustainedBassTicks, velocity: 92, id: 'blue_hour_event_keys_1' }),
+          createNoteEvent({ timeTick: 0, pitch: 48, durationTicks: sustainedBassTicks, velocity: 92, id: 'blue_hour_event_keys_1' }),
           createNoteEvent({ timeTick: 0, pitch: 55, durationTicks: sustainedChordTicks, velocity: 58, id: 'blue_hour_event_keys_2' }),
           createNoteEvent({ timeTick: 0, pitch: 58, durationTicks: sustainedChordTicks, velocity: 62, id: 'blue_hour_event_keys_3' }),
           createNoteEvent({ timeTick: 0, pitch: 62, durationTicks: sustainedChordTicks, velocity: 54, id: 'blue_hour_event_keys_4' }),
