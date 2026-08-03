@@ -1,6 +1,6 @@
 import { createWorkspace } from '../factory'
 import type { Workspace } from '../type'
-import { createBlock, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMelodicInstrument, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createTimeline, createTrack, type DurationTicks, type Instrument, type Pattern, PPQ } from '~/domain'
+import { createBlock, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createThorInstrument, createTimeline, createTrack, type DurationTicks, type Instrument, type Pattern, PPQ } from '~/domain'
 import { createEntityStore } from '~/store/type'
 
 export function blueHourBelow(): Workspace {
@@ -106,7 +106,7 @@ export function blueHourBelow(): Workspace {
       ],
     },
     instruments: createEntityStore<Instrument>([
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'keys.default',
         name: 'Submerged Rhodes',
         soundId: 'keys.default',

@@ -1,25 +1,34 @@
 import type { DrumPiece } from './constants'
+import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
 
 export type InstrumentId = string
 export type InstrumentSoundId = string
 
 export type Instrument
   = | DrumInstrument
-    | MelodicInstrument
+    | ThorInstrument
 
-export type MelodicInstrument = {
+export type ThorInstrument = {
+  kind: 'thor'
   id: InstrumentId
-  kind: 'melodic'
   name: string
   soundId: InstrumentSoundId
+  oscillators: SynthOscillator[]
+  filter: SynthFilter
+  envelope: SynthEnvelope
 }
 
 export type DrumInstrument = {
-  id: InstrumentId
   kind: 'drum'
+  id: InstrumentId
   name: string
-  pieces: Partial<Record<DrumPiece, DrumPieceSound>>
+  pieces: Partial<DrumPieces>
 }
+
+export type DrumPieces = Record<
+  DrumPiece,
+  DrumPieceSound
+>
 
 export type DrumPieceSound = {
   durationSeconds?: number

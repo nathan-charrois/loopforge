@@ -524,10 +524,25 @@ export function updateInstrumentFromInspectorAction(input: {
   draft: InspectorDraft
   instrument: Instrument
 }): Command {
-  return updateInstrumentAction({
-    ...input.instrument,
-    name: input.draft.instrumentName.trim() || input.instrument.name,
-  })
+  switch (input.instrument.kind) {
+    case 'thor':
+      return updateInstrumentAction({
+        ...input.instrument,
+        envelope: input.draft.instrumentSynthEnvelope
+          ? {
+              ...input.instrument.envelope,
+              ...input.draft.instrumentSynthEnvelope,
+            }
+          : input.instrument.envelope,
+        name: input.draft.instrumentName.trim() || input.instrument.name,
+      })
+    default: {
+      return updateInstrumentAction({
+        ...input.instrument,
+        name: input.draft.instrumentName.trim() || input.instrument.name,
+      })
+    }
+  }
 }
 
 export function updateMixChannelFromInspectorAction(input: {

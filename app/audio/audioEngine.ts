@@ -3,7 +3,7 @@ import {
   decibelsToGain,
   type DrumInstrument,
   type DrumPiece,
-  type MelodicInstrument,
+  type ThorInstrument,
 } from '~/domain'
 import type { PlaybackTrigger } from '~/playback/buildSchedule'
 import {
@@ -139,7 +139,7 @@ export class AudioEngine {
         }
         return
       case 'note':
-        if (instrument.kind === 'melodic') {
+        if (instrument.kind === 'thor') {
           this.scheduleNoteVoice(
             destination,
             instrument,
@@ -207,7 +207,7 @@ export class AudioEngine {
 
   private scheduleNoteVoice(
     destination: GainNode,
-    instrument: MelodicInstrument,
+    instrument: ThorInstrument,
     pitch: number,
     velocity: number,
     whenSeconds: number,
@@ -382,7 +382,7 @@ function getAudioEngineState(
 }
 
 function getOscillatorType(
-  instrument: MelodicInstrument,
+  instrument: ThorInstrument,
 ): OscillatorType {
   if (instrument.soundId.includes('sine')) {
     return 'sine'

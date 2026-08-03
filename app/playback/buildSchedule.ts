@@ -20,6 +20,7 @@ import {
   getRecipeStepVelocity,
   getScheduledEventDurationTicks,
   getScheduledEventStartTick,
+  type InstrumentId,
   materializeChordVoicing,
   type MidiNote,
   type MixChannel,
@@ -52,6 +53,7 @@ export type ScheduledPlaybackEventBase = {
   startTick: Tick
   mixChannelId: MixChannelId
   trackId: TrackId
+  instrumentId: InstrumentId
 }
 
 export type ScheduledPlaybackEvent = ScheduledPlaybackEventBase & {
@@ -65,6 +67,7 @@ export type PlaybackTriggerSource = {
   mixChannelId: MixChannelId
   patternId: PatternId
   trackId: TrackId
+  instrumentId: InstrumentId
 }
 
 export type NotePlaybackTrigger = {
@@ -310,6 +313,7 @@ function createStretchScheduledEvents({
       patternId: pattern.id,
       startTick,
       trackId: track.id,
+      instrumentId: track.instrumentId,
     }
 
     events.push({
@@ -395,6 +399,7 @@ function createScheduledPlaybackEvent({
     startTick,
     durationTicks,
     trackId: track.id,
+    instrumentId: track.instrumentId,
   }
 
   return {
@@ -807,6 +812,7 @@ function createPlaybackTriggerSource(scheduledEvent: ScheduledPlaybackEventBase)
     patternId: scheduledEvent.patternId,
     scheduledEventId: scheduledEvent.id,
     trackId: scheduledEvent.trackId,
+    instrumentId: scheduledEvent.instrumentId,
   }
 }
 

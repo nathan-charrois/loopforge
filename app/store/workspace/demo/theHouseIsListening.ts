@@ -1,6 +1,6 @@
 import { createWorkspace } from '../factory'
 import type { Workspace } from '../type'
-import { createBlock, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMelodicInstrument, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createTimeline, createTrack, type DurationTicks, type Instrument, type Pattern, PPQ } from '~/domain'
+import { createBlock, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createThorInstrument, createTimeline, createTrack, type DurationTicks, type Instrument, type Pattern, PPQ } from '~/domain'
 import { createEntityStore } from '~/store/type'
 
 export function theHouseIsListening(): Workspace {
@@ -249,17 +249,17 @@ export function theHouseIsListening(): Workspace {
       ],
     },
     instruments: createEntityStore<Instrument>([
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'keys.default',
         name: 'Haunted Upright Piano',
         soundId: 'keys.default',
       }),
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'lead.default',
         name: 'Soft Sine Lead',
         soundId: 'sine.soft',
       }),
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'voice.ghost',
         name: 'Breath Choir',
         soundId: 'voice.ghost',

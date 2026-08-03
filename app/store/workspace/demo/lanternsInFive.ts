@@ -1,6 +1,6 @@
 import { createWorkspace } from '../factory'
 import type { Workspace } from '../type'
-import { createBlock, createChordEvent, createChordSymbol, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMelodicInstrument, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createTimeline, createTrack, type Instrument, PPQ } from '~/domain'
+import { createBlock, createChordEvent, createChordSymbol, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createThorInstrument, createTimeline, createTrack, type Instrument, PPQ } from '~/domain'
 import { createEntityStore } from '~/store/type'
 
 export function lanternsInFive(): Workspace {
@@ -234,12 +234,12 @@ export function lanternsInFive(): Workspace {
       ],
     },
     instruments: createEntityStore<Instrument>([
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'guitar.default',
         name: 'Hollow-Body Guitar',
         soundId: 'guitar.default',
       }),
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'bass.default',
         name: 'Upright Bass',
         soundId: 'bass.default',

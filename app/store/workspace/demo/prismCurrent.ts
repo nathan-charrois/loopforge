@@ -7,7 +7,6 @@ import {
   createDrumInstrument,
   createDrumPieceSound,
   createKeyEvent,
-  createMelodicInstrument,
   createMeterEvent,
   createMixChannel,
   createMixer,
@@ -17,6 +16,7 @@ import {
   createProjectMetadata,
   createSection,
   createTempoEvent,
+  createThorInstrument,
   createTimeline,
   createTrack,
   type DurationTicks,
@@ -348,12 +348,12 @@ export function prismCurrent(): Workspace {
       ],
     },
     instruments: createEntityStore<Instrument>([
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'piano.default',
         name: 'Concert Piano',
         soundId: 'keys.default',
       }),
-      createMelodicInstrument({
+      createThorInstrument({
         id: 'strings.default',
         name: 'Chamber Strings',
         soundId: 'strings.default',

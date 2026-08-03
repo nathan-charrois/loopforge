@@ -85,14 +85,25 @@ export function updateInspectorDraftFromInstrument(
   currentDraft: InspectorDraft,
   selectedInstrument?: Instrument,
 ): InspectorDraft {
-  if (selectedInstrument) {
+  if (selectedInstrument === undefined) {
+    return currentDraft
+  }
+
+  const nextDraft: InspectorDraft = {
+    ...currentDraft,
+    instrumentName: selectedInstrument.name,
+  }
+
+  if (selectedInstrument.kind === 'thor') {
     return {
-      ...currentDraft,
-      instrumentName: selectedInstrument.name,
+      ...nextDraft,
+      instrumentSynthEnvelope: {
+        ...selectedInstrument.envelope,
+      },
     }
   }
 
-  return currentDraft
+  return nextDraft
 }
 
 export function updateInspectorDraftFromPatternEvent(

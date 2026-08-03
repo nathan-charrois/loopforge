@@ -221,6 +221,7 @@ const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
+const MAX_SYNTH_ENVELOPE_VALUE = 20
 
 const HOVER_BOX_SHADOWS = {
   entity: '0 0 0 3px var(--mantine-color-gray-5)',
@@ -2243,6 +2244,25 @@ const InspectorPanel = memo(function InspectorPanel({
   workspace: Workspace
   workspaceErrors: string[]
 }) {
+  const updateInstrumentSynthEnvelopeDraft = (
+    property: keyof NonNullable<InspectorDraft['instrumentSynthEnvelope']>,
+    value: number,
+  ) => {
+    setDraft((currentDraft) => {
+      if (currentDraft.instrumentSynthEnvelope === undefined) {
+        return currentDraft
+      }
+
+      return {
+        ...currentDraft,
+        instrumentSynthEnvelope: {
+          ...currentDraft.instrumentSynthEnvelope,
+          [property]: value,
+        },
+      }
+    })
+  }
+
   return (
     <Paper withBorder radius="sm" p="md">
       <Stack gap="md">
@@ -2349,6 +2369,75 @@ const InspectorPanel = memo(function InspectorPanel({
                 setDraft(currentDraft => ({ ...currentDraft, instrumentName: value }))
               }}
             />
+            {selectedInstrument.kind === 'thor' && (
+              <Paper withBorder radius="sm" p="md">
+                <Stack gap="md">
+                  <Text fw={600} size="xs">Envelope</Text>
+                  <SimpleGrid cols={2} spacing="md">
+                    <Stack gap={4}>
+                      <Group justify="space-between">
+                        <Text size="xs">Attack</Text>
+                        <Text c="dimmed" size="xs">{draft.instrumentSynthEnvelope?.attack}</Text>
+                      </Group>
+                      <Slider
+                        aria-label="Attack"
+                        label={null}
+                        max={MAX_SYNTH_ENVELOPE_VALUE}
+                        min={0}
+                        step={1}
+                        value={draft.instrumentSynthEnvelope?.attack}
+                        onChange={value => updateInstrumentSynthEnvelopeDraft('attack', value)}
+                      />
+                    </Stack>
+                    <Stack gap={4}>
+                      <Group justify="space-between">
+                        <Text size="xs">Decay</Text>
+                        <Text c="dimmed" size="xs">{draft.instrumentSynthEnvelope?.decay}</Text>
+                      </Group>
+                      <Slider
+                        aria-label="Decay"
+                        label={null}
+                        max={MAX_SYNTH_ENVELOPE_VALUE}
+                        min={0}
+                        step={1}
+                        value={draft.instrumentSynthEnvelope?.decay}
+                        onChange={value => updateInstrumentSynthEnvelopeDraft('decay', value)}
+                      />
+                    </Stack>
+                    <Stack gap={4}>
+                      <Group justify="space-between">
+                        <Text size="xs">Sustain</Text>
+                        <Text c="dimmed" size="xs">{draft.instrumentSynthEnvelope?.sustain}</Text>
+                      </Group>
+                      <Slider
+                        aria-label="Sustain"
+                        label={null}
+                        max={MAX_SYNTH_ENVELOPE_VALUE}
+                        min={0}
+                        step={1}
+                        value={draft.instrumentSynthEnvelope?.sustain}
+                        onChange={value => updateInstrumentSynthEnvelopeDraft('sustain', value)}
+                      />
+                    </Stack>
+                    <Stack gap={4}>
+                      <Group justify="space-between">
+                        <Text size="xs">Release</Text>
+                        <Text c="dimmed" size="xs">{draft.instrumentSynthEnvelope?.release}</Text>
+                      </Group>
+                      <Slider
+                        aria-label="Release"
+                        label={null}
+                        max={MAX_SYNTH_ENVELOPE_VALUE}
+                        min={0}
+                        step={1}
+                        value={draft.instrumentSynthEnvelope?.release}
+                        onChange={value => updateInstrumentSynthEnvelopeDraft('release', value)}
+                      />
+                    </Stack>
+                  </SimpleGrid>
+                </Stack>
+              </Paper>
+            )}
             <Button size="xs" onClick={onUpdateInstrument}>Apply Instrument</Button>
           </Stack>
         )}

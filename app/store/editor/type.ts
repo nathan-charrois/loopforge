@@ -7,6 +7,7 @@ import type {
 } from '~/domain/arrangement'
 import type { ChordSymbol, Key } from '~/domain/harmony'
 import type { DrumPiece, InstrumentId } from '~/domain/instrument'
+import type { SynthEnvelope } from '~/domain/instrument/synth'
 import type { MixChannelId } from '~/domain/mixer'
 import type { MidiNote, Tick } from '~/domain/musicPrimitives'
 import type { NoteEvent, PatternEventId, PatternEventKind } from '~/domain/patternEvents'
@@ -205,6 +206,7 @@ export type PatternEventDraft = {
 
 export type InstrumentDraft = {
   instrumentName: string
+  instrumentSynthEnvelope?: SynthEnvelope
 }
 
 export type InspectorDraft = BlockDraft & InstrumentDraft & PatternEventDraft & TimelineEventDraft & {

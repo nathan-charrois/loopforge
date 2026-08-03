@@ -1,26 +1,43 @@
 import type {
   DrumInstrument,
+  DrumPieces,
   DrumPieceSound,
   InstrumentId,
   InstrumentSoundId,
-  MelodicInstrument,
+  ThorInstrument,
 } from './instrument'
+import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
 
-export function createMelodicInstrument(input: {
+export function createThorInstrument(input: {
   id: InstrumentId
   name: string
   soundId: InstrumentSoundId
-}): MelodicInstrument {
+  oscilators?: SynthOscillator[]
+  filter?: SynthFilter
+  envelope?: SynthEnvelope
+}): ThorInstrument {
   return {
     ...input,
-    kind: 'melodic',
+    kind: 'thor',
+    oscillators: input.oscilators ?? [],
+    filter: input.filter ?? {
+      type: 'lowpass',
+      cutoffHz: 2000,
+      resonance: 10,
+    },
+    envelope: input.envelope ?? {
+      attack: 1,
+      decay: 4,
+      sustain: 2,
+      release: 5,
+    },
   }
 }
 
 export function createDrumInstrument(input: {
   id: InstrumentId
   name: string
-  pieces?: DrumInstrument['pieces']
+  pieces?: Partial<DrumPieces>
 }): DrumInstrument {
   return {
     id: input.id,
