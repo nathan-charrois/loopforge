@@ -8,6 +8,18 @@ import type {
 } from './instrument'
 import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
 
+export function createSynthOscillator(
+  input: Partial<SynthOscillator> = {},
+): SynthOscillator {
+  return {
+    detuneCents: input.detuneCents ?? 0,
+    level: input.level ?? 1,
+    octave: input.octave ?? 0,
+    semitone: input.semitone ?? 0,
+    waveform: input.waveform ?? 'sine',
+  }
+}
+
 export function createThorInstrument(input: {
   id: InstrumentId
   name: string
@@ -19,15 +31,7 @@ export function createThorInstrument(input: {
   return {
     ...input,
     kind: 'thor',
-    oscillators: input.oscilators ?? [
-      {
-        waveform: 'sine',
-        octave: 0,
-        semitone: 0,
-        detuneCents: 0,
-        level: 1,
-      },
-    ],
+    oscillators: input.oscilators ?? [createSynthOscillator()],
     filter: input.filter ?? {
       type: 'lowpass',
       cutoffHz: 2000,

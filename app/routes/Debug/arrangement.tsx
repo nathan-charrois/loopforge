@@ -76,6 +76,7 @@ import {
   CHORD_PLAYBACK_RECIPES,
   CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
+  createSynthOscillator,
   createTrack,
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
@@ -2290,6 +2291,25 @@ const InspectorPanel = memo(function InspectorPanel({
     })
   }
 
+  const addInstrumentSynthOscillatorDraft = () => {
+    setDraft(currentDraft => ({
+      ...currentDraft,
+      instrumentSynthOscillators: [
+        ...(currentDraft.instrumentSynthOscillators ?? []),
+        createSynthOscillator(),
+      ],
+    }))
+  }
+
+  const removeInstrumentSynthOscillatorDraft = (oscillatorIndex: number) => {
+    setDraft(currentDraft => ({
+      ...currentDraft,
+      instrumentSynthOscillators: currentDraft.instrumentSynthOscillators?.filter(
+        (_oscillator, index) => index !== oscillatorIndex,
+      ),
+    }))
+  }
+
   return (
     <Paper withBorder radius="sm" p="md">
       <Stack gap="md">
@@ -2399,11 +2419,31 @@ const InspectorPanel = memo(function InspectorPanel({
             {selectedInstrument.kind === 'thor' && (
               <Paper withBorder radius="sm" p="md">
                 <Stack gap="md">
-                  <Text fw={600} size="xs">Oscillators</Text>
+                  <Group justify="space-between">
+                    <Text fw={600} size="xs">Oscillators</Text>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={addInstrumentSynthOscillatorDraft}
+                    >
+                      Add oscillator
+                    </Button>
+                  </Group>
                   {draft.instrumentSynthOscillators?.map((oscillator, oscillatorIndex) => (
                     <Paper key={oscillatorIndex} withBorder radius="sm" p="sm">
                       <Stack gap="sm">
-                        <Text fw={500} size="xs">{`Oscillator ${oscillatorIndex + 1}`}</Text>
+                        <Group justify="space-between">
+                          <Text fw={500} size="xs">{`Oscillator ${oscillatorIndex + 1}`}</Text>
+                          <ActionIcon
+                            aria-label={`Remove oscillator ${oscillatorIndex + 1}`}
+                            color="red"
+                            size="sm"
+                            variant="light"
+                            onClick={() => removeInstrumentSynthOscillatorDraft(oscillatorIndex)}
+                          >
+                            <HugeiconsIcon icon={Delete01Icon} size={14} />
+                          </ActionIcon>
+                        </Group>
                         <Select
                           allowDeselect={false}
                           data={SYNTH_OSCILLATOR_WAVEFORMS.map(value => ({ label: value, value }))}
