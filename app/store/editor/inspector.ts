@@ -100,6 +100,9 @@ export function updateInspectorDraftFromInstrument(
       instrumentSynthEnvelope: {
         ...selectedInstrument.envelope,
       },
+      instrumentSynthOscillators: selectedInstrument.oscillators.map(oscillator => ({
+        ...oscillator,
+      })),
     }
   }
 

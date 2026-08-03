@@ -528,10 +528,17 @@ export function updateInstrumentFromInspectorAction(input: {
     case 'thor':
       return updateInstrumentAction({
         ...input.instrument,
-        envelope: input.draft.instrumentSynthEnvelope
-          ? input.draft.instrumentSynthEnvelope
-          : input.instrument.envelope,
         name: input.draft.instrumentName.trim() || input.instrument.name,
+        envelope: input.draft.instrumentSynthEnvelope
+          ? {
+              ...input.draft.instrumentSynthEnvelope,
+            }
+          : input.instrument.envelope,
+        oscillators: input.draft.instrumentSynthOscillators
+          ? input.draft.instrumentSynthOscillators.map(
+              oscillator => ({ ...oscillator }),
+            )
+          : input.instrument.oscillators,
       })
     default: {
       return updateInstrumentAction({

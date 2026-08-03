@@ -124,6 +124,7 @@ import {
   type TrackRole,
   VOICING_TYPES,
 } from '~/domain'
+import type { SynthOscillator } from '~/domain/instrument/synth'
 import { useAnimationFrameThrottle } from '~/hooks/useAnimationFrameThrottle'
 import { useDrag } from '~/hooks/useDrag'
 import {
@@ -222,6 +223,12 @@ const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
 const MAX_SYNTH_ENVELOPE_VALUE = 3
+const SYNTH_OSCILLATOR_WAVEFORMS: SynthOscillator['waveform'][] = [
+  'sine',
+  'triangle',
+  'sawtooth',
+  'square',
+]
 
 const HOVER_BOX_SHADOWS = {
   entity: '0 0 0 3px var(--mantine-color-gray-5)',
@@ -2263,6 +2270,26 @@ const InspectorPanel = memo(function InspectorPanel({
     })
   }
 
+  const updateInstrumentSynthOscillatorDraft = (
+    oscillatorIndex: number,
+    update: (oscillator: SynthOscillator) => SynthOscillator,
+  ) => {
+    setDraft((currentDraft) => {
+      if (currentDraft.instrumentSynthOscillators === undefined) {
+        return currentDraft
+      }
+
+      return {
+        ...currentDraft,
+        instrumentSynthOscillators: currentDraft.instrumentSynthOscillators.map(
+          (oscillator, index) => index === oscillatorIndex
+            ? update(oscillator)
+            : oscillator,
+        ),
+      }
+    })
+  }
+
   return (
     <Paper withBorder radius="sm" p="md">
       <Stack gap="md">
@@ -2369,6 +2396,109 @@ const InspectorPanel = memo(function InspectorPanel({
                 setDraft(currentDraft => ({ ...currentDraft, instrumentName: value }))
               }}
             />
+            {selectedInstrument.kind === 'thor' && (
+              <Paper withBorder radius="sm" p="md">
+                <Stack gap="md">
+                  <Text fw={600} size="xs">Oscillators</Text>
+                  {draft.instrumentSynthOscillators?.map((oscillator, oscillatorIndex) => (
+                    <Paper key={oscillatorIndex} withBorder radius="sm" p="sm">
+                      <Stack gap="sm">
+                        <Text fw={500} size="xs">{`Oscillator ${oscillatorIndex + 1}`}</Text>
+                        <Select
+                          allowDeselect={false}
+                          data={SYNTH_OSCILLATOR_WAVEFORMS.map(value => ({ label: value, value }))}
+                          label="Waveform"
+                          size="xs"
+                          value={oscillator.waveform}
+                          onChange={(value) => {
+                            const waveform = SYNTH_OSCILLATOR_WAVEFORMS.find(
+                              candidate => candidate === value,
+                            )
+
+                            if (waveform !== undefined) {
+                              updateInstrumentSynthOscillatorDraft(
+                                oscillatorIndex,
+                                currentOscillator => ({
+                                  ...currentOscillator,
+                                  waveform,
+                                }),
+                              )
+                            }
+                          }}
+                        />
+                        <SimpleGrid cols={2} spacing="sm">
+                          <NumberInput
+                            allowDecimal={false}
+                            label="Octave"
+                            size="xs"
+                            value={oscillator.octave}
+                            onChange={value => updateInstrumentSynthOscillatorDraft(
+                              oscillatorIndex,
+                              currentOscillator => ({
+                                ...currentOscillator,
+                                octave: parseNumber(
+                                  value.toString(),
+                                  currentOscillator.octave,
+                                ),
+                              }),
+                            )}
+                          />
+                          <NumberInput
+                            allowDecimal={false}
+                            label="Semitone"
+                            size="xs"
+                            value={oscillator.semitone}
+                            onChange={value => updateInstrumentSynthOscillatorDraft(
+                              oscillatorIndex,
+                              currentOscillator => ({
+                                ...currentOscillator,
+                                semitone: parseNumber(
+                                  value.toString(),
+                                  currentOscillator.semitone,
+                                ),
+                              }),
+                            )}
+                          />
+                          <NumberInput
+                            label="Detune (cents)"
+                            size="xs"
+                            value={oscillator.detuneCents}
+                            onChange={value => updateInstrumentSynthOscillatorDraft(
+                              oscillatorIndex,
+                              currentOscillator => ({
+                                ...currentOscillator,
+                                detuneCents: parseNumber(
+                                  value.toString(),
+                                  currentOscillator.detuneCents,
+                                ),
+                              }),
+                            )}
+                          />
+                          <NumberInput
+                            decimalScale={2}
+                            label="Level"
+                            min={0}
+                            size="xs"
+                            step={0.05}
+                            value={oscillator.level}
+                            onChange={value => updateInstrumentSynthOscillatorDraft(
+                              oscillatorIndex,
+                              currentOscillator => ({
+                                ...currentOscillator,
+                                level: parseNumber(
+                                  value.toString(),
+                                  currentOscillator.level,
+                                ),
+                              }),
+                            )}
+                          />
+                        </SimpleGrid>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
             {selectedInstrument.kind === 'thor' && (
               <Paper withBorder radius="sm" p="md">
                 <Stack gap="md">
