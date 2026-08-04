@@ -126,6 +126,7 @@ import {
 } from '~/domain'
 import type { SynthOscillator } from '~/domain/instrument/synth'
 import { useAnimationFrameThrottle } from '~/hooks/useAnimationFrameThrottle'
+import { useBlockStack } from '~/hooks/useBlockStack'
 import { useDrag } from '~/hooks/useDrag'
 import {
   useSectionLaneOverlay,
@@ -219,6 +220,7 @@ const MIN_BLOCK_WIDTH = 2
 const MIN_SECTION_WIDTH = 2
 const MIN_OVERLAY_WIDTH = 2
 const BLOCK_TOP = 14
+const BLOCK_HEIGHT = 42
 const TIMELINE_MARKER_TOP = 10
 const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
@@ -1928,6 +1930,10 @@ const TrackLane = memo(function TrackLane({
     () => selectBlocksForTrack(workspace, track.id),
     [workspace, track.id],
   )
+  const stackedBlocks = useBlockStack(
+    blocks,
+    viewport.laneHeight - BLOCK_TOP - BLOCK_HEIGHT,
+  )
 
   const {
     blockPlaceholders,
@@ -1947,7 +1953,7 @@ const TrackLane = memo(function TrackLane({
         width: timelineWidth,
       }}
     >
-      {blocks.map(block => (
+      {stackedBlocks.map(({ block, offset, zIndex }) => (
         <BlockView
           key={block.id}
           block={block}
@@ -1956,8 +1962,10 @@ const TrackLane = memo(function TrackLane({
           selected={selectedBlockIds.includes(block.id)}
           selectedPatternEventIds={selectedPatternEventIds}
           selectedPatternIds={selectedPatternIds}
+          top={BLOCK_TOP + offset}
           viewport={viewport}
           workspace={workspace}
+          zIndex={zIndex}
           onDoubleClick={onBlockDoubleClick}
           onPointerDown={onBlockPointerDown}
           onPatternClick={onPatternClick}
@@ -1986,7 +1994,7 @@ const TrackLane = memo(function TrackLane({
         <EntityPlaceholder
           key={`block-placeholder:${block.id}:${block.trackId}`}
           color="yellow"
-          height={42}
+          height={BLOCK_HEIGHT}
           label={block.name}
           lengthTicks={block.lengthTicks}
           startTick={block.startTick}
@@ -2011,8 +2019,10 @@ const BlockView = memo(function BlockView({
   selected,
   selectedPatternEventIds,
   selectedPatternIds,
+  top,
   viewport,
   workspace,
+  zIndex,
 }: {
   block: Block
   focusedBlockId?: string
@@ -2026,8 +2036,10 @@ const BlockView = memo(function BlockView({
   selected: boolean
   selectedPatternEventIds: PatternEventId[]
   selectedPatternIds: PatternId[]
+  top: number
   viewport: ViewportState
   workspace: Workspace
+  zIndex: number
 }) {
   const isFocused = focusedBlockId === block.id
   const dimmedByFocus = focusedBlockId !== undefined && !isFocused
@@ -2054,16 +2066,16 @@ const BlockView = memo(function BlockView({
         boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? HOVER_BOX_SHADOWS.entity : undefined,
         color: 'white',
         cursor: 'grab',
-        height: isFocused ? viewport.laneHeight : 42,
+        height: isFocused ? viewport.laneHeight : BLOCK_HEIGHT,
         left: tickToX(viewport.pixelsPerTick, block.startTick),
         opacity: dimmedByFocus ? 0.22 : block.muted ? 0.58 : 0.96,
         outline: selected ? SELECTED_STYLES.outline : undefined,
         overflow: 'hidden',
         padding: '5px 8px',
         position: 'absolute',
-        top: isFocused ? 0 : BLOCK_TOP,
+        top: isFocused ? 0 : top,
         width: Math.max(MIN_BLOCK_WIDTH, tickToX(viewport.pixelsPerTick, block.lengthTicks)),
-        zIndex: isFocused ? 7 : selected ? 4 : 2,
+        zIndex: isFocused ? 7 : zIndex,
         userSelect: 'none',
       }}
     >
