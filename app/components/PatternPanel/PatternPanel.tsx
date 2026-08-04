@@ -171,7 +171,7 @@ const PatternPanelContent = memo(function PatternPanelContent({
   const {
     viewport,
     scrollRef,
-    handleViewportResize,
+    handleViewportFit,
     handleViewportWheel,
     handleZoomBy,
   } = useViewport()
@@ -210,14 +210,14 @@ const PatternPanelContent = memo(function PatternPanelContent({
       return
     }
 
-    const fitPattern = () => handleViewportResize(pattern.lengthTicks)
+    const fitPattern = () => handleViewportFit(pattern.lengthTicks)
     const resizeObserver = new ResizeObserver(fitPattern)
 
     fitPattern()
     resizeObserver.observe(scrollElement)
 
     return () => resizeObserver.disconnect()
-  }, [handleViewportResize, pattern.id, pattern.lengthTicks])
+  }, [handleViewportFit, pattern.id, pattern.lengthTicks])
 
   const playheadProps = useTransportPlayhead(
     playbackEngine,

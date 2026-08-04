@@ -86,7 +86,7 @@ export function useViewport() {
     )
   }, [zoomViewportAt])
 
-  const handleViewportResize = useCallback((lengthTicks: number) => {
+  const handleViewportFit = useCallback((lengthTicks: number) => {
     const scrollElement = scrollRef.current
 
     if (scrollElement === null || lengthTicks <= 0) {
@@ -108,13 +108,13 @@ export function useViewport() {
   return useMemo(() => ({
     viewport,
     scrollRef,
-    handleViewportResize,
+    handleViewportFit,
     handleViewportWheel,
     handleZoomBy,
   }), [
     viewport,
     scrollRef,
-    handleViewportResize,
+    handleViewportFit,
     handleViewportWheel,
     handleZoomBy,
   ])
