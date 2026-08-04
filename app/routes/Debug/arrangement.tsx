@@ -800,6 +800,7 @@ function ArrangementDebugContent() {
   const {
     handleNew,
     handleOpen,
+    handleOpenDemo,
     handleSave,
   } = useSessionProject()
 
@@ -810,7 +811,7 @@ function ArrangementDebugContent() {
           <AppMenu
             onNewProject={handleNew}
             onOpenProject={handleOpen}
-            onOpenProjectDemo={handleOpen}
+            onOpenProjectDemo={handleOpenDemo}
             onSaveProject={handleSave}
             onUndoCommand={undo}
             onRedoCommand={redo}

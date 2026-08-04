@@ -29,6 +29,14 @@ import {
 } from '~/domain/timeline'
 import { createTrack, getPatternKindForTrack, type Track, type TrackRole } from '~/domain/tracks'
 
+const workspaceDemos: Record<string, () => Workspace> = {
+  blueHourBelow,
+  lanternsInFive,
+  neonOrchard,
+  prismCurrent,
+  theHouseIsListening,
+}
+
 export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
   const tracks = normalizeEntityStore(input.tracks, createEntityStore<Track>())
   const instruments = normalizeEntityStore(input.instruments, createEmptyEntityStore<Instrument>())
@@ -208,11 +216,17 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
 }
 
 export function createInitialWorkspace(): Workspace {
-  return theHouseIsListening()
-  return blueHourBelow()
-  return neonOrchard()
-  return prismCurrent()
-  return lanternsInFive()
+  return createDemoWorkspace('theHouseIsListening')
+}
+
+export function createDemoWorkspace(demo: string): Workspace {
+  const createDemo = workspaceDemos[demo]
+
+  if (createDemo === undefined) {
+    throw new Error(`Demo ${demo} does not exist.`)
+  }
+
+  return createDemo()
 }
 
 export function summarizeWorkspaceAction(workspace: Workspace): Record<string, number | string> {

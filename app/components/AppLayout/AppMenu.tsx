@@ -44,7 +44,7 @@ export function AppMenu({
             </Menu.Sub.Target>
             <Menu.Sub.Dropdown>
               <Menu.Item onClick={() => onOpenProjectDemo('blueHourBelow')}>Blue Hour Below</Menu.Item>
-              <Menu.Item onClick={() => onOpenProjectDemo('LanternsInFive')}>Lanterns in Five</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('lanternsInFive')}>Lanterns in Five</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('neonOrchard')}>Neon Orchard</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('prismCurrent')}>Prism Current</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('theHouseIsListening')}>The House is Listening</Menu.Item>

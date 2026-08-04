@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 
 import { useSessionStore } from '~/components/Providers/SessionProvider'
 import {
+  createDemoSession,
   createInitialSession,
   deserializeSession,
   downloadTextFile,
@@ -11,6 +12,7 @@ import {
 
 export type SessionProject = {
   handleNew(): void
+  handleOpenDemo(demo: string): void
   handleSave(): void
   handleOpen(): Promise<void>
 }
@@ -46,12 +48,20 @@ export function useSessionProject(): SessionProject {
     sessionStore.replace(session)
   }, [sessionStore])
 
+  const handleOpenDemo = useCallback((demo: string) => {
+    sessionStore.replace(
+      createDemoSession(demo),
+    )
+  }, [sessionStore])
+
   return useMemo(() => ({
     handleNew,
+    handleOpenDemo,
     handleSave,
     handleOpen,
   }), [
     handleNew,
+    handleOpenDemo,
     handleSave,
     handleOpen,
   ])
