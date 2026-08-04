@@ -1,12 +1,37 @@
+import { type Track } from '../tracks'
 import type {
   DrumInstrument,
   DrumPieces,
   DrumPieceSound,
+  Instrument,
   InstrumentId,
   InstrumentSoundId,
   ThorInstrument,
 } from './instrument'
 import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
+
+export function createInstrument({
+  id,
+  track,
+}: {
+  id: InstrumentId
+  track: Track
+}): Instrument {
+  const name = `${track.name} Instrument`
+
+  if (track.role === 'drums') {
+    return createDrumInstrument({
+      id,
+      name,
+    })
+  }
+
+  return createThorInstrument({
+    id,
+    name,
+    soundId: track.role,
+  })
+}
 
 export function createSynthOscillator(
   input: Partial<SynthOscillator> = {},
@@ -71,4 +96,8 @@ export function createDrumPieceSound(input: {
     soundId: input.soundId,
     volumeDb: input.volumeDb ?? 0,
   }
+}
+
+export function createInstrumentIdForTrack(trackId: string): InstrumentId {
+  return `instrument_${trackId}`
 }

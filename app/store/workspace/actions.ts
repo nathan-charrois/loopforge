@@ -133,8 +133,12 @@ export function updateSectionAction(section: Section): WorkspaceCommand {
   return createUpdateSectionCommand(section)
 }
 
-export function addTrackAction(track: Track, mixChannel?: MixChannel): WorkspaceCommand {
-  return createAddTrackCommand(track, mixChannel)
+export function addTrackAction(
+  track: Track,
+  mixChannel?: MixChannel,
+  instrument?: Instrument,
+): WorkspaceCommand {
+  return createAddTrackCommand(track, mixChannel, instrument)
 }
 
 export function deleteTrackAction(trackIds: readonly TrackId[]): WorkspaceCommand {

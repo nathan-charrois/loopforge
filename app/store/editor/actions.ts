@@ -18,6 +18,7 @@ import {
 } from './commands'
 import {
   createArrangementBlockDraft,
+  createArrangementPatternDraft,
   createArrangementPatternEventDraft,
   createArrangementSectionDraft,
   createInspectorState,
@@ -79,6 +80,7 @@ import {
 import type { Command, EditorCommand } from '~/store/session'
 import {
   addBlockAction,
+  addPatternAction,
   addPatternEventAction,
   addSectionAction,
   addTimelineEventAction,
@@ -351,14 +353,25 @@ export function completeDragAction(input: {
   }
 
   if (dragState.kind === 'drawBlock') {
-    const range = snapToMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
+    const range = snapToMinimumTimelineRange(
+      workspace.timeline,
+      dragState.startTick,
+      endTick,
+    )
+
+    const pattern = createArrangementPatternDraft(workspace, {
+      lengthTicks: range.lengthTicks,
+    })
+
     const block = createArrangementBlockDraft(workspace, {
       lengthTicks: range.lengthTicks,
       startTick: range.startTick,
       trackId: dragState.trackId,
+      patternId: pattern.id,
     })
 
     return [
+      addPatternAction(pattern),
       addBlockAction(block),
       setSelectionAction({
         ...createSelectionState(),

@@ -59,6 +59,10 @@ export function selectTracks(workspace: Workspace): Track[] {
   return workspace.tracks.allIds.map(trackId => workspace.tracks.byId[trackId])
 }
 
+export function selectTrackIds(workspace: Workspace): TrackId[] {
+  return selectTracks(workspace).map(track => track.id)
+}
+
 export function selectTrack(workspace: Workspace, trackId: TrackId): Track | undefined {
   return workspace.tracks.byId[trackId]
 }

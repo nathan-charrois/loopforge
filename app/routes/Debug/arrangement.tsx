@@ -77,7 +77,6 @@ import {
   CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
   createSynthOscillator,
-  createTrack,
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
   type DrumPiece,
@@ -149,6 +148,7 @@ import {
   applySectionToolAction,
   applyTimelineEventToolAction,
   copySelectionAction,
+  createArrangementTrackDraft,
   createInspectorDraft,
   deleteSelectionAction,
   type DragState,
@@ -638,12 +638,11 @@ function ArrangementDebugContent() {
   }, [dispatch, workspace.mixer.master.muted])
 
   const handleAddTrack = useCallback(() => {
-    dispatch(addTrackAction(
-      createTrack({
-        id: 'track_chords',
-        name: 'Chords',
-        role: 'chords',
-      })))
+    dispatch(
+      addTrackAction(
+        createArrangementTrackDraft(workspace),
+      ),
+    )
   }, [dispatch, workspace])
 
   const handleCopy = useCallback(() => {

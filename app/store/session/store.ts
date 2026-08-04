@@ -33,6 +33,8 @@ export function createSessionStore(initialSession: Session): SessionStore {
       nextSession = executeCommand(nextSession, command)
     }
 
+    console.log(nextSession.workspace)
+    console.log(nextSession.editor)
     commit(nextSession)
   }
 

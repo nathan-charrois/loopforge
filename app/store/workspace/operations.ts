@@ -16,6 +16,7 @@ import {
   type Block,
   type BlockId,
   type BlockPlaybackMode,
+  createInstrument,
   createMixChannel,
   getTimelineEventField,
   type GridDivision,
@@ -54,6 +55,7 @@ export function addTrack(
   workspace: Workspace,
   track: Track,
   mixChannel: MixChannel = createMixChannel({ id: track.mixChannelId }),
+  instrument: Instrument = createInstrument({ id: track.instrumentId, track }),
 ): Workspace {
   if (workspace.tracks.byId[track.id] !== undefined) {
     throw new Error(`Track ${track.id} already exists.`)
@@ -63,14 +65,28 @@ export function addTrack(
     throw new Error(`Track ${track.id} must reference mix channel ${mixChannel.id}.`)
   }
 
+  if (instrument.id !== track.instrumentId) {
+    throw new Error(`Track ${track.id} must reference instrument ${instrument.id}.`)
+  }
+
   if (workspace.mixer.channels.byId[mixChannel.id] !== undefined) {
     throw new Error(`Mix channel ${mixChannel.id} already exists.`)
+  }
+
+  if (workspace.instruments.byId[instrument.id] !== undefined) {
+    throw new Error(`Instrument ${instrument.id} already exists.`)
   }
 
   if (workspace.tracks.allIds.some(trackId => (
     workspace.tracks.byId[trackId].mixChannelId === mixChannel.id
   ))) {
     throw new Error(`Mix channel ${mixChannel.id} is already referenced by a track.`)
+  }
+
+  if (workspace.tracks.allIds.some(trackId => (
+    workspace.tracks.byId[trackId].instrumentId === instrument.id
+  ))) {
+    throw new Error(`Instrument ${instrument.id} is already referenced by a track.`)
   }
 
   const mixChannelErrors = validateMixChannel(mixChannel)
@@ -81,6 +97,7 @@ export function addTrack(
 
   return {
     ...workspace,
+    instruments: addEntity(workspace.instruments, instrument),
     mixer: {
       ...workspace.mixer,
       channels: addEntity(workspace.mixer.channels, mixChannel),
@@ -171,6 +188,7 @@ export function removeInstruments(
 
 export function duplicateTrack(workspace: Workspace, trackId: TrackId): Workspace {
   const track = requireTrack(workspace, trackId)
+  const instrument = requireInstrument(workspace, track.instrumentId)
   const mixChannel = requireMixChannel(workspace, track.mixChannelId)
   const duplicateTrackId = createUniqueId(
     `${track.id}_copy`,
@@ -185,19 +203,40 @@ export function duplicateTrack(workspace: Workspace, trackId: TrackId): Workspac
       )),
     ]),
   )
+  const duplicateInstrumentId = createUniqueId(
+    `${track.instrumentId}_copy`,
+    new Set([
+      ...workspace.instruments.allIds,
+      ...workspace.tracks.allIds.map(currentTrackId => (
+        workspace.tracks.byId[currentTrackId].instrumentId
+      )),
+    ]),
+  )
+  const duplicatedTrack = {
+    ...track,
+    id: duplicateTrackId,
+    instrumentId: duplicateInstrumentId,
+    mixChannelId: duplicateMixChannelId,
+    name: `${track.name} Copy`,
+  }
 
   return addTrack(
     workspace,
-    {
-      ...track,
-      id: duplicateTrackId,
-      mixChannelId: duplicateMixChannelId,
-      name: `${track.name} Copy`,
-    },
+    duplicatedTrack,
     {
       ...mixChannel,
       id: duplicateMixChannelId,
     },
+    instrument === undefined
+      ? createInstrument({
+          id: duplicateInstrumentId,
+          track: duplicatedTrack,
+        })
+      : {
+          ...instrument,
+          id: duplicateInstrumentId,
+          name: `${instrument.name} Copy`,
+        },
   )
 }
 

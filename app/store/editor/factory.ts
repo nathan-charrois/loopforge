@@ -9,21 +9,24 @@ import {
   createPositiveDurationTicks,
   createSection,
   createTick,
+  createTrack,
   type DurationTicks,
   getBarLengthTicksAtTick,
   type MidiNote,
   type NoteEvent,
   type Pattern,
   type PatternId,
+  type PatternKind,
   type Section,
   type Tick,
+  type Track,
   type TrackId,
 } from '~/domain'
 import {
   selectBlocksInRange,
   selectPatternEventIds,
-  selectPatterns,
   selectSectionsInRange,
+  selectTrackIds,
   type Workspace,
 } from '~/store/workspace'
 
@@ -115,18 +118,12 @@ export function createArrangementBlockDraft(
     lengthTicks: DurationTicks
     startTick: Tick
     trackId: TrackId
+    patternId: PatternId
   },
 ): Block {
   const track = workspace.tracks.byId[input.trackId]
-  const pattern = selectPatterns(workspace)
-    .find(currentPattern => currentPattern !== undefined && track?.accepts.includes(currentPattern.kind))
-
   if (track === undefined) {
     throw new Error(`Track ${input.trackId} does not exist.`)
-  }
-
-  if (pattern === undefined) {
-    throw new Error(`Track ${track.name} has no compatible pattern.`)
   }
 
   const blockNumber = workspace.arrangement.blocks.length + 1
@@ -136,10 +133,10 @@ export function createArrangementBlockDraft(
     id: createDraftEntityId('block', workspace.arrangement.blocks.map(block => block.id)),
     lengthTicks: input.lengthTicks,
     name: `Block ${blockNumber}`,
-    patternId: pattern.id,
     playbackMode: 'loop',
     startTick: input.startTick,
     trackId: track.id,
+    patternId: input.patternId,
   })
 }
 
@@ -160,14 +157,31 @@ export function createArrangementSectionDraft(
   })
 }
 
-export function createArrangementPatternDraft(workspace: Workspace): Pattern {
+export function createArrangementPatternDraft(
+  workspace: Workspace,
+  input: {
+    kind?: PatternKind
+    lengthTicks?: DurationTicks
+  } = {},
+): Pattern {
   const patternNumber = workspace.patterns.allIds.length + 1
 
   return createPattern({
     id: createDraftEntityId('pattern', workspace.patterns.allIds),
-    kind: 'note',
-    lengthTicks: getBarLengthTicksAtTick(workspace.timeline, 0),
+    kind: input.kind ?? 'note',
+    lengthTicks: input.lengthTicks ?? getBarLengthTicksAtTick(workspace.timeline, 0),
     name: `Pattern ${patternNumber}`,
+  })
+}
+
+export function createArrangementTrackDraft(workspace: Workspace): Track {
+  const existingIds = selectTrackIds(workspace)
+  const trackId = createDraftEntityId('track', existingIds)
+
+  return createTrack({
+    id: trackId,
+    name: `Track ${trackId}`,
+    role: 'chords',
   })
 }
 

@@ -39,6 +39,7 @@ import type { Workspace } from './type'
 import {
   type Block,
   type BlockId,
+  createInstrument,
   createMixChannel,
   type GridDivision,
   type Instrument,
@@ -157,9 +158,15 @@ export function applyWorkspaceCommand(
     case 'addTrack': {
       const track = getPayloadObject<Track>(payload, 'track')
       const mixChannel = getPayloadObject<MixChannel>(payload, 'mixChannel')
+      const instrument = getPayloadObject<Instrument>(payload, 'instrument')
       return track === undefined || mixChannel === undefined
         ? workspace
-        : addTrack(workspace, track, mixChannel)
+        : addTrack(
+            workspace,
+            track,
+            mixChannel,
+            instrument,
+          )
     }
     case 'deleteTrack':
       return removeTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
@@ -346,9 +353,11 @@ export function createUpdateSectionCommand(section: Section): WorkspaceCommand {
 export function createAddTrackCommand(
   track: Track,
   mixChannel: MixChannel = createMixChannel({ id: track.mixChannelId }),
+  instrument: Instrument = createInstrument({ id: track.instrumentId, track }),
 ): WorkspaceCommand {
   return createWorkspaceCommandRecord('addTrack', `Add track ${track.name}`, {
     mixChannel: toJsonValue(mixChannel),
+    instrument: toJsonValue(instrument),
     track: toJsonValue(track),
   })
 }
