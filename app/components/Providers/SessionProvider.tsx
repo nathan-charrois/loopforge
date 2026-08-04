@@ -69,6 +69,7 @@ export function useSession() {
     canRedo: canRedoCommand(session.commandHistory),
     canUndo: canUndoCommand(session.commandHistory),
     dispatch: store.dispatch,
+    replace: store.replace,
     redo: store.redo,
     undo: store.undo,
   }

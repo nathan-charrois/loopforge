@@ -7,7 +7,7 @@ import { theHouseIsListening } from './demo/theHouseIsListening'
 import { addBlock, addPattern } from './operations'
 import { selectTracks } from './selector'
 import type { Workspace } from './type'
-import { type Block, createBlock, createDefaultArrangement, createSection } from '~/domain/arrangement'
+import { type Block, createArrangement, createBlock, createSection } from '~/domain/arrangement'
 import { createChordSymbol, createDefaultKey } from '~/domain/harmony'
 import {
   type Instrument,
@@ -35,7 +35,7 @@ export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
   const patterns = normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>())
 
   return {
-    arrangement: input.arrangement ?? createDefaultArrangement(),
+    arrangement: input.arrangement ?? createArrangement(),
     mixer: input.mixer ?? createMixer(),
     project: input.project ?? createProject(),
     timeline: input.timeline ?? createTimeline(),

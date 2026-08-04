@@ -60,8 +60,8 @@ import {
   Tooltip,
 } from '@mantine/core'
 
-import { DebugNav } from './DebugNav'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
+import { AppMenu } from '~/components/AppLayout/AppMenu'
 import { PatternPanel } from '~/components/PatternPanel/PatternPanel'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
@@ -134,6 +134,7 @@ import {
   useTrackLaneOverlay,
 } from '~/hooks/useDragOverlay'
 import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
+import { useSessionProject } from '~/hooks/useSessionProject'
 import {
   useTransportPlayhead,
   useTransportStatus,
@@ -645,7 +646,7 @@ function ArrangementDebugContent() {
       })))
   }, [dispatch, workspace])
 
-  const copySelection = useCallback(() => {
+  const handleCopy = useCallback(() => {
     dispatch(copySelectionAction())
   }, [dispatch])
 
@@ -787,23 +788,37 @@ function ArrangementDebugContent() {
   }, [dispatch, editor.focusedBlockId])
 
   useKeyboardShortcuts({
-    onCopy: copySelection,
     onDelete: deleteSelection,
     onDuplicate: duplicateSelection,
     onEscape: unfocusSelection,
+    onCopy: handleCopy,
     onPaste: handlePaste,
     onRedo: redo,
     onUndo: undo,
   })
 
+  const {
+    handleNew,
+    handleOpen,
+    handleSave,
+    handleSaveAs,
+  } = useSessionProject()
+
   return (
     <AppLayout>
       <Stack gap="md" py="lg">
         <Group justify="space-between" align="flex-start">
-          <Box>
-            <Title order={1}>Arrangement Debug</Title>
-            <DebugNav />
-          </Box>
+          <AppMenu
+            onNewProject={handleNew}
+            onOpenProject={handleOpen}
+            onOpenProjectDemo={handleOpen}
+            onSaveProject={handleSave}
+            onSaveAsProject={handleSaveAs}
+            onUndoCommand={undo}
+            onRedoCommand={redo}
+            onPasteCommand={handlePaste}
+            onCopyCommand={handleCopy}
+          />
           <Group gap="xs">
             <Badge color={workspaceErrors.length === 0 ? 'green' : 'red'} variant="light">
               {workspaceErrors.length === 0 ? 'valid' : `${workspaceErrors.length} errors`}

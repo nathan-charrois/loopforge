@@ -10,21 +10,22 @@ import {
 } from '~/store/session'
 
 export type SessionProject = {
-  newProject(): void
-  saveProject(): void
-  loadProject(): Promise<void>
+  handleNew(): void
+  handleSave(): void
+  handleSaveAs(): void
+  handleOpen(): Promise<void>
 }
 
 export function useSessionProject(): SessionProject {
   const sessionStore = useSessionStore()
 
-  const newProject = useCallback(() => {
+  const handleNew = useCallback(() => {
     sessionStore.replace(
       createInitialSession(),
     )
   }, [createInitialSession, sessionStore])
 
-  const saveProject = useCallback(() => {
+  const handleSave = useCallback(() => {
     const session = sessionStore.getSnapshot()
     const contents = serializeSession(session)
 
@@ -34,7 +35,11 @@ export function useSessionProject(): SessionProject {
     )
   }, [sessionStore])
 
-  const loadProject = useCallback(async () => {
+  const handleSaveAs = useCallback(() => {
+
+  }, [sessionStore])
+
+  const handleOpen = useCallback(async () => {
     const contents = await openTextFile()
 
     if (contents === undefined) {
@@ -47,12 +52,14 @@ export function useSessionProject(): SessionProject {
   }, [sessionStore])
 
   return useMemo(() => ({
-    newProject,
-    saveProject,
-    loadProject,
+    handleNew,
+    handleSave,
+    handleSaveAs,
+    handleOpen,
   }), [
-    newProject,
-    saveProject,
-    loadProject,
+    handleNew,
+    handleSave,
+    handleSaveAs,
+    handleOpen,
   ])
 }

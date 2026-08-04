@@ -42,14 +42,9 @@ export function createBlock(input: {
   }
 }
 
-export function createDefaultArrangement(): Arrangement {
+export function createArrangement(): Arrangement {
   return {
     blocks: [],
-    sections: [
-      createSection({
-        id: 'section_intro',
-        name: 'Intro',
-      }),
-    ],
+    sections: [],
   }
 }
