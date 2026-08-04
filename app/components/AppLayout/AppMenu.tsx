@@ -5,7 +5,6 @@ type Props = {
   onOpenProject: () => void
   onOpenProjectDemo: (name: string) => void
   onSaveProject: () => void
-  onSaveAsProject: () => void
   onUndoCommand: () => void
   onRedoCommand: () => void
   onCopyCommand: () => void
@@ -17,7 +16,6 @@ export function AppMenu({
   onOpenProject,
   onOpenProjectDemo,
   onSaveProject,
-  onSaveAsProject,
   onUndoCommand,
   onRedoCommand,
   onCopyCommand,
@@ -58,12 +56,6 @@ export function AppMenu({
             onClick={onSaveProject}
           >
             Save
-          </Menu.Item>
-          <Menu.Item
-            rightSection={<Text size="xs" c="dimmed">⌘⇧S</Text>}
-            onClick={onSaveAsProject}
-          >
-            Save as…
           </Menu.Item>
         </Menubar.Dropdown>
       </Menubar.Menu>

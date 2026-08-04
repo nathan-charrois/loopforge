@@ -12,7 +12,6 @@ import {
 export type SessionProject = {
   handleNew(): void
   handleSave(): void
-  handleSaveAs(): void
   handleOpen(): Promise<void>
 }
 
@@ -35,10 +34,6 @@ export function useSessionProject(): SessionProject {
     )
   }, [sessionStore])
 
-  const handleSaveAs = useCallback(() => {
-
-  }, [sessionStore])
-
   const handleOpen = useCallback(async () => {
     const contents = await openTextFile()
 
@@ -54,12 +49,10 @@ export function useSessionProject(): SessionProject {
   return useMemo(() => ({
     handleNew,
     handleSave,
-    handleSaveAs,
     handleOpen,
   }), [
     handleNew,
     handleSave,
-    handleSaveAs,
     handleOpen,
   ])
 }

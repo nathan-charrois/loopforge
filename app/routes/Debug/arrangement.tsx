@@ -801,7 +801,6 @@ function ArrangementDebugContent() {
     handleNew,
     handleOpen,
     handleSave,
-    handleSaveAs,
   } = useSessionProject()
 
   return (
@@ -813,7 +812,6 @@ function ArrangementDebugContent() {
             onOpenProject={handleOpen}
             onOpenProjectDemo={handleOpen}
             onSaveProject={handleSave}
-            onSaveAsProject={handleSaveAs}
             onUndoCommand={undo}
             onRedoCommand={redo}
             onPasteCommand={handlePaste}
