@@ -366,10 +366,10 @@ export function prismCurrent(): Workspace {
             durationSeconds: 0.05,
             pitchSemitones: -11,
             soundId: 'drums.closedHat.default',
-            volumeDb: -14,
+            volumeDb: -11,
           }),
           kick: createDrumPieceSound({
-            durationSeconds: 0.42,
+            durationSeconds: 0.46,
             pitchSemitones: -10,
             soundId: 'drums.kick.default',
             volumeDb: 9,
@@ -378,7 +378,7 @@ export function prismCurrent(): Workspace {
             durationSeconds: 0.31,
             pitchSemitones: -11,
             soundId: 'drums.openHat.default',
-            volumeDb: -18,
+            volumeDb: -21,
           }),
           snare: createDrumPieceSound({
             durationSeconds: 0.26,
@@ -394,12 +394,12 @@ export function prismCurrent(): Workspace {
         createMixChannel({
           id: pianoTrack.mixChannelId,
           pan: -0.25,
-          volumeDb: -6,
+          volumeDb: -9,
         }),
         createMixChannel({
           id: stringsTrack.mixChannelId,
           pan: 0.25,
-          volumeDb: -11,
+          volumeDb: -6,
         }),
         createMixChannel({
           id: beatTrack.mixChannelId,
@@ -409,7 +409,7 @@ export function prismCurrent(): Workspace {
       ]),
       master: {
         muted: false,
-        volumeDb: 0,
+        volumeDb: 5,
       },
     }),
     patterns: createEntityStore([

@@ -28,11 +28,13 @@ export function lanternsInFive(): Workspace {
   const bassTrack = createTrack({
     id: 'lanterns_track_bass',
     name: 'Upright Bass',
+    instrumentId: 'bass.default',
     role: 'bass',
   })
   const drumsTrack = createTrack({
     id: 'lanterns_track_drums',
     name: 'Drums',
+    instrumentId: 'drums.default',
     role: 'drums',
   })
   const tracks = [
@@ -238,6 +240,12 @@ export function lanternsInFive(): Workspace {
         id: 'guitar.default',
         name: 'Hollow-Body Guitar',
         soundId: 'guitar.default',
+        envelope: {
+          attack: 0.01,
+          release: 0.1,
+          decay: 0,
+          sustain: 0,
+        },
       }),
       createThorInstrument({
         id: 'bass.default',
@@ -250,22 +258,22 @@ export function lanternsInFive(): Workspace {
         pieces: {
           closedHat: createDrumPieceSound({
             soundId: 'drums.closedHat.default',
-            volumeDb: -8,
+            volumeDb: -12,
           }),
           crash: createDrumPieceSound({
             soundId: 'drums.crash.default',
-            volumeDb: -3,
+            volumeDb: -9,
           }),
           kick: createDrumPieceSound({
-            durationSeconds: 0.42,
+            durationSeconds: 0.48,
             pitchSemitones: -7,
             soundId: 'drums.kick.default',
-            volumeDb: 10,
+            volumeDb: 9,
           }),
           lowTom: createDrumPieceSound({
             pitchSemitones: -2,
             soundId: 'drums.lowTom.default',
-            volumeDb: -2,
+            volumeDb: -6,
           }),
           openHat: createDrumPieceSound({
             soundId: 'drums.openHat.default',
@@ -274,12 +282,12 @@ export function lanternsInFive(): Workspace {
           ride: createDrumPieceSound({
             pitchSemitones: -2,
             soundId: 'drums.ride.default',
-            volumeDb: -8,
+            volumeDb: -9,
           }),
           snare: createDrumPieceSound({
             pitchSemitones: -1,
             soundId: 'drums.snare.default',
-            volumeDb: -5,
+            volumeDb: -4,
           }),
         },
       }),
@@ -288,18 +296,19 @@ export function lanternsInFive(): Workspace {
       channels: createEntityStore([
         createMixChannel({
           id: guitarTrack.mixChannelId,
-          pan: -0.25,
-          volumeDb: -2,
+          pan: -0.40,
+          volumeDb: 0,
         }),
         createMixChannel({
           id: voicingsTrack.mixChannelId,
-          pan: 0.25,
-          volumeDb: -8,
+          pan: 0.40,
+          volumeDb: -7,
         }),
         createMixChannel({
           id: bassTrack.mixChannelId,
-          pan: -0.25,
-          volumeDb: -8,
+          pan: 0,
+          volumeDb: 5,
+          muted: true,
         }),
         createMixChannel({
           id: drumsTrack.mixChannelId,

@@ -25,6 +25,7 @@ import {
   Box,
   Group,
   NumberInput,
+  Paper,
   Slider,
   Stack,
   Text,
@@ -313,186 +314,182 @@ const PatternPanelContent = memo(function PatternPanelContent({
   }, [finishDrag])
 
   return (
-    <Stack
-      gap="md"
-      p="md"
-      style={{
-        borderTop: '1px solid var(--mantine-color-default-border)',
-      }}
-    >
-      <Group justify="space-between" align="center">
-        <Group gap={4}>
-          <PatternPanelToolButton
-            active={tool === 'draw'}
-            disabled={pattern.kind !== 'note'}
-            icon={PencilEdit01Icon}
-            label="Draw tool"
-            onClick={() => onSetActiveTool('draw')}
-          />
-          <PatternPanelToolButton
-            active={tool === 'select'}
-            icon={CursorIcon}
-            label="Select tool"
-            onClick={() => onSetActiveTool('select')}
-          />
-          <PatternPanelToolButton
-            active={tool === 'delete'}
-            icon={Delete01Icon}
-            label="Delete tool"
-            onClick={() => onSetActiveTool('delete')}
-          />
+    <Paper withBorder p={0} style={{ overflow: 'hidden' }}>
+      <Stack gap="md" p="md">
+        <Group justify="space-between" align="center">
+          <Group gap={4}>
+            <PatternPanelToolButton
+              active={tool === 'draw'}
+              disabled={pattern.kind !== 'note'}
+              icon={PencilEdit01Icon}
+              label="Draw tool"
+              onClick={() => onSetActiveTool('draw')}
+            />
+            <PatternPanelToolButton
+              active={tool === 'select'}
+              icon={CursorIcon}
+              label="Select tool"
+              onClick={() => onSetActiveTool('select')}
+            />
+            <PatternPanelToolButton
+              active={tool === 'delete'}
+              icon={Delete01Icon}
+              label="Delete tool"
+              onClick={() => onSetActiveTool('delete')}
+            />
+          </Group>
+          <Group gap="xs">
+            <Tooltip label="Zoom out">
+              <ActionIcon
+                aria-label="Zoom pattern panel out"
+                size="lg"
+                variant="light"
+                onClick={() => handleZoomBy(0.8)}
+              >
+                <HugeiconsIcon icon={ZoomOutAreaIcon} size={19} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Zoom in">
+              <ActionIcon
+                aria-label="Zoom pattern panel in"
+                size="lg"
+                variant="light"
+                onClick={() => handleZoomBy(1.25)}
+              >
+                <HugeiconsIcon icon={ZoomInAreaIcon} size={19} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
-        <Group gap="xs">
-          <Tooltip label="Zoom out">
-            <ActionIcon
-              aria-label="Zoom pattern panel out"
-              size="lg"
-              variant="light"
-              onClick={() => handleZoomBy(0.8)}
-            >
-              <HugeiconsIcon icon={ZoomOutAreaIcon} size={19} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label="Zoom in">
-            <ActionIcon
-              aria-label="Zoom pattern panel in"
-              size="lg"
-              variant="light"
-              onClick={() => handleZoomBy(1.25)}
-            >
-              <HugeiconsIcon icon={ZoomInAreaIcon} size={19} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      </Group>
 
-      {pattern.kind !== 'note' && pattern.kind !== 'chord' && (
-        <Text c="dimmed" size="xs">
-          Piano roll drawing is available for note patterns.
-        </Text>
-      )}
+        {pattern.kind !== 'note' && pattern.kind !== 'chord' && (
+          <Text c="dimmed" size="xs">
+            Piano roll drawing is available for note patterns.
+          </Text>
+        )}
 
-      <Box
-        style={{
-          border: '1px solid var(--mantine-color-default-border)',
-          borderRadius: 'var(--mantine-radius-sm)',
-          display: 'grid',
-          gridTemplateColumns: `${PANEL_PIANO_WIDTH}px minmax(0, 1fr)`,
-          height: PANEL_VIEWPORT_HEIGHT,
-          overflow: 'hidden',
-        }}
-      >
         <Box
           style={{
-            borderRight: '1px solid var(--mantine-color-default-border)',
+            border: '1px solid var(--mantine-color-default-border)',
+            borderRadius: 'var(--mantine-radius-sm)',
             display: 'grid',
-            gridTemplateRows: `${PANEL_RULER_HEIGHT}px minmax(0, 1fr)`,
+            gridTemplateColumns: `${PANEL_PIANO_WIDTH}px minmax(0, 1fr)`,
+            height: PANEL_VIEWPORT_HEIGHT,
             overflow: 'hidden',
           }}
         >
           <Box
             style={{
-              alignItems: 'center',
-              background: 'var(--mantine-color-body)',
-              borderBottom: '1px solid var(--mantine-color-default-border)',
-              display: 'flex',
-              justifyContent: 'center',
-              zIndex: 6,
-            }}
-          >
-            <Text c="dimmed" fw={700} size="10px">KEYS</Text>
-          </Box>
-          <Box
-            style={{
+              borderRight: '1px solid var(--mantine-color-default-border)',
+              display: 'grid',
+              gridTemplateRows: `${PANEL_RULER_HEIGHT}px minmax(0, 1fr)`,
               overflow: 'hidden',
-              position: 'relative',
-              zIndex: 4,
             }}
           >
             <Box
-              ref={pianoRollRef}
               style={{
-                height: PANEL_ROLL_HEIGHT,
-                transform: 'translateY(0)',
-                willChange: 'transform',
+                alignItems: 'center',
+                background: 'var(--mantine-color-body)',
+                borderBottom: '1px solid var(--mantine-color-default-border)',
+                display: 'flex',
+                justifyContent: 'center',
+                zIndex: 6,
               }}
             >
-              <Piano
-                hasBassNote={
-                  selectedPatternEvent?.kind === 'chord'
-                  && selectedPatternEvent.voicing.bassNote !== undefined
-                }
-                octaveCount={PANEL_OCTAVE_COUNT}
-                orientation="vertical"
-                startOctave={PANEL_OCTAVE_START}
-                voicedNotes={selectedPatternEvent === undefined
-                  ? []
-                  : getVoicedNotesFromPatternEvent(selectedPatternEvent)}
+              <Text c="dimmed" fw={700} size="10px">KEYS</Text>
+            </Box>
+            <Box
+              style={{
+                overflow: 'hidden',
+                position: 'relative',
+                zIndex: 4,
+              }}
+            >
+              <Box
+                ref={pianoRollRef}
+                style={{
+                  height: PANEL_ROLL_HEIGHT,
+                  transform: 'translateY(0)',
+                  willChange: 'transform',
+                }}
+              >
+                <Piano
+                  hasBassNote={
+                    selectedPatternEvent?.kind === 'chord'
+                    && selectedPatternEvent.voicing.bassNote !== undefined
+                  }
+                  octaveCount={PANEL_OCTAVE_COUNT}
+                  orientation="vertical"
+                  startOctave={PANEL_OCTAVE_START}
+                  voicedNotes={selectedPatternEvent === undefined
+                    ? []
+                    : getVoicedNotesFromPatternEvent(selectedPatternEvent)}
+                />
+              </Box>
+            </Box>
+          </Box>
+          <Box
+            ref={scrollRef}
+            aria-label="Pattern panel for timeline"
+            onScroll={syncScroll}
+            onWheel={handleWheel}
+            style={{
+              background: 'var(--mantine-color-gray-0)',
+              minWidth: 0,
+              overflow: 'auto',
+              overscrollBehavior: 'contain',
+            }}
+          >
+            <Box
+              ref={timelineRef}
+              style={{
+                background: 'var(--mantine-color-gray-0)',
+                display: 'grid',
+                gridTemplateRows: `${PANEL_RULER_HEIGHT}px ${PANEL_ROLL_HEIGHT}px`,
+                width: timelineWidth,
+              }}
+            >
+              <PatternPanelRuler
+                marks={rulerMarks}
+                pixelsPerTick={viewport.pixelsPerTick}
+                timelineWidth={timelineWidth}
+              />
+              <PatternPanelRoll
+                marks={rulerMarks}
+                notes={notes}
+                pattern={pattern}
+                pitchRowsRef={pitchRowsRef}
+                playheadRef={playheadProps.ref}
+                pixelsPerTick={viewport.pixelsPerTick}
+                selectedPatternEventIds={selectedPatternEventIds}
+                timelineWidth={timelineWidth}
+                tool={tool}
+                drag={dragState}
+                onDeletePatternEvent={onDeletePatternEvent}
+                onMovePatternEvent={handleMovePatternEvent}
+                onPointerCancel={cancelDrag}
+                onPointerDown={handlePatternRollPointerDown}
+                onPointerMove={handlePatternRollPointerMove}
+                onPointerUp={handlePatternRollPointerUp}
+                onSelectPatternEvent={onSelectPatternEvent}
               />
             </Box>
           </Box>
         </Box>
-        <Box
-          ref={scrollRef}
-          aria-label="Pattern panel for timeline"
-          onScroll={syncScroll}
-          onWheel={handleWheel}
-          style={{
-            background: 'var(--mantine-color-gray-0)',
-            minWidth: 0,
-            overflow: 'auto',
-            overscrollBehavior: 'contain',
-          }}
-        >
-          <Box
-            ref={timelineRef}
-            style={{
-              background: 'var(--mantine-color-gray-0)',
-              display: 'grid',
-              gridTemplateRows: `${PANEL_RULER_HEIGHT}px ${PANEL_ROLL_HEIGHT}px`,
-              width: timelineWidth,
-            }}
-          >
-            <PatternPanelRuler
-              marks={rulerMarks}
-              pixelsPerTick={viewport.pixelsPerTick}
-              timelineWidth={timelineWidth}
-            />
-            <PatternPanelRoll
-              marks={rulerMarks}
-              notes={notes}
-              pattern={pattern}
-              pitchRowsRef={pitchRowsRef}
-              playheadRef={playheadProps.ref}
-              pixelsPerTick={viewport.pixelsPerTick}
-              selectedPatternEventIds={selectedPatternEventIds}
-              timelineWidth={timelineWidth}
-              tool={tool}
-              drag={dragState}
-              onDeletePatternEvent={onDeletePatternEvent}
-              onMovePatternEvent={handleMovePatternEvent}
-              onPointerCancel={cancelDrag}
-              onPointerDown={handlePatternRollPointerDown}
-              onPointerMove={handlePatternRollPointerMove}
-              onPointerUp={handlePatternRollPointerUp}
-              onSelectPatternEvent={onSelectPatternEvent}
-            />
-          </Box>
-        </Box>
-      </Box>
-      <PatternPanelVelocityRow
-        pattern={pattern}
-        pixelsPerTick={viewport.pixelsPerTick}
-        selectedPatternEvent={selectedPatternEvent}
-        selectedPatternEventIds={selectedPatternEventIds}
-        timelineWidth={timelineWidth}
-        tool={tool}
-        velocityTimelineRef={velocityTimelineRef}
-        onDeletePatternEvent={onDeletePatternEvent}
-        onSelectPatternEvent={onSelectPatternEvent}
-        onUpdatePatternEventDraft={onUpdatePatternEventDraft}
-      />
-    </Stack>
+        <PatternPanelVelocityRow
+          pattern={pattern}
+          pixelsPerTick={viewport.pixelsPerTick}
+          selectedPatternEvent={selectedPatternEvent}
+          selectedPatternEventIds={selectedPatternEventIds}
+          timelineWidth={timelineWidth}
+          tool={tool}
+          velocityTimelineRef={velocityTimelineRef}
+          onDeletePatternEvent={onDeletePatternEvent}
+          onSelectPatternEvent={onSelectPatternEvent}
+          onUpdatePatternEventDraft={onUpdatePatternEventDraft}
+        />
+      </Stack>
+    </Paper>
   )
 })
 

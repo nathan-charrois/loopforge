@@ -1,9 +1,17 @@
 import { createEmptyEntityStore, createEntityStore, type EntityStore } from '../type'
 import { blueHourBelow } from './demo/blueHourBelow'
+import { cedarStatic } from './demo/cedarStatic'
+import { cutGlassAlibi } from './demo/cutGlassAlibi'
+import { eightfoldParallax } from './demo/eightfoldParallax'
+import { fifthFloorRain } from './demo/fifthFloorRain'
 import { lanternsInFive } from './demo/lanternsInFive'
 import { neonOrchard } from './demo/neonOrchard'
 import { prismCurrent } from './demo/prismCurrent'
 import { theHouseIsListening } from './demo/theHouseIsListening'
+import { tidalCathedral } from './demo/tidalCathedral'
+import { vacantReceiver } from './demo/vacantReceiver'
+import { velvetUndertow } from './demo/velvetUndertow'
+import { zeroKelvinBloom } from './demo/zeroKelvinBloom'
 import { addBlock, addPattern } from './operations'
 import { selectTracks } from './selector'
 import type { Workspace } from './type'
@@ -31,10 +39,18 @@ import { createTrack, getPatternKindForTrack, type Track, type TrackRole } from 
 
 const workspaceDemos: Record<string, () => Workspace> = {
   blueHourBelow,
+  cedarStatic,
+  eightfoldParallax,
+  fifthFloorRain,
   lanternsInFive,
+  cutGlassAlibi,
   neonOrchard,
   prismCurrent,
   theHouseIsListening,
+  tidalCathedral,
+  vacantReceiver,
+  velvetUndertow,
+  zeroKelvinBloom,
 }
 
 export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
@@ -216,7 +232,7 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
 }
 
 export function createInitialWorkspace(): Workspace {
-  return createDemoWorkspace('theHouseIsListening')
+  return createDemoWorkspace('eightfoldParallax')
 }
 
 export function createDemoWorkspace(demo: string): Workspace {

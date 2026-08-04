@@ -43,11 +43,19 @@ export function AppMenu({
               <Menu.Sub.Item>Open demo</Menu.Sub.Item>
             </Menu.Sub.Target>
             <Menu.Sub.Dropdown>
-              <Menu.Item onClick={() => onOpenProjectDemo('blueHourBelow')}>Blue Hour Below</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('lanternsInFive')}>Lanterns in Five</Menu.Item>
-              <Menu.Item onClick={() => onOpenProjectDemo('neonOrchard')}>Neon Orchard</Menu.Item>
-              <Menu.Item onClick={() => onOpenProjectDemo('prismCurrent')}>Prism Current</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('theHouseIsListening')}>The House is Listening</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('blueHourBelow')}>Blue Hour Below</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('prismCurrent')}>Prism Current</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('neonOrchard')}>Neon Orchard</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('tidalCathedral')}>Tidal Cathedral</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('cutGlassAlibi')}>Cut Glass Alibi</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('zeroKelvinBloom')}>Zero Kelvin Bloom</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('eightfoldParallax')}>Eight Fold Parallax</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('fifthFloorRain')}>Fifth Floor Rain</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('velvetUndertow')}>Velvet Undertow</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('cedarStatic')}>Cedar Static</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('vacantReceiver')}>Vacant Receiver</Menu.Item>
             </Menu.Sub.Dropdown>
           </Menu.Sub>
           <Menu.Divider />

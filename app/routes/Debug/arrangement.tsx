@@ -847,10 +847,14 @@ function ArrangementDebugContent() {
           onZoomOut={handleToolbarZoomOut}
         />
         <SimpleGrid cols={{ base: 2, lg: 8 }} spacing="md">
-          <Paper withBorder radius="sm" p={0} style={{ gridColumn: 'span 6', overflow: 'hidden' }}>
-            <Box
+          <Box p={0} style={{ gridColumn: 'span 6', overflow: 'hidden' }}>
+            <Paper
+              withBorder
+              p={0}
+              mb="md"
               style={{
                 display: 'grid',
+                overflow: 'hidden',
                 gridTemplateColumns: `${TRACK_LABEL_WIDTH}px ${INSTRUMENT_COLUMN_WIDTH}px ${MIX_CHANNEL_COLUMN_WIDTH}px minmax(0, 1fr)`,
               }}
             >
@@ -968,7 +972,7 @@ function ArrangementDebugContent() {
                   viewport={viewport}
                 />
               </Box>
-            </Box>
+            </Paper>
             <PatternPanel
               dispatch={dispatch}
               workspace={workspace}
@@ -982,7 +986,7 @@ function ArrangementDebugContent() {
               onSetActiveTool={handleSetActivePatternPanelTool}
               onUpdatePatternEventDraft={handleUpdatePatternEventDraft}
             />
-          </Paper>
+          </Box>
           <Stack gap="md" style={{ gridColumn: 'span 2', overflow: 'hidden' }}>
             <Paper withBorder radius="sm" p="md">
               <MasterMixChannelControls
