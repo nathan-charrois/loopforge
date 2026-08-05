@@ -10,9 +10,12 @@ import { flushSync } from 'react-dom'
 import { useAnimationFrameThrottle } from './useAnimationFrameThrottle'
 import {
   createViewportState,
+  scrollViewport,
   zoomViewport,
 } from '~/store/editor'
 
+const MOUSE_DRAG_MAX_SCROLL_STEP_PX = 20
+const MOUSE_DRAG_SAFE_ZONE_PX = 50
 const WHEEL_ZOOM_SENSITIVITY = 0.001
 const WHEEL_ZOOM_SAFE_ZONE_PX = 50
 
@@ -86,6 +89,37 @@ export function useViewport() {
     )
   }, [zoomViewportAt])
 
+  const handleAutoScroll = useCallback((clientX: number) => {
+    const scrollElement = scrollRef.current
+
+    if (scrollElement === null) {
+      return false
+    }
+
+    const rect = scrollElement.getBoundingClientRect()
+
+    const scrollDelta = getMouseDragScrollDelta(
+      clientX - rect.left,
+      scrollElement.clientWidth,
+    )
+
+    const anchorPixel = getMouseDragAnchorPixel(
+      scrollElement,
+      scrollDelta,
+    )
+
+    if (anchorPixel === scrollElement.scrollLeft) {
+      return false
+    }
+
+    flushSync(() => {
+      setViewport(
+        viewport => scrollViewport(viewport, anchorPixel),
+      )
+    })
+    scrollElement.scrollLeft = anchorPixel
+  }, [])
+
   const handleViewportFit = useCallback((lengthTicks: number) => {
     const scrollElement = scrollRef.current
 
@@ -108,16 +142,45 @@ export function useViewport() {
   return useMemo(() => ({
     viewport,
     scrollRef,
+    handleAutoScroll,
     handleViewportFit,
     handleViewportWheel,
     handleZoomBy,
   }), [
     viewport,
     scrollRef,
+    handleAutoScroll,
     handleViewportFit,
     handleViewportWheel,
     handleZoomBy,
   ])
+}
+
+function getMouseDragScrollDelta(
+  pointerX: number,
+  viewportWidth: number,
+): number {
+  const leftDistance = MOUSE_DRAG_SAFE_ZONE_PX - pointerX
+
+  if (leftDistance > 0) {
+    return -Math.min(leftDistance, MOUSE_DRAG_MAX_SCROLL_STEP_PX)
+  }
+
+  const rightDistance = pointerX - (viewportWidth - MOUSE_DRAG_SAFE_ZONE_PX)
+
+  if (rightDistance > 0) {
+    return Math.min(rightDistance, MOUSE_DRAG_MAX_SCROLL_STEP_PX)
+  }
+
+  return 0
+}
+
+function getMouseDragAnchorPixel(
+  scrollElement: HTMLDivElement,
+  scrollDelta: number,
+): number {
+  const maxScrollX = Math.max(0, scrollElement.scrollWidth - scrollElement.clientWidth)
+  return Math.min(maxScrollX, Math.max(0, scrollElement.scrollLeft + scrollDelta))
 }
 
 function getWheelZoomAnchorPixel(

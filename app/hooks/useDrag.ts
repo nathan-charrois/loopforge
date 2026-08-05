@@ -81,10 +81,12 @@ export function useDrag({
   dispatch,
   viewport,
   workspace,
+  onUpdateDrag,
 }: {
   dispatch: SessionStore['dispatch']
   viewport: ViewportState
   workspace: Workspace
+  onUpdateDrag?: (clientX: number) => void
 }) {
   const timelineRef = useRef<HTMLDivElement>(null)
 
@@ -260,6 +262,10 @@ export function useDrag({
   }, [getPointerTick, workspace.timeline])
 
   const updateDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (onUpdateDrag && dragState?.pointerId === event.pointerId) {
+      onUpdateDrag(event.clientX)
+    }
+
     setDragState((current) => {
       if (current === undefined || current.pointerId !== event.pointerId) {
         return current
@@ -293,7 +299,7 @@ export function useDrag({
 
       return { ...current, currentTick }
     })
-  }, [getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId])
+  }, [dragState, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, onUpdateDrag])
 
   const cancelDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     setDragState(current => current?.pointerId === event.pointerId ? undefined : current)

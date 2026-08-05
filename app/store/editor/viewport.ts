@@ -15,6 +15,22 @@ export function xToTick(
   return x / pixelsPerTick
 }
 
+export function scrollViewport(
+  viewport: ViewportState,
+  scrollX: number,
+): ViewportState {
+  const nextScrollX = Math.max(0, scrollX)
+
+  if (viewport.scrollX === nextScrollX) {
+    return viewport
+  }
+
+  return {
+    ...viewport,
+    scrollX: nextScrollX,
+  }
+}
+
 export function zoomViewport(
   viewport: ViewportState,
   anchorX: number,

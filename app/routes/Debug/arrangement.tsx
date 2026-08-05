@@ -323,6 +323,7 @@ function ArrangementDebugContent() {
     scrollRef,
     handleViewportWheel,
     handleZoomBy,
+    handleAutoScroll,
   } = useViewport()
 
   const {
@@ -338,6 +339,7 @@ function ArrangementDebugContent() {
     dispatch,
     viewport,
     workspace,
+    onUpdateDrag: handleAutoScroll,
   })
 
   const [inspectorDraft, setInspectorDraft] = useState<InspectorDraft>(() => createInspectorDraft())

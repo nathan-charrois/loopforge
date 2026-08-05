@@ -1,7 +1,7 @@
 import { PITCH_CLASSES, type PitchClass } from '~/domain'
 
-export const PANEL_OCTAVE_START = 2
-export const PANEL_OCTAVE_COUNT = 6
+export const PANEL_OCTAVE_START = 1
+export const PANEL_OCTAVE_COUNT = 7
 export const PANEL_KEY_COUNT = PANEL_OCTAVE_COUNT * PITCH_CLASSES.length
 
 export const PANEL_MIN_MIDI_NOTE = (PANEL_OCTAVE_START + 1) * PITCH_CLASSES.length
