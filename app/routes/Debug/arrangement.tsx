@@ -840,6 +840,7 @@ function ArrangementDebugContent() {
           focusedBlockId={editor.focusedBlockId}
           grid={workspace.timeline.grid}
           onCloseFocus={handleBlockCloseFocus}
+          onDeleteSelected={deleteSelection}
           onDuplicate={duplicateSelection}
           onRedo={redo}
           onUndo={undo}
@@ -988,8 +989,19 @@ function ArrangementDebugContent() {
               onSetActiveTool={handleSetActivePatternPanelTool}
               onUpdatePatternEventDraft={handleUpdatePatternEventDraft}
             />
+            <Button size="xs" onClick={handleAddTrack}>Add Track</Button>
           </Box>
           <Stack gap="md" style={{ gridColumn: 'span 2', overflow: 'hidden' }}>
+            {workspaceErrors.length > 0 && (
+              <Paper withBorder radius="sm" p="md">
+                <Text fw={700} size="sm" mb="sm">Workspace Errors</Text>
+                <Stack gap={8}>
+                  {workspaceErrors.map(error => (
+                    <Text key={error} c="red" size="xs">{error}</Text>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
             <Paper withBorder radius="sm" p="md">
               <MasterMixChannelControls
                 master={workspace.mixer.master}
@@ -998,7 +1010,6 @@ function ArrangementDebugContent() {
               />
             </Paper>
             <InspectorPanel
-              commandHistory={commandHistory.undoStack}
               draft={inspectorDraft}
               patterns={patterns}
               selectedBlock={selectedBlock}
@@ -1012,8 +1023,6 @@ function ArrangementDebugContent() {
               selection={editor.selection}
               setDraft={setInspectorDraft}
               workspace={workspace}
-              workspaceErrors={workspaceErrors}
-              onDeleteSelected={deleteSelection}
               onUpdateBlock={updateSelectedBlockFromInspector}
               onUpdateInstrument={updateSelectedInstrumentFromInspector}
               onUpdateMixChannel={updateSelectedMixChannelFromInspector}
@@ -1023,11 +1032,11 @@ function ArrangementDebugContent() {
               onUpdateTimelineEvent={updateSelectedTimelineEventFromInspector}
               onUpdateTrack={updateSelectedTrackFromInspector}
             />
+            <CommandHistoryList
+              commandHistory={commandHistory.undoStack}
+            />
           </Stack>
         </SimpleGrid>
-        <Paper withBorder radius="sm" p="md">
-          <Button size="xs" onClick={handleAddTrack}>Add Track</Button>
-        </Paper>
       </Stack>
     </AppLayout>
   )
@@ -1041,6 +1050,7 @@ const Toolbar = memo(function Toolbar({
   focusedBlockId,
   grid,
   onCloseFocus,
+  onDeleteSelected,
   onDuplicate,
   onRedo,
   onSetGrid,
@@ -1056,6 +1066,7 @@ const Toolbar = memo(function Toolbar({
   focusedBlockId?: string
   grid: GridDivision
   onCloseFocus: () => void
+  onDeleteSelected: () => void
   onDuplicate: () => void
   onRedo: () => void
   onSetGrid: (grid: GridDivision) => void
@@ -1122,6 +1133,11 @@ const Toolbar = memo(function Toolbar({
           <Tooltip label="Zoom in">
             <ActionIcon aria-label="Zoom in" size="lg" variant="light" onClick={onZoomIn}>
               <HugeiconsIcon icon={ZoomInAreaIcon} size={18} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Delete Selected">
+            <ActionIcon aria-label="Deleted Selected" size="lg" variant="light" onClick={onDeleteSelected}>
+              <HugeiconsIcon icon={Delete01Icon} size={18} />
             </ActionIcon>
           </Tooltip>
           {focusedBlockId !== undefined && (
@@ -1256,7 +1272,7 @@ const MasterMixChannelControls = memo(function MasterMixChannelControls({
   return (
     <Stack gap="xs" w="100%">
       <Group justify="space-between">
-        <Text fw={700} size="sm">Master Mix Channel</Text>
+        <Title order={2} size="md">Master Mix</Title>
         <ActionIcon
           aria-label="Mute master mix channel"
           aria-pressed={master.muted}
@@ -1265,7 +1281,7 @@ const MasterMixChannelControls = memo(function MasterMixChannelControls({
           variant={master.muted ? 'filled' : 'light'}
           onClick={onToggleMuted}
         >
-          <HugeiconsIcon icon={MuteIcon} size={14} />
+          <Text size="xs">M</Text>
         </ActionIcon>
       </Group>
       <Stack gap={4}>
@@ -2233,9 +2249,7 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
 })
 
 const InspectorPanel = memo(function InspectorPanel({
-  commandHistory,
   draft,
-  onDeleteSelected,
   onUpdateBlock,
   onUpdateInstrument,
   onUpdateMixChannel,
@@ -2256,11 +2270,8 @@ const InspectorPanel = memo(function InspectorPanel({
   selection,
   setDraft,
   workspace,
-  workspaceErrors,
 }: {
-  commandHistory: CommandHistoryEntry[]
   draft: InspectorDraft
-  onDeleteSelected: () => void
   onUpdateBlock: () => void
   onUpdateInstrument: () => void
   onUpdateMixChannel: () => void
@@ -2281,7 +2292,6 @@ const InspectorPanel = memo(function InspectorPanel({
   selection: SelectionState
   setDraft: (updater: (draft: InspectorDraft) => InspectorDraft) => void
   workspace: Workspace
-  workspaceErrors: string[]
 }) {
   const updateInstrumentSynthEnvelopeDraft = (
     property: keyof NonNullable<InspectorDraft['instrumentSynthEnvelope']>,
@@ -2345,7 +2355,7 @@ const InspectorPanel = memo(function InspectorPanel({
     <Paper withBorder radius="sm" p="md">
       <Stack gap="md">
         <Group justify="space-between">
-          <Title order={2} size="h3">Inspector</Title>
+          <Title order={2} size="md">Inspector</Title>
           <Badge color="gray" variant="light">
             {selection.selectedBlockIds.length
               + selection.selectedInstrumentIds.length
@@ -3291,46 +3301,24 @@ const InspectorPanel = memo(function InspectorPanel({
             onUpdate={onUpdateTimelineEvent}
           />
         )}
+      </Stack>
+    </Paper>
+  )
+})
 
-        <Divider />
-        <Group gap="xs">
-          <Button
-            color="red"
-            leftSection={<HugeiconsIcon icon={Delete01Icon} size={14} />}
-            size="xs"
-            variant="light"
-            onClick={onDeleteSelected}
-          >
-            Delete Selected
-          </Button>
+const CommandHistoryList = memo(function InspectorPanel({
+  commandHistory,
+}: {
+  commandHistory: CommandHistoryEntry[]
+}) {
+  return (
+    <Paper withBorder radius="sm" p="md">
+      <Stack gap="xs">
+        <Group justify="space-between">
+          <Title order={2} size="md">Command History</Title>
         </Group>
-
-        <StatsGrid
-          items={[
-            ['Tracks', workspace.tracks.allIds.length],
-            ['MixChannels', workspace.mixer.channels.allIds.length],
-            ['Patterns', patterns.length],
-            ['Sections', workspace.arrangement.sections.length],
-            ['Blocks', workspace.arrangement.blocks.length],
-            ['TimelineEvents', selectTimelineEvents(workspace).length],
-          ]}
-        />
-
-        {workspaceErrors.length > 0 && (
-          <Stack gap={3}>
-            {workspaceErrors.map(error => (
-              <Text key={error} c="red" size="xs">{error}</Text>
-            ))}
-          </Stack>
-        )}
-
-        <Divider />
-        <Stack gap="xs">
-          <Group justify="space-between">
-            <Text fw={700} size="sm">Command History</Text>
-            <Badge color="gray" size="sm" variant="light">{commandHistory.length}</Badge>
-          </Group>
-          <Stack gap={4} mah={180} style={{ overflow: 'auto' }}>
+        {commandHistory.length > 0 && (
+          <Stack gap={4} mah={220} style={{ overflow: 'scroll' }}>
             {commandHistory.slice().reverse().map(entry => (
               <Paper key={entry.command.id} withBorder radius="sm" p={6}>
                 <Text fw={700} size="xs">{entry.command.label}</Text>
@@ -3338,7 +3326,7 @@ const InspectorPanel = memo(function InspectorPanel({
               </Paper>
             ))}
           </Stack>
-        </Stack>
+        )}
       </Stack>
     </Paper>
   )
@@ -3553,19 +3541,6 @@ function EntityPlaceholder({
     >
       <Text fw={700} size="10px" truncate>{label}</Text>
     </Box>
-  )
-}
-
-function StatsGrid({ items }: { items: Array<[string, number]> }) {
-  return (
-    <SimpleGrid cols={2}>
-      {items.map(([label, value]) => (
-        <Paper key={label} withBorder radius="sm" p={6}>
-          <Text c="dimmed" size="10px">{label}</Text>
-          <Text fw={800} size="sm">{value}</Text>
-        </Paper>
-      ))}
-    </SimpleGrid>
   )
 }
 

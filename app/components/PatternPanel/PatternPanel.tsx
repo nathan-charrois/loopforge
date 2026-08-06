@@ -314,7 +314,7 @@ const PatternPanelContent = memo(function PatternPanelContent({
   }, [finishDrag])
 
   return (
-    <Paper withBorder p={0} style={{ overflow: 'hidden' }}>
+    <Paper withBorder p={0} style={{ overflow: 'hidden' }} mb="sm">
       <Stack gap="md" p="md">
         <Group justify="space-between" align="center">
           <Group gap={4}>
