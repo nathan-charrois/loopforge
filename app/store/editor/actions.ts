@@ -29,16 +29,16 @@ import {
   snapToGridMinimumTimelineRange,
   snapToMinimumTimelineRange,
 } from './snap'
-import type {
-  ActivePatternPanelTool,
-  ActiveTool,
-  ClipboardState,
-  DragState,
-  Editor,
-  InspectorDraft,
-  PatternEventDraft,
-  SelectionState,
-  TimelineEventDraft,
+import {
+  type ActivePatternPanelTool,
+  type ActiveTool,
+  type ClipboardState,
+  type DragState,
+  type Editor,
+  type InspectorDraft,
+  type PatternEventDraft,
+  type SelectionState,
+  type TimelineEventDraft,
 } from './type'
 import {
   type Block,
@@ -99,7 +99,8 @@ import {
   duplicateBlockAction,
   duplicateSectionAction,
   moveBlockAction,
-  movePatternEventAction,
+  moveDrumPatternEventAction,
+  moveNotePatternEventAction,
   moveSectionAction,
   resizeBlockAction,
   resizeSectionAction,
@@ -333,13 +334,32 @@ export function completeDragAction(input: {
     workspace,
   } = input
 
-  if (dragState.kind === 'drawPatternEvent') {
+  if (dragState.kind === 'drawNotePatternEvent') {
     const range = snapToGridMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
     const patternEvent = createArrangementPatternEventDraft({
       workspace,
       lengthTicks: range.lengthTicks,
       patternId: dragState.patternId,
       pitch: dragState.pitch,
+      startTick: range.startTick,
+    })
+
+    return [
+      addPatternEventAction(dragState.patternId, patternEvent),
+      setSelectionAction({
+        ...createSelectionState(),
+        selectedPatternEventIds: [patternEvent.id],
+      }),
+    ]
+  }
+
+  if (dragState.kind === 'drawDrumPatternEvent') {
+    const range = snapToGridMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
+    const patternEvent = createArrangementPatternEventDraft({
+      workspace,
+      lengthTicks: range.lengthTicks,
+      patternId: dragState.patternId,
+      piece: dragState.piece,
       startTick: range.startTick,
     })
 
@@ -428,17 +448,31 @@ export function completeDragAction(input: {
       : [createSetSelectionCommand(createSelectionState(), 'Clear selection')]
   }
 
-  if (dragState.kind === 'movePatternEvent') {
+  if (dragState.kind === 'moveNotePatternEvent') {
     const timeTick = Math.max(0, dragState.event.timeTick + endTick - dragState.startTick)
 
     return dragState.currentPitch === dragState.event.pitch
       && timeTick === dragState.event.timeTick
       ? []
-      : [movePatternEventAction(
+      : [moveNotePatternEventAction(
           dragState.patternId,
           dragState.event.id,
           timeTick,
           dragState.currentPitch,
+        )]
+  }
+
+  if (dragState.kind === 'moveDrumPatternEvent') {
+    const timeTick = Math.max(0, dragState.event.timeTick + endTick - dragState.startTick)
+
+    return dragState.currentPiece === dragState.event.piece
+      && timeTick === dragState.event.timeTick
+      ? []
+      : [moveDrumPatternEventAction(
+          dragState.patternId,
+          dragState.event.id,
+          timeTick,
+          dragState.currentPiece,
         )]
   }
 

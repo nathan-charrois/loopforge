@@ -229,7 +229,7 @@ const MIN_OVERLAY_WIDTH = 2
 const BLOCK_TOP = 14
 const BLOCK_HEIGHT = 42
 const TIMELINE_MARKER_TOP = 25
-const LOOP_LANE_HEIGHT = 12
+const LOOP_LANE_HEIGHT = 30
 const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
@@ -1739,6 +1739,10 @@ const TimelineRuler = memo(function TimelineRuler({
       ))}
 
       {timelineEvents.map((timelineEvent) => {
+        if (isLoopEvent(timelineEvent)) {
+          return null
+        }
+
         return (
           <TimelineEventMarker
             key={timelineEvent.id}
@@ -1813,7 +1817,6 @@ const LoopLane = memo(function LoopLane({
       {visibleLoop !== undefined && (
         <TimelineEventMarker
           color="violet"
-          compact
           height={LOOP_LANE_HEIGHT}
           icon={RepeatIcon}
           isHovered={hoveredTimelineEventId === visibleLoop.id}
@@ -1835,7 +1838,6 @@ const LoopLane = memo(function LoopLane({
       {drawRange !== undefined && (
         <TimelineEventMarker
           color="violet"
-          compact
           height={LOOP_LANE_HEIGHT}
           icon={RepeatIcon}
           isHovered={false}
@@ -1900,10 +1902,10 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
         cursor: 'grab',
         display: 'flex',
         height,
-        left: compact ? left : Math.max(-2, left - 3),
+        left: left,
         minWidth: width ?? 42,
         opacity: isPlaceholder ? 0.75 : 1,
-        padding: compact ? 0 : 3,
+        padding: 0,
         pointerEvents: isPlaceholder ? 'none' : undefined,
         position: 'absolute',
         top: compact ? top : Math.max(0, top - 3),
@@ -1923,9 +1925,8 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
           display: 'flex',
           gap: 3,
           height: compact ? '100%' : 20,
-          minWidth: compact ? 0 : 34,
           outline: isSelected ? SELECTED_STYLES.outline : undefined,
-          paddingInline: compact ? 0 : 4,
+          paddingInline: 4,
           width: '100%',
         }}
       >

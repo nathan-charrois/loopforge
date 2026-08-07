@@ -2,10 +2,13 @@ import { useMemo } from 'react'
 
 import {
   type Block,
+  type DrumHitEvent,
+  type DrumPiece,
   getBlockEndTick,
   getLoopEventEndTick,
   getSectionEndTick,
   type LoopEvent,
+  type MidiNote,
   type NoteEvent,
   type Pattern,
   type Section,
@@ -80,13 +83,10 @@ export function usePatternEventOverlay(
   pattern: Pattern,
 ) {
   return useMemo(() => ({
-    drawRange: drag?.kind === 'drawPatternEvent' && drag.patternId === pattern.id
-      ? getTickRange(drag)
-      : undefined,
+    drawRange: buildPatternEventDrawRange(drag, pattern),
     patternEventPlaceholder: buildPatternEventPlaceholder(drag, pattern),
-    pitch: drag?.kind === 'drawPatternEvent' && drag.patternId === pattern.id
-      ? drag.pitch
-      : undefined,
+    piece: buildPatternEventPiece(drag, pattern),
+    pitch: buildPatternEventPitch(drag, pattern),
   }), [drag, pattern])
 }
 
@@ -191,25 +191,67 @@ function buildSectionPlaceholders(
 function buildPatternEventPlaceholder(
   drag: DragState | undefined,
   pattern: Pattern,
-): NoteEvent | undefined {
-  if (
-    drag?.kind !== 'movePatternEvent'
-    || drag.patternId !== pattern.id
+): DrumHitEvent | NoteEvent | undefined {
+  if (drag?.kind === 'moveNotePatternEvent' && drag.patternId === pattern.id) {
+    const maxTimeTick = Math.max(0, pattern.lengthTicks - drag.event.durationTicks)
 
-  ) {
+    return {
+      ...drag.event,
+      pitch: drag.currentPitch,
+      timeTick: Math.min(
+        maxTimeTick,
+        Math.max(0, drag.event.timeTick + getDeltaTicks(drag)),
+      ),
+    }
+  }
+
+  if (drag?.kind === 'moveDrumPatternEvent' && drag.patternId === pattern.id) {
+    return {
+      ...drag.event,
+      piece: drag.currentPiece,
+      timeTick: Math.min(
+        pattern.lengthTicks - 1,
+        Math.max(0, drag.event.timeTick + getDeltaTicks(drag)),
+      ),
+    }
+  }
+
+  return undefined
+}
+
+function buildPatternEventDrawRange(
+  drag: DragState | undefined,
+  pattern: Pattern,
+): TickRange | undefined {
+  const isDrawKind = drag?.kind === 'drawDrumPatternEvent' || drag?.kind === 'drawNotePatternEvent'
+
+  if (isDrawKind && drag.patternId === pattern.id) {
+    return getTickRange(drag)
+  }
+
+  return undefined
+}
+
+function buildPatternEventPiece(
+  drag: DragState | undefined,
+  pattern: Pattern,
+): DrumPiece | undefined {
+  if (drag?.kind !== 'drawDrumPatternEvent' || drag.patternId !== pattern.id) {
     return undefined
   }
 
-  const maxTimeTick = Math.max(0, pattern.lengthTicks - drag.event.durationTicks)
+  return drag.piece
+}
 
-  return {
-    ...drag.event,
-    pitch: drag.currentPitch,
-    timeTick: Math.min(
-      maxTimeTick,
-      Math.max(0, drag.event.timeTick + getDeltaTicks(drag)),
-    ),
+function buildPatternEventPitch(
+  drag: DragState | undefined,
+  pattern: Pattern,
+): MidiNote | undefined {
+  if (drag?.kind !== 'drawNotePatternEvent' || drag.patternId !== pattern.id) {
+    return undefined
   }
+
+  return drag.pitch
 }
 
 function buildTimelineEventPlaceholder(

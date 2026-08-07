@@ -17,7 +17,8 @@ import {
   createDuplicateSectionCommand,
   createDuplicateTrackCommand,
   createMoveBlockCommand,
-  createMovePatternEventCommand,
+  createMoveDrumPatternEventCommand,
+  createMoveNotePatternEventCommand,
   createMoveSectionCommand,
   createReorderTrackCommand,
   createResizeBlockCommand,
@@ -38,6 +39,7 @@ import {
 import type {
   Block,
   BlockId,
+  DrumPiece,
   GridDivision,
   Instrument,
   InstrumentId,
@@ -197,13 +199,22 @@ export function deletePatternEventAction(patternEventIds: PatternEventId[]): Wor
   return createDeletePatternEventCommand(patternEventIds)
 }
 
-export function movePatternEventAction(
+export function moveNotePatternEventAction(
   patternId: PatternId,
   patternEventId: PatternEventId,
   timeTick: Tick,
   pitch: MidiNote,
 ): WorkspaceCommand {
-  return createMovePatternEventCommand(patternId, patternEventId, timeTick, pitch)
+  return createMoveNotePatternEventCommand(patternId, patternEventId, timeTick, pitch)
+}
+
+export function moveDrumPatternEventAction(
+  patternId: PatternId,
+  patternEventId: PatternEventId,
+  timeTick: Tick,
+  piece: DrumPiece,
+): WorkspaceCommand {
+  return createMoveDrumPatternEventCommand(patternId, patternEventId, timeTick, piece)
 }
 
 export function updatePatternEventAction(patternId: PatternId, event: PatternEvent): WorkspaceCommand {

@@ -10,7 +10,7 @@ import type { DrumPiece, InstrumentId } from '~/domain/instrument'
 import type { SynthEnvelope, SynthOscillator } from '~/domain/instrument/synth'
 import type { MixChannelId } from '~/domain/mixer'
 import type { MidiNote, Tick } from '~/domain/musicPrimitives'
-import type { NoteEvent, PatternEventId, PatternEventKind } from '~/domain/patternEvents'
+import type { DrumHitEvent, NoteEvent, PatternEventId, PatternEventKind } from '~/domain/patternEvents'
 import type { PatternId, PatternKind } from '~/domain/patterns'
 import type { ChordPlayback } from '~/domain/playback'
 import type { LoopEvent, TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
@@ -102,9 +102,30 @@ export type DragState
   }
   | {
     currentTick: Tick
-    kind: 'drawPatternEvent'
+    kind: 'drawDrumPatternEvent'
+    patternId: PatternId
+    piece: DrumPiece
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+  }
+  | {
+    currentTick: Tick
+    kind: 'drawNotePatternEvent'
     patternId: PatternId
     pitch: MidiNote
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+  }
+  | {
+    currentPiece: DrumPiece
+    currentTick: Tick
+    event: DrumHitEvent
+    kind: 'moveDrumPatternEvent'
+    patternId: PatternId
     pointerId: number
     startClientX: number
     startClientY: number
@@ -114,7 +135,7 @@ export type DragState
     currentPitch: MidiNote
     currentTick: Tick
     event: NoteEvent
-    kind: 'movePatternEvent'
+    kind: 'moveNotePatternEvent'
     patternId: PatternId
     pointerId: number
     startClientX: number

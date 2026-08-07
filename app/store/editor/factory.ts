@@ -4,12 +4,15 @@ import type { ClipboardState, Editor, InspectorState, SelectionState, ViewportSt
 import {
   type Block,
   createBlock,
+  createDrumHitEvent,
   createNoteEvent,
   createPattern,
   createPositiveDurationTicks,
   createSection,
   createTick,
   createTrack,
+  type DrumHitEvent,
+  type DrumPiece,
   type DurationTicks,
   getBarLengthTicksAtTick,
   type MidiNote,
@@ -108,7 +111,7 @@ export function createViewportState(input: Partial<ViewportState> = {}): Viewpor
     maxPixelsPerTick: input.maxPixelsPerTick ?? DEFAULT_MAX_PIXELS_PER_TICK,
     laneHeight: input.laneHeight ?? 72,
     sectionLaneHeight: input.sectionLaneHeight ?? 45,
-    rulerHeight: input.rulerHeight ?? 100,
+    rulerHeight: input.rulerHeight ?? 75,
   }
 }
 
@@ -187,45 +190,50 @@ export function createArrangementTrackDraft(workspace: Workspace): Track {
 
 export function createArrangementPatternEventDraft({
   workspace,
-  lengthTicks,
   patternId,
-  pitch,
   startTick,
+  lengthTicks,
+  pitch,
+  piece,
 }: {
   workspace: Workspace
   lengthTicks: DurationTicks
   patternId: PatternId
-  pitch: MidiNote
   startTick: Tick
-}): NoteEvent {
+  pitch?: MidiNote
+  piece?: DrumPiece
+}): DrumHitEvent | NoteEvent {
   const pattern = workspace.patterns.byId[patternId]
 
   if (pattern === undefined) {
     throw new Error(`Pattern ${patternId} does not exist.`)
   }
 
-  if (pattern.kind !== 'note') {
-    throw new Error(`Pattern ${pattern.id} does not accept note events.`)
-  }
-
-  const timeTick = createTick(Math.min(
-    startTick,
-    pattern.lengthTicks - 1,
-  ))
-
-  const durationTicks = createPositiveDurationTicks(Math.min(
-    lengthTicks,
-    pattern.lengthTicks - timeTick,
-  ))
-
+  const timeTick = createTick(startTick)
   const existingEventIds = selectPatternEventIds(workspace)
 
-  return createNoteEvent({
-    id: createDraftEntityId('event_note', existingEventIds),
-    durationTicks,
-    pitch,
-    timeTick,
-  })
+  switch (pattern.kind) {
+    case 'note':
+      const durationTicks = createPositiveDurationTicks(Math.min(
+        lengthTicks,
+        pattern.lengthTicks - timeTick,
+      ))
+
+      return createNoteEvent({
+        id: createDraftEntityId('event_note', existingEventIds),
+        durationTicks,
+        timeTick,
+        pitch,
+      })
+    case 'drum':
+      return createDrumHitEvent({
+        id: createDraftEntityId('event_drum', existingEventIds),
+        timeTick,
+        piece,
+      })
+  }
+
+  throw new Error(`Pattern kind ${pattern.kind} does not exist.`)
 }
 
 function createDraftEntityId(prefix: string, existingIds: readonly string[]): string {

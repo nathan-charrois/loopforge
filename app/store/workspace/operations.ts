@@ -18,6 +18,7 @@ import {
   type BlockPlaybackMode,
   createInstrument,
   createMixChannel,
+  type DrumPiece,
   getTimelineEventField,
   type GridDivision,
   type Instrument,
@@ -655,7 +656,7 @@ export function deletePatternEvents(
   return eventIds.reduce(deletePatternEvent, workspace)
 }
 
-export function movePatternEvent(
+export function moveNotePatternEvent(
   workspace: Workspace,
   patternId: PatternId,
   eventId: PatternEventId,
@@ -678,6 +679,33 @@ export function movePatternEvent(
   return updatePatternEvent(workspace, patternId, {
     ...event,
     pitch,
+    timeTick: nextTimeTick,
+  })
+}
+
+export function moveDrumPatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  piece: DrumPiece,
+): Workspace {
+  const { event, pattern } = requirePatternEvent(workspace, patternId, eventId)
+
+  if (pattern.kind !== 'drum' || event.kind !== 'drumHit') {
+    throw new Error(`Pattern event ${eventId} is not a drum event.`)
+  }
+
+  const maxTimeTick = Math.max(0, pattern.lengthTicks - 1)
+  const nextTimeTick = Math.min(maxTimeTick, Math.max(0, Math.round(timeTick)))
+
+  if (event.piece === piece && event.timeTick === nextTimeTick) {
+    return workspace
+  }
+
+  return updatePatternEvent(workspace, patternId, {
+    ...event,
+    piece,
     timeTick: nextTimeTick,
   })
 }

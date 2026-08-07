@@ -13,7 +13,8 @@ import {
   duplicateSections,
   duplicateTrack,
   moveBlock,
-  movePatternEvent,
+  moveDrumPatternEvent,
+  moveNotePatternEvent,
   moveSection,
   removeInstruments,
   removeMixChannels,
@@ -41,6 +42,7 @@ import {
   type BlockId,
   createInstrument,
   createMixChannel,
+  type DrumPiece,
   type GridDivision,
   type Instrument,
   type InstrumentId,
@@ -217,7 +219,20 @@ export function applyWorkspaceCommand(
     }
     case 'deletePatternEvent':
       return deletePatternEvents(workspace, getPayloadStringArray(payload, 'eventIds'))
-    case 'movePatternEvent': {
+    case 'moveDrumPatternEvent': {
+      const eventId = getPayloadString(payload, 'eventId')
+      const patternId = getPayloadString(payload, 'patternId')
+      const piece = getPayloadString(payload, 'piece') as DrumPiece | undefined
+      const timeTick = getPayloadNumber(payload, 'timeTick')
+
+      return eventId === undefined
+        || patternId === undefined
+        || piece === undefined
+        || timeTick === undefined
+        ? workspace
+        : moveDrumPatternEvent(workspace, patternId, eventId, timeTick, piece)
+    }
+    case 'moveNotePatternEvent': {
       const eventId = getPayloadString(payload, 'eventId')
       const patternId = getPayloadString(payload, 'patternId')
       const pitch = getPayloadNumber(payload, 'pitch')
@@ -228,7 +243,7 @@ export function applyWorkspaceCommand(
         || pitch === undefined
         || timeTick === undefined
         ? workspace
-        : movePatternEvent(workspace, patternId, eventId, timeTick, pitch)
+        : moveNotePatternEvent(workspace, patternId, eventId, timeTick, pitch)
     }
     case 'updatePatternEvent': {
       const patternId = getPayloadString(payload, 'patternId')
@@ -445,16 +460,30 @@ export function createDeletePatternEventCommand(eventIds: readonly PatternEventI
   )
 }
 
-export function createMovePatternEventCommand(
+export function createMoveNotePatternEventCommand(
   patternId: PatternId,
   eventId: PatternEventId,
   timeTick: Tick,
   pitch: MidiNote,
 ): WorkspaceCommand {
-  return createWorkspaceCommandRecord('movePatternEvent', 'Move note event', {
+  return createWorkspaceCommandRecord('moveNotePatternEvent', 'Move note event', {
     eventId,
     patternId,
     pitch,
+    timeTick,
+  })
+}
+
+export function createMoveDrumPatternEventCommand(
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  piece: DrumPiece,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('moveDrumPatternEvent', 'Move drum event', {
+    eventId,
+    patternId,
+    piece,
     timeTick,
   })
 }

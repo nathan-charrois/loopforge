@@ -5,17 +5,20 @@ import {
   useState,
 } from 'react'
 
-import type {
-  Block,
-  BlockId,
-  LoopEvent,
-  MidiNote,
-  NoteEvent,
-  PatternId,
-  Section,
-  Tick,
-  TimelineEvent,
-  TrackId,
+import {
+  type Block,
+  type BlockId,
+  DRUM_PIECES,
+  type DrumHitEvent,
+  type DrumPiece,
+  type LoopEvent,
+  type MidiNote,
+  type NoteEvent,
+  type PatternId,
+  type Section,
+  type Tick,
+  type TimelineEvent,
+  type TrackId,
 } from '~/domain'
 import {
   completeDragAction,
@@ -43,14 +46,25 @@ type DragIntent
     kind: 'drawLoop'
   }
   | {
-    kind: 'drawPatternEvent'
+    kind: 'drawDrumPatternEvent'
+    patternId: PatternId
+    piece: DrumPiece
+  }
+  | {
+    kind: 'drawNotePatternEvent'
+    patternId: PatternId
     pitch: MidiNote
+  }
+  | {
+    event: DrumHitEvent
+    kind: 'moveDrumPatternEvent'
+    piece: DrumPiece
     patternId: PatternId
   }
   | {
     event: NoteEvent
-    kind: 'movePatternEvent'
-    patternEventPitch: MidiNote
+    kind: 'moveNotePatternEvent'
+    pitch: MidiNote
     patternId: PatternId
   }
   | {
@@ -104,6 +118,7 @@ export function useDrag({
   const timelineRef = useRef<HTMLDivElement>(null)
 
   const trackRowsRef = useRef<HTMLDivElement>(null)
+  const drumPieceRowsRef = useRef<HTMLDivElement>(null)
   const pitchRowsRef = useRef<HTMLDivElement>(null)
 
   const [dragState, setDragState] = useState<DragState | undefined>()
@@ -145,6 +160,29 @@ export function useDrag({
     const midiNote = Number(pitchRows[rowIndex].dataset.midiNote)
 
     return Number.isNaN(midiNote) ? 0 : midiNote
+  }, [])
+
+  const getPointerDrumPiece = useCallback((clientY: number): DrumPiece => {
+    if (drumPieceRowsRef.current === null) {
+      return DRUM_PIECES.kick
+    }
+
+    const rect = drumPieceRowsRef.current.getBoundingClientRect()
+    const drumPieceRows = drumPieceRowsRef.current.querySelectorAll<HTMLElement>('[data-drum-piece]')
+
+    if (rect.height <= 0 || drumPieceRows.length === 0) {
+      return DRUM_PIECES.kick
+    }
+
+    const y = Math.max(0, Math.min(rect.height - 1, clientY - rect.top))
+    const rowIndex = Math.min(
+      drumPieceRows.length - 1,
+      Math.floor(y / rect.height * drumPieceRows.length),
+    )
+    const drumPiece = drumPieceRows[rowIndex].dataset.drumPiece
+
+    return Object.values(DRUM_PIECES).find(piece => piece === drumPiece)
+      ?? DRUM_PIECES.kick
   }, [])
 
   const getPointerRow = useCallback((clientY: number): number => {
@@ -203,20 +241,41 @@ export function useDrag({
           startTick: tick,
         })
         return
-      case 'drawPatternEvent':
+      case 'drawDrumPatternEvent':
         setDragState({
           ...pointer,
           currentTick: getInitialGridDrawEndTick(workspace.timeline, tick),
           kind: intent.kind,
-          startTick: tick,
           patternId: intent.patternId,
-          pitch: intent.pitch,
+          piece: intent.piece,
+          startTick: tick,
         })
         return
-      case 'movePatternEvent':
+      case 'drawNotePatternEvent':
         setDragState({
           ...pointer,
-          currentPitch: intent.patternEventPitch,
+          currentTick: getInitialGridDrawEndTick(workspace.timeline, tick),
+          kind: intent.kind,
+          patternId: intent.patternId,
+          pitch: intent.pitch,
+          startTick: tick,
+        })
+        return
+      case 'moveDrumPatternEvent':
+        setDragState({
+          ...pointer,
+          currentPiece: intent.piece,
+          currentTick: tick,
+          event: intent.event,
+          kind: intent.kind,
+          patternId: intent.patternId,
+          startTick: tick,
+        })
+        return
+      case 'moveNotePatternEvent':
+        setDragState({
+          ...pointer,
+          currentPitch: intent.pitch,
           currentTick: tick,
           event: intent.event,
           kind: intent.kind,
@@ -328,7 +387,7 @@ export function useDrag({
         }
       }
 
-      if (current.kind === 'movePatternEvent') {
+      if (current.kind === 'moveNotePatternEvent') {
         return {
           ...current,
           currentPitch: getPointerPitch(event.clientY),
@@ -336,9 +395,17 @@ export function useDrag({
         }
       }
 
+      if (current.kind === 'moveDrumPatternEvent') {
+        return {
+          ...current,
+          currentPiece: getPointerDrumPiece(event.clientY),
+          currentTick,
+        }
+      }
+
       return { ...current, currentTick }
     })
-  }, [dragState, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, onUpdateDrag])
+  }, [dragState, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, onUpdateDrag])
 
   const cancelDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     setDragState(current => current?.pointerId === event.pointerId ? undefined : current)
@@ -360,10 +427,18 @@ export function useDrag({
       }
     }
 
-    if (dragState.kind === 'movePatternEvent') {
+    if (dragState.kind === 'moveNotePatternEvent') {
       completedState = {
         ...dragState,
         currentPitch: getPointerPitch(event.clientY),
+        currentTick: endTick,
+      }
+    }
+
+    if (dragState.kind === 'moveDrumPatternEvent') {
+      completedState = {
+        ...dragState,
+        currentPiece: getPointerDrumPiece(event.clientY),
         currentTick: endTick,
       }
     }
@@ -379,11 +454,13 @@ export function useDrag({
     }))
 
     setDragState(undefined)
-  }, [dispatch, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
+  }, [dispatch, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
 
   return {
     cancelDrag,
+    drumPieceRowsRef,
     finishDrag,
+    getPointerDrumPiece,
     getPointerPitch,
     getPointerTick,
     pitchRowsRef,
