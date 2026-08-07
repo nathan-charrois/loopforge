@@ -65,9 +65,7 @@ export class Transport {
     this.clock = createTimelineClock(workspace.timeline)
     this.projectEndTick = toTimelineTick(schedule.projectEndTick)
 
-    this.loopRange = this.loopRange
-      ? this.normalizeLoopRange(this.loopRange)
-      : this.getDefaultLoopRange()
+    this.loopRange = this.normalizeLoopRange(this.loopRange)
 
     this.setPosition(initialTick)
     this.publishSnapshot()
@@ -146,9 +144,6 @@ export class Transport {
 
     if (range !== undefined) {
       this.loopRange = this.normalizeLoopRange(range)
-    }
-    else if (enabled && this.loopRange === undefined) {
-      this.loopRange = this.getDefaultLoopRange()
     }
 
     const activeLoopRange = this.getActiveLoopRange()
@@ -256,10 +251,18 @@ export class Transport {
   }
 
   private getActiveLoopRange(): TickRange | undefined {
-    return this.loopEnabled ? this.loopRange : undefined
+    return this.loopEnabled ? this.getLoopRange() : undefined
   }
 
-  private normalizeLoopRange(range: TickRange): TickRange | undefined {
+  private getLoopRange(): TickRange | undefined {
+    return this.loopRange ?? this.getDefaultLoopRange()
+  }
+
+  private normalizeLoopRange(range: TickRange | undefined): TickRange | undefined {
+    if (range === undefined) {
+      return range
+    }
+
     if (this.projectEndTick <= 0) {
       return undefined
     }
@@ -332,7 +335,7 @@ export class Transport {
       playheadTick,
       projectEndTick: this.projectEndTick,
       loopEnabled: this.loopEnabled,
-      loopRange: this.loopRange,
+      loopRange: this.getLoopRange(),
     })
   }
 
