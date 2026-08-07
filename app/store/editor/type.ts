@@ -19,7 +19,6 @@ import type { ChordVoicing } from '~/domain/voicing'
 
 export const ACTIVE_TOOLS = [
   'select',
-  'hand',
   'drawBlock',
   'drawLoop',
   'drawSection',
@@ -27,7 +26,6 @@ export const ACTIVE_TOOLS = [
   'split',
   'resize',
   'move',
-  'mute',
   'tempo',
   'meter',
   'key',

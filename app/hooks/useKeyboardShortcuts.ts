@@ -7,6 +7,7 @@ type KeyboardShortcutHandlers = {
   onEscape?: () => void
   onLoop?: () => void
   onPaste?: () => void
+  onPlayPause?: () => void
   onRedo?: () => void
   onUndo?: () => void
 }
@@ -18,6 +19,7 @@ export function useKeyboardShortcuts({
   onEscape,
   onLoop,
   onPaste,
+  onPlayPause,
   onRedo,
   onUndo,
 }: KeyboardShortcutHandlers): void {
@@ -39,6 +41,12 @@ export function useKeyboardShortcuts({
       if ((event.key === 'Backspace' || event.key === 'Delete') && onDelete !== undefined) {
         event.preventDefault()
         onDelete()
+        return
+      }
+
+      if (event.key === 'Spacebar' && onPlayPause !== undefined) {
+        event.preventDefault()
+        onPlayPause()
         return
       }
 
@@ -94,6 +102,7 @@ export function useKeyboardShortcuts({
     onEscape,
     onLoop,
     onPaste,
+    onPlayPause,
     onRedo,
     onUndo,
   ])

@@ -17,11 +17,9 @@ import {
   Delete01Icon,
   EraserIcon,
   GridIcon,
-  HoldIcon,
   Key01Icon,
   MagnetIcon,
   MoveIcon,
-  MuteIcon,
   PaintBrush01Icon,
   PauseIcon,
   PencilEdit01Icon,
@@ -158,7 +156,6 @@ import {
   copySelectionAction,
   createArrangementTrackDraft,
   createInspectorDraft,
-  createSelectionState,
   deleteSelectionAction,
   type DragState,
   duplicateSelectionAction,
@@ -185,7 +182,6 @@ import {
   setActivePatternPanelToolAction,
   setActiveToolAction,
   setFocusedBlockIdAction,
-  setSelectionAction,
   tickToX,
   unfocusSelectionAction,
   updateBlockFromInspectorAction,
@@ -216,6 +212,7 @@ import {
   setGridDivisionAction,
   updateMixChannelAction,
   updateMixerAction,
+  updateTimelineEventAction,
   validateWorkspace,
   type Workspace,
 } from '~/store/workspace'
@@ -232,7 +229,7 @@ const MIN_OVERLAY_WIDTH = 2
 const BLOCK_TOP = 14
 const BLOCK_HEIGHT = 42
 const TIMELINE_MARKER_TOP = 25
-const LOOP_LANE_HEIGHT = 10
+const LOOP_LANE_HEIGHT = 12
 const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
@@ -364,6 +361,7 @@ function ArrangementDebugContent() {
 
   const tracks = useMemo(() => selectTracks(workspace), [workspace])
   const patterns = useMemo(() => selectPatterns(workspace), [workspace])
+
   const selectedBlock = useMemo(() => selectFirstSelectedBlock(editor, workspace), [editor, workspace])
   const selectedInstrument = useMemo(() => selectFirstSelectedInstrument(editor, workspace), [editor, workspace])
   const selectedMixChannel = useMemo(() => selectFirstSelectedMixChannel(editor, workspace), [editor, workspace])
@@ -372,6 +370,7 @@ function ArrangementDebugContent() {
   const selectedSection = useMemo(() => selectFirstSelectedSection(editor, workspace), [editor, workspace])
   const selectedTimelineEvent = useMemo(() => selectFirstSelectedTimelineEvent(editor, workspace), [editor, workspace])
   const selectedTrack = useMemo(() => selectFirstSelectedTrack(editor, workspace), [editor, workspace])
+
   const timelineEndTick = useMemo(
     () => selectWorkspaceEndTick(workspace) + TIMELINE_PADDING_TICKS,
     [workspace],
@@ -697,22 +696,36 @@ function ArrangementDebugContent() {
     dispatch(duplicateSelectionAction(editor.selection, workspace.timeline.ppq))
   }, [editor.selection, dispatch, workspace.timeline.ppq])
 
-  const loopSelection = useCallback(() => {
-    const loopEvent = getLoopEvent(workspace.timeline)
-
-    if (loopEvent === undefined) {
+  const handlePlayPause = useCallback(() => {
+    if (playbackEngine.transport.getSnapshot().status === 'playing') {
+      playbackEngine.pause()
       return
     }
 
-    dispatch(setSelectionAction({
-      ...createSelectionState(),
-      selectedTimelineEventIds: [loopEvent.id],
-    }))
-  }, [dispatch, workspace.timeline])
+    void playbackEngine.play()
+  }, [playbackEngine])
 
   const deleteSelection = useCallback(() => {
     dispatch(deleteSelectionAction(editor.selection))
   }, [editor.selection, dispatch])
+
+  const loopSelection = useCallback(() => {
+    const block = selectFirstSelectedBlock(editor, workspace)
+    if (block === undefined) {
+      return
+    }
+
+    const loopEvent = getLoopEvent(workspace.timeline)
+    if (loopEvent === undefined) {
+      return
+    }
+
+    dispatch(updateTimelineEventAction({
+      ...loopEvent,
+      tick: block.startTick,
+      lengthTicks: block.lengthTicks,
+    }))
+  }, [dispatch, workspace, editor])
 
   const updateGridDivision = useCallback((grid: GridDivision) => {
     dispatch(setGridDivisionAction(
@@ -838,6 +851,7 @@ function ArrangementDebugContent() {
     onLoop: loopSelection,
     onCopy: handleCopy,
     onPaste: handlePaste,
+    onPlayPause: handlePlayPause,
     onRedo: redo,
     onUndo: undo,
   })
@@ -884,6 +898,7 @@ function ArrangementDebugContent() {
           onCloseFocus={handleBlockCloseFocus}
           onDeleteSelected={deleteSelection}
           onDuplicate={duplicateSelection}
+          onPlay={handlePlayPause}
           onRedo={redo}
           onUndo={undo}
           onSetGrid={updateGridDivision}
@@ -941,7 +956,7 @@ function ArrangementDebugContent() {
                 style={{
                   minWidth: 0,
                   overflow: 'auto',
-                  paddingBottom: 8,
+                  paddingBottom: 10,
                   position: 'relative',
                 }}
               >
@@ -1106,6 +1121,7 @@ const Toolbar = memo(function Toolbar({
   onCloseFocus,
   onDeleteSelected,
   onDuplicate,
+  onPlay,
   onRedo,
   onSetGrid,
   onSetTool,
@@ -1122,6 +1138,7 @@ const Toolbar = memo(function Toolbar({
   onCloseFocus: () => void
   onDeleteSelected: () => void
   onDuplicate: () => void
+  onPlay: () => void
   onRedo: () => void
   onSetGrid: (grid: GridDivision) => void
   onSetTool: (tool: ActiveTool) => void
@@ -1132,7 +1149,7 @@ const Toolbar = memo(function Toolbar({
   return (
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between" gap="xs">
-        <PlaybackControls playbackEngine={playbackEngine} />
+        <PlaybackControls playbackEngine={playbackEngine} onPlay={onPlay} />
         <Group gap={4}>
           {TOOLBAR_SECTION_LEFT.map(item => (
             <Tooltip key={item.tool} label={item.label}>
@@ -1219,8 +1236,10 @@ const Toolbar = memo(function Toolbar({
 
 const PlaybackControls = memo(function PlaybackControls({
   playbackEngine,
+  onPlay,
 }: {
   playbackEngine: PlaybackEngine
+  onPlay: () => void
 }) {
   const status = useTransportStatus(playbackEngine)
   const transportSnapshot = useTransportSnapshot(playbackEngine)
@@ -1234,7 +1253,7 @@ const PlaybackControls = memo(function PlaybackControls({
           disabled={status === 'playing'}
           size="lg"
           variant={status === 'playing' ? 'filled' : 'light'}
-          onClick={() => playbackEngine.play()}
+          onClick={onPlay}
         >
           <HugeiconsIcon icon={PlayIcon} size={18} />
         </ActionIcon>
@@ -1246,7 +1265,7 @@ const PlaybackControls = memo(function PlaybackControls({
           disabled={status !== 'playing'}
           size="lg"
           variant="light"
-          onClick={() => playbackEngine.pause()}
+          onClick={onPlay}
         >
           <HugeiconsIcon icon={PauseIcon} size={18} />
         </ActionIcon>
@@ -1730,6 +1749,9 @@ const TimelineRuler = memo(function TimelineRuler({
             label={getTimelineEventMarkerLabel(timelineEvent)}
             left={tickToX(viewport.pixelsPerTick, timelineEvent.tick)}
             top={getTimelineEventMarkerTop(timelineEvent)}
+            width={isLoopEvent(timelineEvent)
+              ? Math.max(MIN_LOOP_WIDTH, tickToX(viewport.pixelsPerTick, timelineEvent.lengthTicks))
+              : undefined}
             onMouseEnter={() => onMarkerPointerEnter(timelineEvent.id)}
             onMouseLeave={() => onMarkerPointerEnter(undefined)}
             onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, timelineEvent)}
@@ -1746,6 +1768,9 @@ const TimelineRuler = memo(function TimelineRuler({
           label={getTimelineEventMarkerLabel(timelineEventPlaceholder)}
           left={tickToX(viewport.pixelsPerTick, timelineEventPlaceholder.tick)}
           top={getTimelineEventMarkerTop(timelineEventPlaceholder)}
+          width={isLoopEvent(timelineEventPlaceholder)
+            ? Math.max(MIN_LOOP_WIDTH, tickToX(viewport.pixelsPerTick, timelineEventPlaceholder.lengthTicks))
+            : undefined}
         />
       )}
     </Box>
@@ -1882,7 +1907,7 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
         height,
         left: compact ? left : Math.max(-2, left - 3),
         minWidth: width ?? 42,
-        opacity: isPlaceholder ? 0.52 : 1,
+        opacity: isPlaceholder ? 0.75 : 1,
         padding: compact ? 0 : 3,
         pointerEvents: isPlaceholder ? 'none' : undefined,
         position: 'absolute',
@@ -3832,16 +3857,12 @@ function getToolIcon(tool: ActiveTool) {
       return PaintBrush01Icon
     case 'erase':
       return EraserIcon
-    case 'hand':
-      return HoldIcon
     case 'key':
       return Key01Icon
     case 'meter':
       return MagnetIcon
     case 'move':
       return MoveIcon
-    case 'mute':
-      return MuteIcon
     case 'resize':
       return Resize01Icon
     case 'select':
@@ -3975,16 +3996,12 @@ function getToolLabel(tool: ActiveTool): string {
       return 'Draw section'
     case 'erase':
       return 'Erase'
-    case 'hand':
-      return 'Hand'
     case 'key':
       return 'Key'
     case 'meter':
       return 'Meter'
     case 'move':
       return 'Move'
-    case 'mute':
-      return 'Mute'
     case 'resize':
       return 'Resize'
     case 'select':

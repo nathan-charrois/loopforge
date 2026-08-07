@@ -293,10 +293,6 @@ export function applyBlockToolAction(input: {
     return [splitBlockAction(block.id, tick)]
   }
 
-  if (tool === 'mute') {
-    return [updateBlockAction({ ...block, muted: !block.muted })]
-  }
-
   return []
 }
 
