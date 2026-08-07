@@ -1749,9 +1749,6 @@ const TimelineRuler = memo(function TimelineRuler({
             label={getTimelineEventMarkerLabel(timelineEvent)}
             left={tickToX(viewport.pixelsPerTick, timelineEvent.tick)}
             top={getTimelineEventMarkerTop(timelineEvent)}
-            width={isLoopEvent(timelineEvent)
-              ? Math.max(MIN_LOOP_WIDTH, tickToX(viewport.pixelsPerTick, timelineEvent.lengthTicks))
-              : undefined}
             onMouseEnter={() => onMarkerPointerEnter(timelineEvent.id)}
             onMouseLeave={() => onMarkerPointerEnter(undefined)}
             onPointerDown={pointerEvent => onMarkerPointerDown(pointerEvent, timelineEvent)}
@@ -1768,9 +1765,7 @@ const TimelineRuler = memo(function TimelineRuler({
           label={getTimelineEventMarkerLabel(timelineEventPlaceholder)}
           left={tickToX(viewport.pixelsPerTick, timelineEventPlaceholder.tick)}
           top={getTimelineEventMarkerTop(timelineEventPlaceholder)}
-          width={isLoopEvent(timelineEventPlaceholder)
-            ? Math.max(MIN_LOOP_WIDTH, tickToX(viewport.pixelsPerTick, timelineEventPlaceholder.lengthTicks))
-            : undefined}
+          width={getTimelineEventMarkerLoopWidth(timelineEventPlaceholder, viewport.pixelsPerTick)}
         />
       )}
     </Box>
@@ -3984,6 +3979,12 @@ function getTimelineEventMarkerTop(event: TimelineEvent): number {
   }
 
   return TIMELINE_MARKER_TOP
+}
+
+function getTimelineEventMarkerLoopWidth(event: TimelineEvent, tick: number): number | undefined {
+  return isLoopEvent(event)
+    ? Math.max(MIN_LOOP_WIDTH, tickToX(tick, event.lengthTicks))
+    : undefined
 }
 
 function getToolLabel(tool: ActiveTool): string {

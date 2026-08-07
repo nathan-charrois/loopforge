@@ -56,6 +56,8 @@ export function AppMenu({
               <Menu.Item onClick={() => onOpenProjectDemo('velvetUndertow')}>Velvet Undertow</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('cedarStatic')}>Cedar Static</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('vacantReceiver')}>Vacant Receiver</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('sunroomOrbit')}>Sunroom Orbit</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('marbleVerdict')}>Marble Verdict</Menu.Item>
             </Menu.Sub.Dropdown>
           </Menu.Sub>
           <Menu.Divider />

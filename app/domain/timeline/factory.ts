@@ -83,7 +83,7 @@ export function createLoopEvent(input: {
   tick?: Tick
 }): LoopEvent {
   const tick = createTick(input.tick ?? 0)
-  const lengthTicks = createPositiveDurationTicks(input.lengthTicks ?? PPQ)
+  const lengthTicks = createPositiveDurationTicks(input.lengthTicks ?? PPQ * 4)
 
   return {
     id: input.id ?? `loopEvent_${tick}`,
