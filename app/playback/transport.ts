@@ -178,6 +178,10 @@ export class Transport {
     return this.requireClock().getSecondsBetweenTicks(startTick, endTick)
   }
 
+  public getTickAfterSeconds(startTick: Tick, seconds: number, endTick: Tick): Tick {
+    return this.requireClock().getTickAfterSeconds(startTick, seconds, endTick)
+  }
+
   public dispose(): void {
     this.stopSnapshotTimer()
 

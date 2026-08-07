@@ -41,18 +41,12 @@ export class PlaybackEngine {
 
     const schedule = buildSchedule(workspace)
 
-    this.invalidatePendingPlay()
-    this.stopScheduledAudio()
-
     this.workspace = workspace
     this.schedule = schedule
 
     this.audioEngine.loadWorkspace(workspace)
+    this.replaceScheduleCursor(schedule)
     this.transport.loadWorkspace(workspace, schedule)
-
-    if (this.isPlaying()) {
-      this.startScheduling()
-    }
   }
 
   public play(): Promise<void> {
@@ -192,6 +186,12 @@ export class PlaybackEngine {
           startTick,
           endTick,
         ),
+      tickAfterSeconds: (startTick, seconds, endTick) =>
+        this.transport.getTickAfterSeconds(
+          startTick,
+          seconds,
+          endTick,
+        ),
     })
 
     this.scheduledThroughSeconds = startAudioTime
@@ -202,6 +202,19 @@ export class PlaybackEngine {
     )
 
     this.scheduleLookahead()
+  }
+
+  private replaceScheduleCursor(
+    schedule: PlaybackSchedule,
+  ): void {
+    if (!this.scheduleCursor) {
+      return
+    }
+
+    this.scheduleCursor = this.scheduleCursor.replaceSchedule(
+      schedule,
+      this.scheduledThroughSeconds,
+    )
   }
 
   private scheduleLookahead = (): void => {

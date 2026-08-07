@@ -32,12 +32,19 @@ export type SecondsBetweenTicks = (
   endTick: Tick,
 ) => number
 
+export type SecondsAfterTicks = (
+  startTick: Tick,
+  seconds: number,
+  endTick: Tick,
+) => Tick
+
 export type CreatePlaybackScheduleCursorInput = {
   schedule: PlaybackSchedule
   startTick: Tick
   startAudioTime: number
   loopRange?: TickRange
   secondsBetweenTicks: SecondsBetweenTicks
+  tickAfterSeconds: SecondsAfterTicks
 }
 
 /**
@@ -49,7 +56,9 @@ export type CreatePlaybackScheduleCursorInput = {
 export class PlaybackScheduleCursor {
   private readonly schedule: PlaybackSchedule
   private readonly loopRange: TickRange | undefined
+
   private readonly secondsBetweenTicks: SecondsBetweenTicks
+  private readonly tickAfterSeconds: SecondsAfterTicks
 
   private segmentStartTick: Tick
   private segmentEndTick: Tick
@@ -64,6 +73,7 @@ export class PlaybackScheduleCursor {
     startAudioTime,
     loopRange,
     secondsBetweenTicks,
+    tickAfterSeconds,
   }: CreatePlaybackScheduleCursorInput) {
     this.schedule = schedule
     this.loopRange = normalizeLoopRange(
@@ -71,6 +81,7 @@ export class PlaybackScheduleCursor {
       schedule.projectEndTick,
     )
     this.secondsBetweenTicks = secondsBetweenTicks
+    this.tickAfterSeconds = tickAfterSeconds
 
     const normalizedStartTick = this.loopRange
       ? getTickInsideLoop(startTick, this.loopRange)
@@ -109,6 +120,20 @@ export class PlaybackScheduleCursor {
 
   public isFinished(): boolean {
     return this.finished
+  }
+
+  public replaceSchedule(
+    schedule: PlaybackSchedule,
+    startAudioTime: number,
+  ): PlaybackScheduleCursor {
+    return new PlaybackScheduleCursor({
+      schedule,
+      startTick: this.getTickAtAudioTime(startAudioTime),
+      startAudioTime,
+      loopRange: this.loopRange,
+      secondsBetweenTicks: this.secondsBetweenTicks,
+      tickAfterSeconds: this.tickAfterSeconds,
+    })
   }
 
   /**
@@ -199,6 +224,44 @@ export class PlaybackScheduleCursor {
         this.segmentStartTick,
         trigger.startTick,
       )
+    )
+  }
+
+  private getTickAtAudioTime(
+    audioTime: number,
+  ): Tick {
+    if (audioTime <= this.segmentStartAudioTime) {
+      return this.segmentStartTick
+    }
+
+    const segmentEndAudioTime = this.getSegmentEndAudioTime()
+
+    if (audioTime < segmentEndAudioTime) {
+      return this.tickAfterSeconds(
+        this.segmentStartTick,
+        audioTime - this.segmentStartAudioTime,
+        this.segmentEndTick,
+      )
+    }
+
+    if (!this.loopRange) {
+      return this.segmentEndTick
+    }
+
+    const loopDurationSeconds = this.secondsBetweenTicks(
+      this.loopRange.startTick,
+      this.loopRange.endTick,
+    )
+
+    const secondsInsideLoop = positiveModulo(
+      audioTime - segmentEndAudioTime,
+      loopDurationSeconds,
+    )
+
+    return this.tickAfterSeconds(
+      this.loopRange.startTick,
+      secondsInsideLoop,
+      this.loopRange.endTick,
     )
   }
 
@@ -345,7 +408,7 @@ function clampTick(
   return Math.max(
     0,
     Math.min(
-      Math.floor(tick),
+      tick,
       projectEndTick,
     ),
   )

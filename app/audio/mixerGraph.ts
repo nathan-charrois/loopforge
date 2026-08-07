@@ -1,4 +1,4 @@
-import { decibelsToGain } from '~/domain'
+import { decibelsToGain, type MixChannel } from '~/domain'
 import type { Workspace } from '~/store/workspace'
 
 type MixChannelGraph = {
@@ -16,48 +16,46 @@ export class MixerGraph {
   ) {}
 
   public loadWorkspace(workspace: Workspace): void {
-    this.disconnect()
+    const masterGain = this.masterGain ?? this.createMasterGain()
 
-    const masterGain = this.context.createGain()
-    masterGain.gain.value = workspace.mixer.master.muted
-      ? 0
-      : decibelsToGain(workspace.mixer.master.volumeDb)
-    masterGain.connect(this.context.destination)
-    this.masterGain = masterGain
+    masterGain.gain.value = workspace.mixer.master.muted ? 0 : decibelsToGain(workspace.mixer.master.volumeDb)
 
     const mixChannels = workspace.mixer.channels.allIds
       .map(channelId => workspace.mixer.channels.byId[channelId])
       .filter(channel => channel !== undefined)
-    const hasSoloedChannel = mixChannels.some(channel => channel.soloed)
 
     for (const channel of mixChannels) {
-      const gain = this.context.createGain()
-      const filter = this.context.createBiquadFilter()
-      const panner = this.context.createStereoPanner()
-      const audible = !channel.muted
-        && (!hasSoloedChannel || channel.soloed)
+      const graph = this.getChannelGraph(channel.id)
+      const audible = this.getChannelAudible(mixChannels, channel)
 
-      gain.gain.value = audible
-        ? decibelsToGain(channel.volumeDb)
-        : 0
-      filter.type = 'lowpass'
-      filter.frequency.value = this.context.sampleRate / 2
-      panner.pan.value = channel.pan
+      graph.gain.gain.value = audible ? decibelsToGain(channel.volumeDb) : 0
+      graph.panner.pan.value = channel.pan
 
-      gain.connect(filter)
-      filter.connect(panner)
-      panner.connect(masterGain)
-
-      this.channelGraphs.set(channel.id, {
-        filter,
-        gain,
-        panner,
-      })
+      this.channelGraphs.set(channel.id, graph)
     }
   }
 
   public getChannelInput(mixChannelId: string): GainNode | undefined {
     return this.channelGraphs.get(mixChannelId)?.gain
+  }
+
+  public getChannelGraph(mixChannelId: string) {
+    const channelGraph = this.channelGraphs.get(mixChannelId)
+
+    if (channelGraph) {
+      return channelGraph
+    }
+
+    const masterGain = this.masterGain ?? this.createMasterGain()
+
+    return this.createChannelGraph(masterGain)
+  }
+
+  public getChannelAudible(mixChannels: MixChannel[], channel: MixChannel) {
+    const isAnyChannelSoloed = mixChannels.some(channel => channel.soloed)
+    const isSoloed = !isAnyChannelSoloed || channel.soloed
+
+    return !channel.muted && isSoloed
   }
 
   public scheduleAutomation(
@@ -103,6 +101,36 @@ export class MixerGraph {
 
   public dispose(): void {
     this.disconnect()
+  }
+
+  private createMasterGain(): GainNode {
+    const masterGain = this.context.createGain()
+
+    masterGain.connect(this.context.destination)
+    this.masterGain = masterGain
+
+    return masterGain
+  }
+
+  private createChannelGraph(
+    masterGain: GainNode,
+  ): MixChannelGraph {
+    const gain = this.context.createGain()
+    const filter = this.context.createBiquadFilter()
+    const panner = this.context.createStereoPanner()
+
+    filter.type = 'lowpass'
+    filter.frequency.value = this.context.sampleRate / 2
+
+    gain.connect(filter)
+    filter.connect(panner)
+    panner.connect(masterGain)
+
+    return {
+      filter,
+      gain,
+      panner,
+    }
   }
 
   private disconnect(): void {

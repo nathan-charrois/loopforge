@@ -93,7 +93,6 @@ export class AudioEngine {
     this.workspace = workspace
 
     if (this.mixerGraph !== undefined) {
-      this.stopAll()
       this.mixerGraph.loadWorkspace(workspace)
     }
   }
