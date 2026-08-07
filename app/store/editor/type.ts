@@ -13,7 +13,7 @@ import type { MidiNote, Tick } from '~/domain/musicPrimitives'
 import type { NoteEvent, PatternEventId, PatternEventKind } from '~/domain/patternEvents'
 import type { PatternId, PatternKind } from '~/domain/patterns'
 import type { ChordPlayback } from '~/domain/playback'
-import type { TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
+import type { LoopEvent, TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
 import type { TrackId, TrackRole } from '~/domain/tracks'
 import type { ChordVoicing } from '~/domain/voicing'
 
@@ -21,6 +21,7 @@ export const ACTIVE_TOOLS = [
   'select',
   'hand',
   'drawBlock',
+  'drawLoop',
   'drawSection',
   'erase',
   'split',
@@ -88,6 +89,14 @@ export type DragState
   | {
     currentTick: Tick
     kind: 'drawSection'
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+  }
+  | {
+    currentTick: Tick
+    kind: 'drawLoop'
     pointerId: number
     startClientX: number
     startClientY: number
@@ -170,6 +179,24 @@ export type DragState
     startClientY: number
     startTick: Tick
   }
+  | {
+    currentTick: Tick
+    event: LoopEvent
+    kind: 'moveLoop'
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+  }
+  | {
+    currentTick: Tick
+    edge: 'left' | 'right'
+    event: LoopEvent
+    kind: 'resizeLoop'
+    pointerId: number
+    startClientX: number
+    startClientY: number
+  }
 
 export type BlockDraft = {
   blockColor: string
@@ -183,6 +210,8 @@ export type TimelineEventDraft = {
   keyMode: Key['mode']
   keyTick: number
   keyTonic: number
+  loopLengthTicks: number
+  loopTick: number
   meterDenominator: TimeSignatureDenominator
   meterNumerator: number
   meterTick: number

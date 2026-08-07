@@ -8,6 +8,7 @@ import {
 import type {
   Block,
   BlockId,
+  LoopEvent,
   MidiNote,
   NoteEvent,
   PatternId,
@@ -37,6 +38,9 @@ type DragIntent
   }
   | {
     kind: 'drawSection'
+  }
+  | {
+    kind: 'drawLoop'
   }
   | {
     kind: 'drawPatternEvent'
@@ -75,6 +79,15 @@ type DragIntent
   | {
     event: TimelineEvent
     kind: 'moveTimelineEvent'
+  }
+  | {
+    event: LoopEvent
+    kind: 'moveLoop'
+  }
+  | {
+    edge: 'left' | 'right'
+    event: LoopEvent
+    kind: 'resizeLoop'
   }
 
 export function useDrag({
@@ -182,6 +195,14 @@ export function useDrag({
           startTick: tick,
         })
         return
+      case 'drawLoop':
+        setDragState({
+          ...pointer,
+          currentTick: getInitialDrawEndTick(workspace.timeline, tick),
+          kind: intent.kind,
+          startTick: tick,
+        })
+        return
       case 'drawPatternEvent':
         setDragState({
           ...pointer,
@@ -257,6 +278,24 @@ export function useDrag({
           event: intent.event,
           kind: intent.kind,
           startTick: tick,
+        })
+        return
+      case 'moveLoop':
+        setDragState({
+          ...pointer,
+          currentTick: tick,
+          event: intent.event,
+          kind: intent.kind,
+          startTick: tick,
+        })
+        return
+      case 'resizeLoop':
+        setDragState({
+          ...pointer,
+          currentTick: tick,
+          edge: intent.edge,
+          event: intent.event,
+          kind: intent.kind,
         })
     }
   }, [getPointerTick, workspace.timeline])

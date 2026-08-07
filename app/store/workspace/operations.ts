@@ -22,6 +22,7 @@ import {
   type GridDivision,
   type Instrument,
   type InstrumentId,
+  isLoopEvent,
   type MasterMixChannel,
   type MidiNote,
   type MixChannel,
@@ -702,6 +703,10 @@ export function addTimelineEvent(workspace: Workspace, event: TimelineEvent): Wo
 
   if (selectTimelineEvent(workspace, event.id) !== undefined) {
     throw new Error(`Timeline event ${event.id} already exists.`)
+  }
+
+  if (isLoopEvent(event) && workspace.timeline.loopEvents.length > 0) {
+    throw new Error('Timeline already has a loop event.')
   }
 
   return setTimeline(workspace, {

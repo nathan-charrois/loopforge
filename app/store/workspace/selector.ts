@@ -2,21 +2,24 @@ import type { Workspace } from './type'
 import {
   type Instrument,
   type InstrumentId,
-  type KeyEvent,
   type MasterMixChannel,
-  type MeterEvent,
   type MixChannel,
   type MixChannelId,
   type Mixer,
-  sortTimelineEventsByTick,
-  type TempoEvent,
-  type TimelineEvent,
-  type TimelineEventId,
 } from '~/domain'
 import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
 import type { Tick, TickRange } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
 import type { Pattern, PatternId } from '~/domain/patterns'
+import {
+  getLoopEventEndTick,
+  type KeyEvent,
+  type MeterEvent,
+  sortTimelineEventsByTick,
+  type TempoEvent,
+  type TimelineEvent,
+  type TimelineEventId,
+} from '~/domain/timeline'
 import type { Track, TrackId } from '~/domain/tracks'
 
 export function selectMixer(workspace: Workspace): Mixer {
@@ -139,8 +142,9 @@ export function selectSectionsInRange(workspace: Workspace, range: TickRange): S
 export function selectWorkspaceEndTick(workspace: Workspace): Tick {
   const sectionEndTicks = workspace.arrangement.sections.map(getSectionEndTick)
   const blockEndTicks = workspace.arrangement.blocks.map(getBlockEndTick)
+  const loopEndTicks = workspace.timeline.loopEvents.map(getLoopEventEndTick)
 
-  return Math.max(0, ...sectionEndTicks, ...blockEndTicks)
+  return Math.max(0, ...sectionEndTicks, ...blockEndTicks, ...loopEndTicks)
 }
 
 export function selectTimelineEvent(workspace: Workspace, timelineEventId: TimelineEventId): TimelineEvent | undefined {
@@ -152,6 +156,7 @@ export function selectTimelineEvents(workspace: Workspace): TimelineEvent[] {
     ...workspace.timeline.tempoEvents,
     ...workspace.timeline.meterEvents,
     ...workspace.timeline.keyEvents,
+    ...workspace.timeline.loopEvents,
   ])
 }
 

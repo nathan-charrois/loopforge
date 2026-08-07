@@ -1,10 +1,16 @@
 import { createDefaultKey, type Key } from '../harmony'
-import { createTick, type Tick } from '../musicPrimitives'
+import {
+  createPositiveDurationTicks,
+  createTick,
+  type DurationTicks,
+  type Tick,
+} from '../musicPrimitives'
 import { PPQ } from './constants'
 import {
   type BeatsPerMinute,
   isValidTimeSignature,
   type KeyEvent,
+  type LoopEvent,
   type MeterEvent,
   type TempoEvent,
   type Timeline,
@@ -16,6 +22,7 @@ export function createTimeline(input: Partial<Timeline> = {}): Timeline {
   return {
     grid: input.grid ?? 'sixteenthNote',
     keyEvents: input.keyEvents ?? [createKeyEvent({ key: createDefaultKey(), tick: 0 })],
+    loopEvents: input.loopEvents ?? [createLoopEvent({ tick: 0 })],
     meterEvents: input.meterEvents ?? [createMeterEvent({ tick: 0 })],
     ppq: input.ppq ?? PPQ,
     tempoEvents: input.tempoEvents ?? [createTempoEvent({ bpm: 120, tick: 0 })],
@@ -66,6 +73,21 @@ export function createKeyEvent(input: { id?: TimelineEventId, tick?: Tick, key: 
   return {
     id: input.id ?? `keyEvent_${tick}`,
     key: input.key,
+    tick,
+  }
+}
+
+export function createLoopEvent(input: {
+  id?: TimelineEventId
+  lengthTicks?: DurationTicks
+  tick?: Tick
+}): LoopEvent {
+  const tick = createTick(input.tick ?? 0)
+  const lengthTicks = createPositiveDurationTicks(input.lengthTicks ?? PPQ)
+
+  return {
+    id: input.id ?? `loopEvent_${tick}`,
+    lengthTicks,
     tick,
   }
 }

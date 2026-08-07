@@ -5,6 +5,7 @@ type KeyboardShortcutHandlers = {
   onDelete?: () => void
   onDuplicate?: () => void
   onEscape?: () => void
+  onLoop?: () => void
   onPaste?: () => void
   onRedo?: () => void
   onUndo?: () => void
@@ -15,6 +16,7 @@ export function useKeyboardShortcuts({
   onDelete,
   onDuplicate,
   onEscape,
+  onLoop,
   onPaste,
   onRedo,
   onUndo,
@@ -64,6 +66,12 @@ export function useKeyboardShortcuts({
         return
       }
 
+      if (modifierPressed && key === 'l' && onLoop !== undefined) {
+        event.preventDefault()
+        onLoop()
+        return
+      }
+
       if (modifierPressed && key === 'c' && onCopy !== undefined) {
         event.preventDefault()
         onCopy()
@@ -84,6 +92,7 @@ export function useKeyboardShortcuts({
     onDelete,
     onDuplicate,
     onEscape,
+    onLoop,
     onPaste,
     onRedo,
     onUndo,

@@ -3,7 +3,9 @@ import { useMemo } from 'react'
 import {
   type Block,
   getBlockEndTick,
+  getLoopEventEndTick,
   getSectionEndTick,
+  type LoopEvent,
   type NoteEvent,
   type Pattern,
   type Section,
@@ -57,6 +59,20 @@ export function useTimelineEventOverlay(
   drag: DragState | undefined,
 ): TimelineEvent | undefined {
   return useMemo(() => buildTimelineEventPlaceholder(drag), [drag])
+}
+
+export function useLoopLaneOverlay(
+  drag: DragState | undefined,
+): {
+  drawRange?: TickRange
+  loopPlaceholder?: LoopEvent
+} {
+  return useMemo(() => ({
+    drawRange: drag?.kind === 'drawLoop'
+      ? getTickRange(drag)
+      : undefined,
+    loopPlaceholder: buildLoopPlaceholder(drag),
+  }), [drag])
 }
 
 export function usePatternEventOverlay(
@@ -206,5 +222,37 @@ function buildTimelineEventPlaceholder(
   return {
     ...drag.event,
     tick: Math.max(0, drag.event.tick + getDeltaTicks(drag)),
+  }
+}
+
+function buildLoopPlaceholder(
+  drag: DragState | undefined,
+): LoopEvent | undefined {
+  if (drag?.kind === 'moveLoop') {
+    return {
+      ...drag.event,
+      tick: Math.max(0, drag.event.tick + getDeltaTicks(drag)),
+    }
+  }
+
+  if (drag?.kind !== 'resizeLoop') {
+    return undefined
+  }
+
+  const endTick = getLoopEventEndTick(drag.event)
+
+  if (drag.edge === 'left') {
+    const tick = Math.min(drag.currentTick, endTick - 1)
+
+    return {
+      ...drag.event,
+      lengthTicks: endTick - tick,
+      tick,
+    }
+  }
+
+  return {
+    ...drag.event,
+    lengthTicks: Math.max(1, drag.currentTick - drag.event.tick),
   }
 }

@@ -5,6 +5,7 @@ import {
   type DurationTicks,
   isPositiveDurationTicks,
   type Tick,
+  type TickRange,
 } from '../musicPrimitives'
 import { GRID_DIVISIONS, PPQ, TIME_SIGNATURE_DENOMINATORS } from './constants'
 
@@ -36,15 +37,22 @@ export type KeyEvent = {
   key: Key
 }
 
-export type TimelineEvent = TempoEvent | MeterEvent | KeyEvent
+export type LoopEvent = {
+  id: TimelineEventId
+  tick: Tick
+  lengthTicks: DurationTicks
+}
 
-export type TimelineEventField = 'tempoEvents' | 'meterEvents' | 'keyEvents'
+export type TimelineEvent = TempoEvent | MeterEvent | KeyEvent | LoopEvent
+
+export type TimelineEventField = 'tempoEvents' | 'meterEvents' | 'keyEvents' | 'loopEvents'
 
 export type Timeline = {
   ppq: number
   tempoEvents: TempoEvent[]
   meterEvents: MeterEvent[]
   keyEvents: KeyEvent[]
+  loopEvents: LoopEvent[]
   grid: GridDivision
 }
 
@@ -72,6 +80,27 @@ export function getMeterAtTick(timeline: Timeline, tick: Tick): TimeSignature {
 
 export function getKeyAtTick(timeline: Timeline, tick: Tick): Key {
   return getActiveEvent(timeline.keyEvents, tick, 'key').key
+}
+
+export function getLoopEvent(timeline: Timeline): LoopEvent | undefined {
+  return timeline.loopEvents[0]
+}
+
+export function getLoopEventEndTick(event: LoopEvent): Tick {
+  return createTick(event.tick + event.lengthTicks)
+}
+
+export function toLoopTickRange(timeline: Timeline): TickRange | undefined {
+  const loopEvent = getLoopEvent(timeline)
+
+  if (loopEvent === undefined) {
+    return undefined
+  }
+
+  return {
+    endTick: getLoopEventEndTick(loopEvent),
+    startTick: loopEvent.tick,
+  }
 }
 
 export function getTicksPerBeat(timeSignature: TimeSignature, ppq = PPQ): DurationTicks {
@@ -263,6 +292,10 @@ export function isKeyEvent(event?: TimelineEvent): event is KeyEvent {
   return typeof event !== 'undefined' && 'key' in event
 }
 
+export function isLoopEvent(event?: TimelineEvent): event is LoopEvent {
+  return typeof event !== 'undefined' && 'lengthTicks' in event
+}
+
 export function getTimelineEventField(event: TimelineEvent): TimelineEventField {
   if (isTempoEvent(event)) {
     return 'tempoEvents'
@@ -272,7 +305,11 @@ export function getTimelineEventField(event: TimelineEvent): TimelineEventField 
     return 'meterEvents'
   }
 
-  return 'keyEvents'
+  if (isKeyEvent(event)) {
+    return 'keyEvents'
+  }
+
+  return 'loopEvents'
 }
 
 export function sortTimelineEventsByTick<TEvent extends TimelineEvent>(events: readonly TEvent[]): TEvent[] {
@@ -345,6 +382,7 @@ export function validateTimeline(timeline: Timeline): string[] {
   errors.push(...validateEvents('tempo', timeline.tempoEvents))
   errors.push(...validateEvents('meter', timeline.meterEvents))
   errors.push(...validateEvents('key', timeline.keyEvents))
+  errors.push(...validateEvents('loop', timeline.loopEvents))
 
   for (const tempoEvent of timeline.tempoEvents) {
     if (tempoEvent.bpm <= 0) {
@@ -355,6 +393,12 @@ export function validateTimeline(timeline: Timeline): string[] {
   for (const meterEvent of timeline.meterEvents) {
     if (!isValidTimeSignature(meterEvent.timeSignature)) {
       errors.push(`Meter event at ${meterEvent.tick} has an invalid time signature.`)
+    }
+  }
+
+  for (const loopEvent of timeline.loopEvents) {
+    if (!isPositiveDurationTicks(loopEvent.lengthTicks)) {
+      errors.push(`Loop event at ${loopEvent.tick} must have a positive length.`)
     }
   }
 

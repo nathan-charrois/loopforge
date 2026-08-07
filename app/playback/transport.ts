@@ -1,5 +1,10 @@
 import type { PlaybackSchedule } from './buildSchedule'
-import { type Tick, type TickRange, toTimelineTick } from '~/domain'
+import {
+  type Tick,
+  type TickRange,
+  toLoopTickRange,
+  toTimelineTick,
+} from '~/domain'
 import { createTimelineClock, type TimelineClock } from '~/playback/timelineClock'
 import type { Workspace } from '~/store/workspace'
 import { clampNumber, positiveModulo } from '~/utils/number'
@@ -63,9 +68,9 @@ export class Transport {
     const initialTick = this.getPlayheadTick()
 
     this.clock = createTimelineClock(workspace.timeline)
-    this.projectEndTick = toTimelineTick(schedule.projectEndTick)
 
-    this.loopRange = this.normalizeLoopRange(this.loopRange)
+    this.loopRange = toLoopTickRange(workspace.timeline)
+    this.projectEndTick = toTimelineTick(schedule.projectEndTick)
 
     this.setPosition(initialTick)
     this.publishSnapshot()
@@ -140,11 +145,9 @@ export class Transport {
 
   public setLoop(range: TickRange | undefined, enabled = this.loopEnabled): void {
     this.requireClock()
-    this.loopEnabled = enabled
 
-    if (range !== undefined) {
-      this.loopRange = this.normalizeLoopRange(range)
-    }
+    this.loopRange = range
+    this.loopEnabled = enabled
 
     const activeLoopRange = this.getActiveLoopRange()
 
@@ -251,46 +254,7 @@ export class Transport {
   }
 
   private getActiveLoopRange(): TickRange | undefined {
-    return this.loopEnabled ? this.getLoopRange() : undefined
-  }
-
-  private getLoopRange(): TickRange | undefined {
-    return this.loopRange ?? this.getDefaultLoopRange()
-  }
-
-  private normalizeLoopRange(range: TickRange | undefined): TickRange | undefined {
-    if (range === undefined) {
-      return range
-    }
-
-    if (this.projectEndTick <= 0) {
-      return undefined
-    }
-
-    const startTick = clampNumber(
-      toTimelineTick(range.startTick),
-      0,
-      this.projectEndTick - 1,
-    )
-
-    const endTick = clampNumber(
-      toTimelineTick(range.endTick),
-      startTick + 1,
-      this.projectEndTick,
-    )
-
-    return { startTick, endTick }
-  }
-
-  private getDefaultLoopRange(): TickRange | undefined {
-    if (this.projectEndTick <= 0) {
-      return undefined
-    }
-
-    return this.normalizeLoopRange({
-      startTick: 0,
-      endTick: this.projectEndTick,
-    })
+    return this.loopEnabled ? this.loopRange : undefined
   }
 
   private clampTick(tick: Tick): Tick {
@@ -335,7 +299,7 @@ export class Transport {
       playheadTick,
       projectEndTick: this.projectEndTick,
       loopEnabled: this.loopEnabled,
-      loopRange: this.getLoopRange(),
+      loopRange: this.loopRange,
     })
   }
 

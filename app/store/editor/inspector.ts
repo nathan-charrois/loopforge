@@ -7,6 +7,7 @@ import {
   DEFAULT_TRACK_COLOR,
   type Instrument,
   isKeyEvent,
+  isLoopEvent,
   isMeterEvent,
   isTempoEvent,
   type MixChannel,
@@ -28,6 +29,8 @@ export function createInspectorDraft(): InspectorDraft {
     keyMode: 'major',
     keyTick: 0,
     keyTonic: 0,
+    loopLengthTicks: 1,
+    loopTick: 0,
     meterDenominator: 4,
     meterNumerator: 4,
     meterTick: 0,
@@ -268,6 +271,14 @@ export function updateInspectorDraftFromTimelineEvent(
       keyMode: selectedTimelineEvent.key.mode,
       keyTick: selectedTimelineEvent.tick,
       keyTonic: selectedTimelineEvent.key.tonic,
+    }
+  }
+
+  if (isLoopEvent(selectedTimelineEvent)) {
+    return {
+      ...currentDraft,
+      loopLengthTicks: selectedTimelineEvent.lengthTicks,
+      loopTick: selectedTimelineEvent.tick,
     }
   }
 

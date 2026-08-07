@@ -49,17 +49,21 @@ import {
   createDraftEntityId,
   createDrumHitEvent,
   createKeyEvent,
+  createLoopEvent,
   createMeterEvent,
   createNoteEvent,
   createPattern,
   createSeedPatternEvents,
   createTempoEvent,
   getKeyAtTick,
+  getLoopEventEndTick,
   getMeterAtTick,
   getSectionEndTick,
   getTempoAtTick,
   type Instrument,
   type InstrumentId,
+  isKeyEvent,
+  isLoopEvent,
   isMeterEvent,
   isTempoEvent,
   type Key,
@@ -396,6 +400,26 @@ export function completeDragAction(input: {
     ]
   }
 
+  if (dragState.kind === 'drawLoop') {
+    const range = snapToMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
+    const currentLoop = workspace.timeline.loopEvents[0]
+    const loopEvent = createLoopEvent({
+      id: currentLoop?.id ?? createDraftEntityId('loopEvent', selectTimelineEventIds(workspace)),
+      lengthTicks: range.lengthTicks,
+      tick: range.startTick,
+    })
+
+    return [
+      currentLoop === undefined
+        ? addTimelineEventAction(loopEvent)
+        : updateTimelineEventAction(loopEvent),
+      setSelectionAction({
+        ...createSelectionState(),
+        selectedTimelineEventIds: [loopEvent.id],
+      }),
+    ]
+  }
+
   if (dragState.kind === 'selectRange') {
     return isPointerDrag(movementX, movementY, threshold)
       ? [createSetSelectionCommand(createRangeSelectionState(
@@ -489,6 +513,34 @@ export function completeDragAction(input: {
       ...dragState.event,
       tick: Math.max(0, dragState.event.tick + deltaTicks),
     })]
+  }
+
+  if (dragState.kind === 'moveLoop') {
+    const deltaTicks = endTick - dragState.startTick
+
+    return [updateTimelineEventAction(createLoopEvent({
+      ...dragState.event,
+      tick: Math.max(0, dragState.event.tick + deltaTicks),
+    }))]
+  }
+
+  if (dragState.kind === 'resizeLoop') {
+    const currentEndTick = getLoopEventEndTick(dragState.event)
+
+    if (dragState.edge === 'left') {
+      const tick = Math.min(endTick, currentEndTick - 1)
+
+      return [updateTimelineEventAction(createLoopEvent({
+        ...dragState.event,
+        lengthTicks: currentEndTick - tick,
+        tick,
+      }))]
+    }
+
+    return [updateTimelineEventAction(createLoopEvent({
+      ...dragState.event,
+      lengthTicks: Math.max(1, endTick - dragState.event.tick),
+    }))]
   }
 
   return []
@@ -734,14 +786,26 @@ export function updateTimelineEventFromInspectorAction(input: {
     }))
   }
 
-  return updateTimelineEventAction(createKeyEvent({
-    id: timelineEvent.id,
-    key: {
-      mode: draft.keyMode,
-      tonic: draft.keyTonic as Key['tonic'],
-    },
-    tick: draft.keyTick,
-  }))
+  if (isKeyEvent(timelineEvent)) {
+    return updateTimelineEventAction(createKeyEvent({
+      id: timelineEvent.id,
+      key: {
+        mode: draft.keyMode,
+        tonic: draft.keyTonic as Key['tonic'],
+      },
+      tick: draft.keyTick,
+    }))
+  }
+
+  if (isLoopEvent(timelineEvent)) {
+    return updateTimelineEventAction(createLoopEvent({
+      id: timelineEvent.id,
+      lengthTicks: draft.loopLengthTicks,
+      tick: draft.loopTick,
+    }))
+  }
+
+  throw new Error('Unsupported timeline event.')
 }
 
 function isPointerDrag(movementX: number, movementY: number, threshold: number): boolean {

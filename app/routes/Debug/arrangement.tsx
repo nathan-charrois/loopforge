@@ -27,6 +27,7 @@ import {
   PencilEdit01Icon,
   PlayIcon,
   Redo03Icon,
+  RepeatIcon,
   Resize01Icon,
   ScissorIcon,
   StopIcon,
@@ -83,6 +84,8 @@ import {
   formatTickAsBars,
   formatTickRangeAsBars,
   getBlockEndTick,
+  getLoopEvent,
+  getLoopEventEndTick,
   getNoteNameForPitchClass,
   getRulerMarks,
   getSectionEndTick,
@@ -91,9 +94,11 @@ import {
   type Instrument,
   type InstrumentId,
   isKeyEvent,
+  isLoopEvent,
   isMeterEvent,
   isTempoEvent,
   type Key,
+  type LoopEvent,
   type MasterMixChannel,
   MAX_MIX_CHANNEL_PAN,
   MIN_MIX_CHANNEL_PAN,
@@ -129,6 +134,7 @@ import { useAnimationFrameThrottle } from '~/hooks/useAnimationFrameThrottle'
 import { useBlockStack } from '~/hooks/useBlockStack'
 import { useDrag } from '~/hooks/useDrag'
 import {
+  useLoopLaneOverlay,
   useSectionLaneOverlay,
   useTimelineEventOverlay,
   useTrackLaneOverlay,
@@ -137,6 +143,7 @@ import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
 import { useSessionProject } from '~/hooks/useSessionProject'
 import {
   useTransportPlayhead,
+  useTransportSnapshot,
   useTransportStatus,
 } from '~/hooks/useTransport'
 import { useViewport } from '~/hooks/useViewport'
@@ -151,6 +158,7 @@ import {
   copySelectionAction,
   createArrangementTrackDraft,
   createInspectorDraft,
+  createSelectionState,
   deleteSelectionAction,
   type DragState,
   duplicateSelectionAction,
@@ -177,6 +185,7 @@ import {
   setActivePatternPanelToolAction,
   setActiveToolAction,
   setFocusedBlockIdAction,
+  setSelectionAction,
   tickToX,
   unfocusSelectionAction,
   updateBlockFromInspectorAction,
@@ -218,10 +227,12 @@ const MIX_CHANNEL_COLUMN_WIDTH = 73
 const TIMELINE_PADDING_TICKS = 7680
 const MIN_BLOCK_WIDTH = 2
 const MIN_SECTION_WIDTH = 2
+const MIN_LOOP_WIDTH = 2
 const MIN_OVERLAY_WIDTH = 2
 const BLOCK_TOP = 14
 const BLOCK_HEIGHT = 42
-const TIMELINE_MARKER_TOP = 10
+const TIMELINE_MARKER_TOP = 25
+const LOOP_LANE_HEIGHT = 10
 const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
@@ -276,7 +287,7 @@ const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_IDS.map(value => ({
   value,
 }))
 
-const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['drawBlock', 'drawSection', 'tempo', 'meter', 'key']
+const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['drawBlock', 'drawLoop', 'drawSection', 'tempo', 'meter', 'key']
 
 const TOOLBAR_SECTION_LEFT = ACTIVE_TOOLS.filter(tool => !TOOLBAR_SECTION_KEYS.includes(tool)).map(tool => ({
   icon: getToolIcon(tool),
@@ -361,7 +372,6 @@ function ArrangementDebugContent() {
   const selectedSection = useMemo(() => selectFirstSelectedSection(editor, workspace), [editor, workspace])
   const selectedTimelineEvent = useMemo(() => selectFirstSelectedTimelineEvent(editor, workspace), [editor, workspace])
   const selectedTrack = useMemo(() => selectFirstSelectedTrack(editor, workspace), [editor, workspace])
-
   const timelineEndTick = useMemo(
     () => selectWorkspaceEndTick(workspace) + TIMELINE_PADDING_TICKS,
     [workspace],
@@ -437,6 +447,12 @@ function ArrangementDebugContent() {
 
     if (editor.activeTool === 'select') {
       startDrag(event, { kind: 'selectRange', row: 0 })
+    }
+  }, [editor.activeTool, startDrag])
+
+  const handleLoopLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button === 0 && editor.activeTool === 'drawLoop') {
+      startDrag(event, { kind: 'drawLoop' })
     }
   }, [editor.activeTool, startDrag])
 
@@ -549,9 +565,21 @@ function ArrangementDebugContent() {
     dispatch(selectTimelineEventAction(timelineEvent.id, event.shiftKey))
 
     if (editor.activeTool === 'select' || editor.activeTool === 'move') {
-      startDrag(event, { event: timelineEvent, kind: 'moveTimelineEvent' })
+      startDrag(event, isLoopEvent(timelineEvent)
+        ? { event: timelineEvent, kind: 'moveLoop' }
+        : { event: timelineEvent, kind: 'moveTimelineEvent' })
     }
   }, [dispatch, editor.activeTool, startDrag])
+
+  const resizeTimelineEvent = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    loopEvent: LoopEvent,
+    edge: 'left' | 'right',
+  ) => {
+    event.stopPropagation()
+    dispatch(selectTimelineEventAction(loopEvent.id, event.shiftKey))
+    startDrag(event, { edge, event: loopEvent, kind: 'resizeLoop' })
+  }, [dispatch, startDrag])
 
   const handleTimelineLabelPointerDown = useCallback((
     event: ReactMouseEvent<HTMLDivElement>,
@@ -668,6 +696,19 @@ function ArrangementDebugContent() {
   const duplicateSelection = useCallback(() => {
     dispatch(duplicateSelectionAction(editor.selection, workspace.timeline.ppq))
   }, [editor.selection, dispatch, workspace.timeline.ppq])
+
+  const loopSelection = useCallback(() => {
+    const loopEvent = getLoopEvent(workspace.timeline)
+
+    if (loopEvent === undefined) {
+      return
+    }
+
+    dispatch(setSelectionAction({
+      ...createSelectionState(),
+      selectedTimelineEventIds: [loopEvent.id],
+    }))
+  }, [dispatch, workspace.timeline])
 
   const deleteSelection = useCallback(() => {
     dispatch(deleteSelectionAction(editor.selection))
@@ -794,6 +835,7 @@ function ArrangementDebugContent() {
     onDelete: deleteSelection,
     onDuplicate: duplicateSelection,
     onEscape: unfocusSelection,
+    onLoop: loopSelection,
     onCopy: handleCopy,
     onPaste: handlePaste,
     onRedo: redo,
@@ -937,6 +979,18 @@ function ArrangementDebugContent() {
                   onResizePointerDown={handleSectionResizePointerDown}
                   onSectionPointerDown={handleSectionPointerDown}
                   onSetHoveredSection={setHoveredSectionId}
+                />
+                <LoopLane
+                  drag={dragState}
+                  hoveredTimelineEventId={hoveredTimelineEventId}
+                  selectedTimelineEventIds={editor.selection.selectedTimelineEventIds}
+                  timelineWidth={timelineWidth}
+                  viewport={viewport}
+                  workspace={workspace}
+                  onLoopPointerDown={handleTimelineEventPointerDown}
+                  onPointerDown={handleLoopLanePointerDown}
+                  onResizePointerDown={resizeTimelineEvent}
+                  onSetHoveredLoop={setHoveredTimelineEventId}
                 />
                 <Box ref={trackRowsRef} pos="relative">
                   {tracks.map(track => (
@@ -1169,6 +1223,7 @@ const PlaybackControls = memo(function PlaybackControls({
   playbackEngine: PlaybackEngine
 }) {
   const status = useTransportStatus(playbackEngine)
+  const transportSnapshot = useTransportSnapshot(playbackEngine)
 
   return (
     <Group gap={4}>
@@ -1205,6 +1260,21 @@ const PlaybackControls = memo(function PlaybackControls({
           onClick={() => playbackEngine.stop()}
         >
           <HugeiconsIcon icon={StopIcon} size={18} />
+        </ActionIcon>
+      </Tooltip>
+      <Tooltip label={transportSnapshot.loopEnabled ? 'Disable loop' : 'Enable loop'}>
+        <ActionIcon
+          aria-label={transportSnapshot.loopEnabled ? 'Disable loop' : 'Enable loop'}
+          aria-pressed={transportSnapshot.loopEnabled}
+          color="violet"
+          size="lg"
+          variant={transportSnapshot.loopEnabled ? 'filled' : 'light'}
+          onClick={() => playbackEngine.setLoop(
+            transportSnapshot.loopRange,
+            !transportSnapshot.loopEnabled,
+          )}
+        >
+          <HugeiconsIcon icon={RepeatIcon} size={18} />
         </ActionIcon>
       </Tooltip>
     </Group>
@@ -1333,6 +1403,7 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
       <StaticTimelineLabel height={viewport.sectionLaneHeight} opacity={focusedBlockId === undefined ? 1 : 0.4}>
         <Text c="dimmed" size="xs">Track</Text>
       </StaticTimelineLabel>
+      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       {tracks.map(track => (
         <TimelineTrackLabel
           key={track.id}
@@ -1415,6 +1486,7 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
       <StaticTimelineLabel height={viewport.sectionLaneHeight}>
         <Text c="dimmed" size="xs">Instrument</Text>
       </StaticTimelineLabel>
+      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       {tracks.map((track) => {
         const instrument = selectInstrument(workspace, track.instrumentId)
 
@@ -1488,6 +1560,7 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
       <StaticTimelineLabel height={viewport.sectionLaneHeight}>
         <Text c="dimmed" size="xs">Mix</Text>
       </StaticTimelineLabel>
+      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       {tracks.map((track) => {
         const mixChannel = selectMixChannel(workspace, track.mixChannelId)
 
@@ -1679,27 +1752,119 @@ const TimelineRuler = memo(function TimelineRuler({
   )
 })
 
+const LoopLane = memo(function LoopLane({
+  drag,
+  hoveredTimelineEventId,
+  onLoopPointerDown,
+  onPointerDown,
+  onResizePointerDown,
+  onSetHoveredLoop,
+  selectedTimelineEventIds,
+  timelineWidth,
+  viewport,
+  workspace,
+}: {
+  drag?: DragState
+  hoveredTimelineEventId?: TimelineEventId
+  onLoopPointerDown: (event: ReactPointerEvent<HTMLDivElement>, loopEvent: LoopEvent) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, loopEvent: LoopEvent, edge: 'left' | 'right') => void
+  onSetHoveredLoop: (timelineEventId: TimelineEventId | undefined) => void
+  selectedTimelineEventIds: TimelineEventId[]
+  timelineWidth: number
+  viewport: ViewportState
+  workspace: Workspace
+}) {
+  const loopEvent = getLoopEvent(workspace.timeline)
+  const { drawRange, loopPlaceholder } = useLoopLaneOverlay(drag)
+  const visibleLoop = loopPlaceholder ?? loopEvent
+
+  return (
+    <Box
+      onPointerDown={onPointerDown}
+      style={{
+        background: 'var(--mantine-color-gray-1)',
+        borderBottom: '1px solid var(--mantine-color-gray-3)',
+        height: LOOP_LANE_HEIGHT,
+        position: 'relative',
+        width: timelineWidth,
+      }}
+    >
+      {visibleLoop !== undefined && (
+        <TimelineEventMarker
+          color="violet"
+          compact
+          height={LOOP_LANE_HEIGHT}
+          icon={RepeatIcon}
+          isHovered={hoveredTimelineEventId === visibleLoop.id}
+          isPlaceholder={loopPlaceholder !== undefined}
+          isSelected={selectedTimelineEventIds.includes(visibleLoop.id)}
+          label="Loop"
+          left={tickToX(viewport.pixelsPerTick, visibleLoop.tick)}
+          title={`Loop: ${formatTickRangeAsBars(workspace.timeline, visibleLoop.tick, getLoopEventEndTick(visibleLoop))}`}
+          top={0}
+          width={Math.max(MIN_LOOP_WIDTH, tickToX(viewport.pixelsPerTick, visibleLoop.lengthTicks))}
+          onMouseEnter={() => onSetHoveredLoop(visibleLoop.id)}
+          onMouseLeave={() => onSetHoveredLoop(undefined)}
+          onPointerDown={event => onLoopPointerDown(event, visibleLoop)}
+          onResizePointerDown={loopPlaceholder === undefined
+            ? (event, edge) => onResizePointerDown(event, visibleLoop, edge)
+            : undefined}
+        />
+      )}
+      {drawRange !== undefined && (
+        <TimelineEventMarker
+          color="violet"
+          compact
+          height={LOOP_LANE_HEIGHT}
+          icon={RepeatIcon}
+          isHovered={false}
+          isPlaceholder
+          isSelected={false}
+          label="Loop"
+          left={tickToX(viewport.pixelsPerTick, Math.min(drawRange.startTick, drawRange.endTick))}
+          top={0}
+          width={Math.max(
+            MIN_LOOP_WIDTH,
+            tickToX(viewport.pixelsPerTick, Math.abs(drawRange.endTick - drawRange.startTick)),
+          )}
+        />
+      )}
+    </Box>
+  )
+})
+
 const TimelineEventMarker = memo(function TimelineEventMarker({
   color,
+  compact = false,
+  height = 26,
   icon,
   isHovered,
   isSelected,
   isPlaceholder = false,
   label,
   left,
+  onResizePointerDown,
+  title,
   top,
+  width,
   onMouseEnter,
   onMouseLeave,
   onPointerDown,
 }: {
   color: string
+  compact?: boolean
+  height?: number
   icon: typeof TimeSetting01Icon
   isHovered: boolean
   isPlaceholder?: boolean
   isSelected: boolean
   label: string
   left: number
+  onResizePointerDown?: (event: ReactPointerEvent<HTMLDivElement>, edge: 'left' | 'right') => void
+  title?: string
   top: number
+  width?: number
   onMouseEnter?: () => void
   onMouseLeave?: () => void
   onPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void
@@ -1709,18 +1874,20 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onPointerDown={onPointerDown}
+      title={title}
       style={{
         alignItems: 'center',
         cursor: 'grab',
         display: 'flex',
-        height: 26,
-        left: Math.max(-2, left - 3),
-        minWidth: 42,
+        height,
+        left: compact ? left : Math.max(-2, left - 3),
+        minWidth: width ?? 42,
         opacity: isPlaceholder ? 0.52 : 1,
-        padding: 3,
+        padding: compact ? 0 : 3,
         pointerEvents: isPlaceholder ? 'none' : undefined,
         position: 'absolute',
-        top: Math.max(0, top - 3),
+        top: compact ? top : Math.max(0, top - 3),
+        width,
         zIndex: isSelected ? 8 : isPlaceholder ? 7 : 5,
         userSelect: 'none',
       }}
@@ -1735,14 +1902,25 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
           color: `var(--mantine-color-${color}-9)`,
           display: 'flex',
           gap: 3,
-          height: 20,
-          minWidth: 34,
+          height: compact ? '100%' : 20,
+          minWidth: compact ? 0 : 34,
           outline: isSelected ? SELECTED_STYLES.outline : undefined,
-          paddingInline: 4,
+          paddingInline: compact ? 0 : 4,
+          width: '100%',
         }}
       >
-        <HugeiconsIcon icon={icon} size={12} />
-        <Text fw={700} size="10px">{label}</Text>
+        {!compact && (
+          <>
+            <HugeiconsIcon icon={icon} size={12} />
+            <Text fw={700} size="10px">{label}</Text>
+          </>
+        )}
+        {onResizePointerDown !== undefined && (
+          <>
+            <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, 'left')} />
+            <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, 'right')} />
+          </>
+        )}
       </Box>
     </Box>
   )
@@ -3435,8 +3613,34 @@ const TimelineEventInspector = memo(function TimelineEventInspector({
           />
         </>
       )}
+      {isLoopEvent(event) && (
+        <>
+          <NumberInput
+            label="Start tick"
+            min={0}
+            size="xs"
+            value={draft.loopTick}
+            onChange={value => setDraft(currentDraft => ({
+              ...currentDraft,
+              loopTick: parseNumber(value.toString(), currentDraft.loopTick),
+            }))}
+          />
+          <NumberInput
+            label="Length ticks"
+            min={1}
+            size="xs"
+            value={draft.loopLengthTicks}
+            onChange={value => setDraft(currentDraft => ({
+              ...currentDraft,
+              loopLengthTicks: parseNumber(value.toString(), currentDraft.loopLengthTicks),
+            }))}
+          />
+        </>
+      )}
       <Text c="dimmed" size="xs">
-        {formatTickAsBars(workspace.timeline, event.tick)}
+        {isLoopEvent(event)
+          ? formatTickRangeAsBars(workspace.timeline, event.tick, getLoopEventEndTick(event))
+          : formatTickAsBars(workspace.timeline, event.tick)}
       </Text>
       <Group gap="xs">
         <Button size="xs" onClick={onUpdate}>Apply Event</Button>
@@ -3622,6 +3826,8 @@ function getToolIcon(tool: ActiveTool) {
   switch (tool) {
     case 'drawBlock':
       return PencilEdit01Icon
+    case 'drawLoop':
+      return RepeatIcon
     case 'drawSection':
       return PaintBrush01Icon
     case 'erase':
@@ -3650,11 +3856,11 @@ function getToolIcon(tool: ActiveTool) {
 function getRulerBorder(mark: RulerMark): string {
   switch (mark.kind) {
     case 'bar':
-      return '1px solid var(--mantine-color-gray-8)'
-    case 'beat':
       return '1px solid var(--mantine-color-gray-6)'
-    case 'subdivision':
+    case 'beat':
       return '1px solid var(--mantine-color-gray-4)'
+    case 'subdivision':
+      return '1px solid var(--mantine-color-gray-3)'
   }
 }
 
@@ -3693,6 +3899,10 @@ function getGridLineOpacity(kind: RulerMark['kind']): number {
 }
 
 function getTimelineEventMarkerLabel(event: TimelineEvent): string {
+  if (isLoopEvent(event)) {
+    return 'Loop'
+  }
+
   if (isTempoEvent(event)) {
     return `${event.bpm}`
   }
@@ -3701,10 +3911,14 @@ function getTimelineEventMarkerLabel(event: TimelineEvent): string {
     return `${event.timeSignature.numerator}/${event.timeSignature.denominator}`
   }
 
-  return `${event.key.tonic}`
+  return isKeyEvent(event) ? `${event.key.tonic}` : ''
 }
 
 function getTimelineEventMarkerColor(event: TimelineEvent): string {
+  if (isLoopEvent(event)) {
+    return 'violet'
+  }
+
   if (isTempoEvent(event)) {
     return 'red'
   }
@@ -3717,6 +3931,10 @@ function getTimelineEventMarkerColor(event: TimelineEvent): string {
 }
 
 function getTimelineEventMarkerIcon(event: TimelineEvent): typeof TimeSetting01Icon {
+  if (isLoopEvent(event)) {
+    return RepeatIcon
+  }
+
   if (isTempoEvent(event)) {
     return TimeSetting01Icon
   }
@@ -3729,21 +3947,30 @@ function getTimelineEventMarkerIcon(event: TimelineEvent): typeof TimeSetting01I
 }
 
 function getTimelineEventMarkerTop(event: TimelineEvent): number {
-  if (isTempoEvent(event)) {
-    return (TIMELINE_MARKER_TOP * 5) + 10
+  if (isKeyEvent(event)) {
+    return 0
   }
 
   if (isMeterEvent(event)) {
-    return (TIMELINE_MARKER_TOP * 3) + 8
+    return TIMELINE_MARKER_TOP + 1
   }
 
-  return TIMELINE_MARKER_TOP + 6
+  if (isTempoEvent(event)) {
+    return TIMELINE_MARKER_TOP * 2
+  }
+  if (isLoopEvent(event)) {
+    return TIMELINE_MARKER_TOP * 3
+  }
+
+  return TIMELINE_MARKER_TOP
 }
 
 function getToolLabel(tool: ActiveTool): string {
   switch (tool) {
     case 'drawBlock':
       return 'Draw block'
+    case 'drawLoop':
+      return 'Draw loop'
     case 'drawSection':
       return 'Draw section'
     case 'erase':
