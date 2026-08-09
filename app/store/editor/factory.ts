@@ -109,7 +109,7 @@ export function createViewportState(input: Partial<ViewportState> = {}): Viewpor
     pixelsPerTick: input.pixelsPerTick ?? DEFAULT_PIXELS_PER_TICK,
     minPixelsPerTick: input.minPixelsPerTick ?? DEFAULT_MIN_PIXELS_PER_TICK,
     maxPixelsPerTick: input.maxPixelsPerTick ?? DEFAULT_MAX_PIXELS_PER_TICK,
-    laneHeight: input.laneHeight ?? 72,
+    laneHeight: input.laneHeight ?? 78,
     sectionLaneHeight: input.sectionLaneHeight ?? 45,
     rulerHeight: input.rulerHeight ?? 75,
   }

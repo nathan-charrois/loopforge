@@ -143,6 +143,16 @@ export type DragState
     startTick: Tick
   }
   | {
+    currentTick: Tick
+    edge: 'left' | 'right'
+    event: NoteEvent
+    kind: 'resizeNotePatternEvent'
+    patternId: PatternId
+    pointerId: number
+    startClientX: number
+    startClientY: number
+  }
+  | {
     currentRow: number
     currentTick: Tick
     kind: 'selectRange'

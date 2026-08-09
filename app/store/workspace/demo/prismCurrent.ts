@@ -394,12 +394,12 @@ export function prismCurrent(): Workspace {
         createMixChannel({
           id: pianoTrack.mixChannelId,
           pan: -0.25,
-          volumeDb: -9,
+          volumeDb: -7,
         }),
         createMixChannel({
           id: stringsTrack.mixChannelId,
           pan: 0.25,
-          volumeDb: -6,
+          volumeDb: -7,
         }),
         createMixChannel({
           id: beatTrack.mixChannelId,

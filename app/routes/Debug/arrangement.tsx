@@ -229,7 +229,7 @@ const MIN_OVERLAY_WIDTH = 2
 const BLOCK_TOP = 14
 const BLOCK_HEIGHT = 42
 const TIMELINE_MARKER_TOP = 25
-const LOOP_LANE_HEIGHT = 30
+const LOOP_LANE_HEIGHT = 39
 const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
@@ -980,6 +980,18 @@ function ArrangementDebugContent() {
                   onMarkerPointerDown={handleTimelineEventPointerDown}
                   onRulerPointerDown={handleRulerPointerDown}
                 />
+                <LoopLane
+                  drag={dragState}
+                  hoveredTimelineEventId={hoveredTimelineEventId}
+                  selectedTimelineEventIds={editor.selection.selectedTimelineEventIds}
+                  timelineWidth={timelineWidth}
+                  viewport={viewport}
+                  workspace={workspace}
+                  onLoopPointerDown={handleTimelineEventPointerDown}
+                  onPointerDown={handleLoopLanePointerDown}
+                  onResizePointerDown={resizeTimelineEvent}
+                  onSetHoveredLoop={setHoveredTimelineEventId}
+                />
                 <SectionLane
                   drag={dragState}
                   focusedBlockId={editor.focusedBlockId}
@@ -994,18 +1006,6 @@ function ArrangementDebugContent() {
                   onResizePointerDown={handleSectionResizePointerDown}
                   onSectionPointerDown={handleSectionPointerDown}
                   onSetHoveredSection={setHoveredSectionId}
-                />
-                <LoopLane
-                  drag={dragState}
-                  hoveredTimelineEventId={hoveredTimelineEventId}
-                  selectedTimelineEventIds={editor.selection.selectedTimelineEventIds}
-                  timelineWidth={timelineWidth}
-                  viewport={viewport}
-                  workspace={workspace}
-                  onLoopPointerDown={handleTimelineEventPointerDown}
-                  onPointerDown={handleLoopLanePointerDown}
-                  onResizePointerDown={resizeTimelineEvent}
-                  onSetHoveredLoop={setHoveredTimelineEventId}
                 />
                 <Box ref={trackRowsRef} pos="relative">
                   {tracks.map(track => (
@@ -1419,10 +1419,10 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
           <Text fw={700} size="sm"></Text>
         </Group>
       </StaticTimelineLabel>
+      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       <StaticTimelineLabel height={viewport.sectionLaneHeight} opacity={focusedBlockId === undefined ? 1 : 0.4}>
         <Text c="dimmed" size="xs">Track</Text>
       </StaticTimelineLabel>
-      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       {tracks.map(track => (
         <TimelineTrackLabel
           key={track.id}
@@ -1502,10 +1502,10 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
       <StaticTimelineLabel height={viewport.rulerHeight}>
         <Text fw={700} size="sm"></Text>
       </StaticTimelineLabel>
+      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       <StaticTimelineLabel height={viewport.sectionLaneHeight}>
         <Text c="dimmed" size="xs">Instrument</Text>
       </StaticTimelineLabel>
-      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       {tracks.map((track) => {
         const instrument = selectInstrument(workspace, track.instrumentId)
 
@@ -1576,10 +1576,10 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
       <StaticTimelineLabel height={viewport.rulerHeight}>
         <Text fw={700} size="sm"></Text>
       </StaticTimelineLabel>
+      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       <StaticTimelineLabel height={viewport.sectionLaneHeight}>
         <Text c="dimmed" size="xs">Mix</Text>
       </StaticTimelineLabel>
-      <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
       {tracks.map((track) => {
         const mixChannel = selectMixChannel(workspace, track.mixChannelId)
 
@@ -1809,7 +1809,7 @@ const LoopLane = memo(function LoopLane({
       style={{
         background: 'var(--mantine-color-gray-1)',
         borderBottom: '1px solid var(--mantine-color-gray-3)',
-        height: LOOP_LANE_HEIGHT,
+        height: LOOP_LANE_HEIGHT + 2,
         position: 'relative',
         width: timelineWidth,
       }}

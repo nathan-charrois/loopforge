@@ -48,6 +48,7 @@ export const WORKSPACE_COMMAND_KINDS = [
   'deletePatternEvent',
   'moveDrumPatternEvent',
   'moveNotePatternEvent',
+  'resizeNotePatternEvent',
   'updatePatternEvent',
   'addTimelineEvent',
   'deleteTimelineEvent',

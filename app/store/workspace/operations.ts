@@ -710,6 +710,35 @@ export function moveDrumPatternEvent(
   })
 }
 
+export function resizeNotePatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  durationTicks: number,
+): Workspace {
+  const { event, pattern } = requirePatternEvent(workspace, patternId, eventId)
+
+  if (pattern.kind !== 'note' || event.kind !== 'note') {
+    throw new Error(`Pattern event ${eventId} is not a note event.`)
+  }
+
+  const nextTimeTick = Math.min(
+    pattern.lengthTicks - 1,
+    Math.max(0, Math.round(timeTick)),
+  )
+  const nextDurationTicks = Math.min(
+    pattern.lengthTicks - nextTimeTick,
+    Math.max(1, Math.round(durationTicks)),
+  )
+
+  return updatePatternEvent(workspace, patternId, {
+    ...event,
+    durationTicks: nextDurationTicks,
+    timeTick: nextTimeTick,
+  })
+}
+
 export function updatePatternEvent(
   workspace: Workspace,
   patternId: PatternId,

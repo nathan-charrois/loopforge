@@ -58,6 +58,7 @@ import {
   getKeyAtTick,
   getLoopEventEndTick,
   getMeterAtTick,
+  getPatternEventEndTick,
   getSectionEndTick,
   getTempoAtTick,
   type Instrument,
@@ -103,6 +104,7 @@ import {
   moveNotePatternEventAction,
   moveSectionAction,
   resizeBlockAction,
+  resizeNotePatternEventAction,
   resizeSectionAction,
   selectBlock,
   selectPatternByPatternEventId,
@@ -397,6 +399,7 @@ export function completeDragAction(input: {
         ...createSelectionState(),
         selectedBlockIds: [block.id],
       }),
+      setActiveToolAction('select'),
     ]
   }
 
@@ -413,6 +416,7 @@ export function completeDragAction(input: {
         ...createSelectionState(),
         selectedSectionIds: [section.id],
       }),
+      setActiveToolAction('select'),
     ]
   }
 
@@ -433,6 +437,7 @@ export function completeDragAction(input: {
         ...createSelectionState(),
         selectedTimelineEventIds: [loopEvent.id],
       }),
+      setActiveToolAction('select'),
     ]
   }
 
@@ -478,6 +483,29 @@ export function completeDragAction(input: {
 
   if (!isPointerDrag(movementX, movementY, threshold)) {
     return []
+  }
+
+  if (dragState.kind === 'resizeNotePatternEvent') {
+    const { event } = dragState
+    const currentEndTick = getPatternEventEndTick(event)
+
+    if (dragState.edge === 'left') {
+      const timeTick = Math.min(endTick, currentEndTick - 1)
+      return [resizeNotePatternEventAction(
+        dragState.patternId,
+        event.id,
+        timeTick,
+        currentEndTick - timeTick,
+      )]
+    }
+
+    const nextEndTick = Math.max(endTick, event.timeTick + 1)
+    return [resizeNotePatternEventAction(
+      dragState.patternId,
+      event.id,
+      event.timeTick,
+      nextEndTick - event.timeTick,
+    )]
   }
 
   if (dragState.kind === 'moveBlock') {

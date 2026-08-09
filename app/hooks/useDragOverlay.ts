@@ -216,6 +216,30 @@ function buildPatternEventPlaceholder(
     }
   }
 
+  if (drag?.kind === 'resizeNotePatternEvent' && drag.patternId === pattern.id) {
+    const currentEndTick = drag.event.timeTick + drag.event.durationTicks
+
+    if (drag.edge === 'left') {
+      const timeTick = Math.max(0, Math.min(drag.currentTick, currentEndTick - 1))
+
+      return {
+        ...drag.event,
+        durationTicks: currentEndTick - timeTick,
+        timeTick,
+      }
+    }
+
+    const endTick = Math.min(
+      pattern.lengthTicks,
+      Math.max(drag.currentTick, drag.event.timeTick + 1),
+    )
+
+    return {
+      ...drag.event,
+      durationTicks: endTick - drag.event.timeTick,
+    }
+  }
+
   return undefined
 }
 

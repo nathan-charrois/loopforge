@@ -271,6 +271,25 @@ export const NotePatternPanel = memo(function NotePatternPanel({
     })
   }, [getPointerPitch, pattern.id, startDrag])
 
+  const handleResizeNotePatternEvent = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    patternEvent: NoteEvent,
+    edge: 'left' | 'right',
+  ) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    event.stopPropagation()
+    onSelectPatternEvent(patternEvent.id, event.shiftKey)
+    startDrag(event, {
+      edge,
+      event: patternEvent,
+      kind: 'resizeNotePatternEvent',
+      patternId: pattern.id,
+    })
+  }, [onSelectPatternEvent, pattern.id, startDrag])
+
   const handlePatternRollPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     updateDrag(event)
   }, [updateDrag])
@@ -437,6 +456,7 @@ export const NotePatternPanel = memo(function NotePatternPanel({
                 onPointerDown={handlePatternRollPointerDown}
                 onPointerMove={handlePatternRollPointerMove}
                 onPointerUp={handlePatternRollPointerUp}
+                onResizeNotePatternEvent={handleResizeNotePatternEvent}
                 onSelectPatternEvent={onSelectPatternEvent}
               />
             </Box>
@@ -476,6 +496,7 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onResizeNotePatternEvent,
   onSelectPatternEvent,
 }: {
   tool: ActivePatternPanelTool
@@ -497,6 +518,11 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, patternId: NotePattern['id']) => void
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onResizeNotePatternEvent: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    patternEvent: NoteEvent,
+    edge: 'left' | 'right',
+  ) => void
   onSelectPatternEvent: (patternEventId: PatternEventId, additive: boolean) => void
 }) {
   const dragOverlay = usePatternEventOverlay(drag, pattern)
@@ -624,6 +650,22 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
               zIndex: selected ? 3 : 2,
             }}
           >
+            {tool === 'select' && (
+              <>
+                <PatternEventResizeHandle
+                  edge="left"
+                  onPointerDown={pointerEvent => (
+                    onResizeNotePatternEvent(pointerEvent, event, 'left')
+                  )}
+                />
+                <PatternEventResizeHandle
+                  edge="right"
+                  onPointerDown={pointerEvent => (
+                    onResizeNotePatternEvent(pointerEvent, event, 'right')
+                  )}
+                />
+              </>
+            )}
             {width >= 42 && (
               <Text fw={700} size="10px" truncate>
                 {formatMidiNote(renderedMidiNote)}
@@ -648,6 +690,29 @@ const PatternPanelRoll = memo(function PatternPanelRoll({
         }}
       />
     </Box>
+  )
+})
+
+const PatternEventResizeHandle = memo(function PatternEventResizeHandle({
+  edge,
+  onPointerDown,
+}: {
+  edge: 'left' | 'right'
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
+}) {
+  return (
+    <Box
+      onPointerDown={onPointerDown}
+      style={{
+        bottom: 0,
+        cursor: 'ew-resize',
+        left: edge === 'left' ? 0 : undefined,
+        position: 'absolute',
+        right: edge === 'right' ? 0 : undefined,
+        top: 0,
+        width: 6,
+      }}
+    />
   )
 })
 

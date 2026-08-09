@@ -22,6 +22,7 @@ import {
   removeTracks,
   reorderTracks,
   resizeBlock,
+  resizeNotePatternEvent,
   resizeSection,
   setGridDivision,
   splitBlock,
@@ -244,6 +245,19 @@ export function applyWorkspaceCommand(
         || timeTick === undefined
         ? workspace
         : moveNotePatternEvent(workspace, patternId, eventId, timeTick, pitch)
+    }
+    case 'resizeNotePatternEvent': {
+      const durationTicks = getPayloadNumber(payload, 'durationTicks')
+      const eventId = getPayloadString(payload, 'eventId')
+      const patternId = getPayloadString(payload, 'patternId')
+      const timeTick = getPayloadNumber(payload, 'timeTick')
+
+      return durationTicks === undefined
+        || eventId === undefined
+        || patternId === undefined
+        || timeTick === undefined
+        ? workspace
+        : resizeNotePatternEvent(workspace, patternId, eventId, timeTick, durationTicks)
     }
     case 'updatePatternEvent': {
       const patternId = getPayloadString(payload, 'patternId')
@@ -484,6 +498,20 @@ export function createMoveDrumPatternEventCommand(
     eventId,
     patternId,
     piece,
+    timeTick,
+  })
+}
+
+export function createResizeNotePatternEventCommand(
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  durationTicks: number,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('resizeNotePatternEvent', 'Resize note event', {
+    durationTicks,
+    eventId,
+    patternId,
     timeTick,
   })
 }

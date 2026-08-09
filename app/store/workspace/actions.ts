@@ -22,6 +22,7 @@ import {
   createMoveSectionCommand,
   createReorderTrackCommand,
   createResizeBlockCommand,
+  createResizeNotePatternEventCommand,
   createResizeSectionCommand,
   createSetGridDivisionCommand,
   createSplitBlockCommand,
@@ -215,6 +216,20 @@ export function moveDrumPatternEventAction(
   piece: DrumPiece,
 ): WorkspaceCommand {
   return createMoveDrumPatternEventCommand(patternId, patternEventId, timeTick, piece)
+}
+
+export function resizeNotePatternEventAction(
+  patternId: PatternId,
+  patternEventId: PatternEventId,
+  timeTick: Tick,
+  durationTicks: number,
+): WorkspaceCommand {
+  return createResizeNotePatternEventCommand(
+    patternId,
+    patternEventId,
+    timeTick,
+    durationTicks,
+  )
 }
 
 export function updatePatternEventAction(patternId: PatternId, event: PatternEvent): WorkspaceCommand {

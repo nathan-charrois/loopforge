@@ -68,6 +68,12 @@ type DragIntent
     patternId: PatternId
   }
   | {
+    edge: 'left' | 'right'
+    event: NoteEvent
+    kind: 'resizeNotePatternEvent'
+    patternId: PatternId
+  }
+  | {
     kind: 'selectRange'
     row: number
   }
@@ -281,6 +287,16 @@ export function useDrag({
           kind: intent.kind,
           patternId: intent.patternId,
           startTick: tick,
+        })
+        return
+      case 'resizeNotePatternEvent':
+        setDragState({
+          ...pointer,
+          currentTick: tick,
+          edge: intent.edge,
+          event: intent.event,
+          kind: intent.kind,
+          patternId: intent.patternId,
         })
         return
       case 'selectRange':
