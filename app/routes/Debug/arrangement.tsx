@@ -420,6 +420,9 @@ function ArrangementDebugContent() {
   ])
 
   const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+
     const tick = getPointerTick(event.clientX)
     playbackEngine.seek(tick)
 
@@ -433,6 +436,21 @@ function ArrangementDebugContent() {
       dispatch(commands)
     }
   }, [dispatch, editor.activeTool, getPointerTick, playbackEngine, workspace])
+
+  const handleRulerPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+      return
+    }
+
+    event.preventDefault()
+    playbackEngine.seek(getPointerTick(event.clientX))
+  }, [getPointerTick, playbackEngine])
+
+  const handleRulerPointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }, [])
 
   const handleSectionLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
@@ -978,7 +996,10 @@ function ArrangementDebugContent() {
                   marks={rulerMarks}
                   onMarkerPointerEnter={setHoveredTimelineEventId}
                   onMarkerPointerDown={handleTimelineEventPointerDown}
+                  onRulerPointerCancel={handleRulerPointerEnd}
                   onRulerPointerDown={handleRulerPointerDown}
+                  onRulerPointerMove={handleRulerPointerMove}
+                  onRulerPointerUp={handleRulerPointerEnd}
                 />
                 <LoopLane
                   drag={dragState}
@@ -1687,7 +1708,10 @@ const TimelineRuler = memo(function TimelineRuler({
   hoveredTimelineEventId,
   marks,
   onMarkerPointerDown,
+  onRulerPointerCancel,
   onRulerPointerDown,
+  onRulerPointerMove,
+  onRulerPointerUp,
   onMarkerPointerEnter,
   selectedTimelineEventIds,
   timelineWidth,
@@ -1698,7 +1722,10 @@ const TimelineRuler = memo(function TimelineRuler({
   hoveredTimelineEventId?: TimelineEventId
   marks: RulerMark[]
   onMarkerPointerDown: (event: ReactPointerEvent<HTMLDivElement>, timelineEvent: TimelineEvent) => void
+  onRulerPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void
   onRulerPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onRulerPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onRulerPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
   onMarkerPointerEnter: (timelineEventId: TimelineEventId | undefined) => void
   selectedTimelineEventIds: TimelineEventId[]
   timelineWidth: number
@@ -1710,12 +1737,16 @@ const TimelineRuler = memo(function TimelineRuler({
 
   return (
     <Box
+      onPointerCancel={onRulerPointerCancel}
       onPointerDown={onRulerPointerDown}
+      onPointerMove={onRulerPointerMove}
+      onPointerUp={onRulerPointerUp}
       style={{
         background: 'var(--mantine-color-gray-0)',
         borderBottom: '1px solid var(--mantine-color-gray-3)',
         height: viewport.rulerHeight,
         position: 'relative',
+        touchAction: 'none',
         width: timelineWidth,
       }}
     >
