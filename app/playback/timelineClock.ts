@@ -1,8 +1,14 @@
-import { getTempoAtTick, type Tick, type Timeline } from '~/domain'
+import {
+  getTempoAtTick,
+  snapTickToGrid,
+  type Tick,
+  type Timeline,
+} from '~/domain'
 
 export type TimelineClock = {
   getSecondsBetweenTicks(startTick: Tick, endTick: Tick): number
   getTickAfterSeconds(startTick: Tick, seconds: number, endTick: Tick): Tick
+  snapTick(tick: Tick): Tick
 }
 
 type TempoSegment = {
@@ -86,6 +92,7 @@ export function createTimelineClock(timeline: Timeline): TimelineClock {
   return {
     getSecondsBetweenTicks,
     getTickAfterSeconds,
+    snapTick: tick => snapTickToGrid(timeline, tick),
   }
 }
 

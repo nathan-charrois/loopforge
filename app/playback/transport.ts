@@ -133,7 +133,7 @@ export class Transport {
     }
 
     const activeLoopRange = this.getActiveLoopRange()
-    let nextTick = this.clampTick(tick)
+    let nextTick = this.clampTick(this.clock.snapTick(tick))
 
     if (this.status === 'playing' && activeLoopRange) {
       nextTick = getTickInsideRange(nextTick, activeLoopRange)
