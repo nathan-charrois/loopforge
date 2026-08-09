@@ -22,7 +22,7 @@ export function createTimeline(input: Partial<Timeline> = {}): Timeline {
   return {
     grid: input.grid ?? 'sixteenthNote',
     keyEvents: input.keyEvents ?? [createKeyEvent({ key: createDefaultKey(), tick: 0 })],
-    loopEvents: input.loopEvents ?? [createLoopEvent({ tick: 0 })],
+    loopEvents: input.loopEvents ?? [],
     meterEvents: input.meterEvents ?? [createMeterEvent({ tick: 0 })],
     ppq: input.ppq ?? PPQ,
     tempoEvents: input.tempoEvents ?? [createTempoEvent({ bpm: 120, tick: 0 })],

@@ -382,7 +382,6 @@ export function validateTimeline(timeline: Timeline): string[] {
   errors.push(...validateEvents('tempo', timeline.tempoEvents))
   errors.push(...validateEvents('meter', timeline.meterEvents))
   errors.push(...validateEvents('key', timeline.keyEvents))
-  errors.push(...validateEvents('loop', timeline.loopEvents))
 
   for (const tempoEvent of timeline.tempoEvents) {
     if (tempoEvent.bpm <= 0) {
