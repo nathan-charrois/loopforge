@@ -71,6 +71,7 @@ import {
   type BlockPlaybackMode,
   CHORD_ALTERATIONS,
   CHORD_EXTENSIONS,
+  CHORD_PLAYBACK_RECIPE_GROUPS,
   CHORD_PLAYBACK_RECIPE_IDS,
   CHORD_PLAYBACK_RECIPES,
   CHORD_PLAYBACK_STYLES,
@@ -279,9 +280,12 @@ const OPTIONAL_PITCH_CLASS_OPTIONS = [
   { label: 'None', value: NONE_OPTION_VALUE },
   ...PITCH_CLASS_OPTIONS,
 ]
-const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_IDS.map(value => ({
-  label: CHORD_PLAYBACK_RECIPES[value].name,
-  value,
+const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_GROUPS.map(group => ({
+  group: group.label,
+  items: group.recipeIds.map(value => ({
+    label: CHORD_PLAYBACK_RECIPES[value].name,
+    value,
+  })),
 }))
 
 const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['drawBlock', 'drawLoop', 'drawSection', 'tempo', 'meter', 'key']

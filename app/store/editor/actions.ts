@@ -771,11 +771,26 @@ export function updatePatternEventFromDraftAction(input: {
     return undefined
   }
 
-  if (patternEvent.kind === 'automation') {
-    return
+  if (patternEvent.kind === 'chord') {
+    if (
+      draft.patternEventChord === undefined
+      && draft.patternEventPlayback === undefined
+      && draft.patternEventVelocity === undefined
+      && draft.patternEventVoicing === undefined
+    ) {
+      return
+    }
+
+    return updatePatternEventAction(patternId, {
+      ...patternEvent,
+      chord: draft.patternEventChord ?? patternEvent.chord,
+      playback: draft.patternEventPlayback ?? patternEvent.playback,
+      velocity: draft.patternEventVelocity ?? patternEvent.velocity,
+      voicing: draft.patternEventVoicing ?? patternEvent.voicing,
+    })
   }
 
-  if (draft.patternEventVelocity === undefined) {
+  if (patternEvent.kind === 'automation' || draft.patternEventVelocity === undefined) {
     return
   }
 

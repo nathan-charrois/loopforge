@@ -15,9 +15,94 @@ export type ChordPlaybackStyle
 export type ChordPlaybackRecipeId
   = | 'block'
     | 'block_staggered'
+    | 'block_bright_rake'
+    | 'block_falling_rake'
+    | 'block_soft_pad'
+    | 'block_accented'
+    | 'block_bass_weighted'
+    | 'block_top_weighted'
+    | 'block_octave_stack'
+    | 'block_short_punch'
+    | 'strum_up'
+    | 'strum_down'
+    | 'strum_wide'
+    | 'strum_slow_up'
+    | 'strum_slow_down'
+    | 'strum_fast_up'
+    | 'strum_fast_down'
+    | 'strum_center_out'
+    | 'strum_outside_in'
+    | 'strum_harp'
+    | 'strum_brushed'
     | 'arp_up'
     | 'arp_down'
+    | 'arp_up_down'
+    | 'arp_down_up'
+    | 'arp_pedal'
+    | 'arp_octave_bloom'
+    | 'arp_triplet'
+    | 'arp_fast_up'
+    | 'arp_fast_down'
+    | 'arp_slow_rise'
+    | 'arp_slow_fall'
+    | 'arp_alberti'
+    | 'arp_reverse_alberti'
+    | 'arp_root_pedal'
+    | 'arp_top_pedal'
+    | 'arp_converge'
+    | 'arp_diverge'
+    | 'arp_skip_up'
+    | 'arp_skip_down'
+    | 'arp_rolling_thirds'
+    | 'arp_octave_ladder'
+    | 'arp_octave_descent'
+    | 'arp_two_octave_up'
+    | 'arp_two_octave_down'
+    | 'arp_cascade'
+    | 'arp_echo'
+    | 'arp_accent_cycle'
+    | 'arp_zigzag'
+    | 'arp_wave'
+    | 'arp_low_high'
+    | 'arp_high_low'
+    | 'arp_cross_octaves'
+    | 'arp_bell_tower'
+    | 'arp_upper_circle'
+    | 'arp_velvet'
+    | 'arp_ripple_up'
+    | 'arp_ripple_down'
+    | 'arp_pyramid'
+    | 'arp_inverted_pyramid'
+    | 'arp_orbit'
+    | 'arp_satellite'
+    | 'arp_chord_tone_skip'
+    | 'arp_octave_ping_pong'
+    | 'arp_bass_bounce'
+    | 'arp_soprano_bounce'
+    | 'arp_glass_rain'
+    | 'arp_neon_stairs'
+    | 'arp_spiral_up'
+    | 'arp_spiral_down'
+    | 'arp_three_cycle'
+    | 'arp_five_cycle'
+    | 'arp_baroque_turn'
+    | 'arp_dream_echo'
+    | 'arp_motorik'
+    | 'arp_crystal_fan'
     | 'pop_ostinato'
+    | 'pattern_offbeat'
+    | 'pattern_tresillo'
+    | 'pattern_ballad'
+    | 'pattern_syncopated'
+    | 'pattern_broken_octaves'
+    | 'pattern_quarter_pulse'
+    | 'pattern_euclidean_three'
+    | 'pattern_euclidean_five'
+    | 'pattern_son_clave'
+    | 'pattern_rumba_clave'
+    | 'pattern_gallop'
+    | 'pattern_half_time'
+    | 'pattern_call_response'
 
 export type ChordPlaybackRecipeOutOfRange
   = | 'wrap'
@@ -76,8 +161,9 @@ export function getChordPlaybackRecipe(playback: ChordPlayback): ChordPlaybackRe
     case 'arpeggio':
       return CHORD_PLAYBACK_RECIPES.arp_up
     case 'strum':
-      return CHORD_PLAYBACK_RECIPES.block_staggered
+      return CHORD_PLAYBACK_RECIPES.strum_up
     case 'pattern':
+      return CHORD_PLAYBACK_RECIPES.pattern_offbeat
     case 'block':
     default:
       return CHORD_PLAYBACK_RECIPES.block
@@ -97,8 +183,9 @@ export function getDefaultRecipeIdForStyle(style: ChordPlaybackStyle): ChordPlay
     case 'arpeggio':
       return 'arp_up'
     case 'strum':
-      return 'block_staggered'
+      return 'strum_up'
     case 'pattern':
+      return 'pattern_offbeat'
     case 'block':
     default:
       return 'block'
@@ -144,10 +231,14 @@ export function getRecipeStepVelocity(velocity: Velocity, step: ChordPlaybackRec
   return scaleVelocity(velocity, step.velocityScale)
 }
 
-export function getRecipeArpeggioSteps(
+export function getRecipeStepsForNotes(
   notes: VoicedNote[],
   recipe: ChordPlaybackRecipe,
 ): ChordPlaybackRecipeStep[] {
+  if (recipe.outOfRange !== 'skip') {
+    return recipe.steps
+  }
+
   const voiceIndexes = new Set(notes.map(note => note.voiceIndex))
 
   return recipe.steps.filter(

@@ -10,6 +10,7 @@ import {
   Box,
   Button,
   Checkbox,
+  type ComboboxData,
   Divider,
   Group,
   Paper,
@@ -30,7 +31,7 @@ import {
   type BlockPlaybackMode,
   CHORD_ALTERATIONS,
   CHORD_EXTENSIONS,
-  CHORD_PLAYBACK_RECIPE_IDS,
+  CHORD_PLAYBACK_RECIPE_GROUPS,
   CHORD_PLAYBACK_RECIPES,
   CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
@@ -116,9 +117,12 @@ const PITCH_CLASS_OPTIONS = PITCH_CLASSES.map(pitchClass => ({
 const CHORD_EXTENSION_OPTIONS = ['none', ...CHORD_EXTENSIONS] as const satisfies ReadonlyArray<ChordExtension | 'none'>
 const CHORD_ALTERATION_OPTIONS = ['none', ...CHORD_ALTERATIONS] as const satisfies ReadonlyArray<ChordAlteration | 'none'>
 
-const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_IDS.map(recipeId => ({
-  label: CHORD_PLAYBACK_RECIPES[recipeId].name,
-  value: recipeId,
+const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_GROUPS.map(group => ({
+  group: group.label,
+  items: group.recipeIds.map(recipeId => ({
+    label: CHORD_PLAYBACK_RECIPES[recipeId].name,
+    value: recipeId,
+  })),
 }))
 
 type NotesModel = {
@@ -993,7 +997,7 @@ function SelectField<TValue extends string>({
   onChange,
   value,
 }: {
-  data: Array<{ label: string, value: string }> | readonly TValue[]
+  data: ComboboxData
   label: string
   onChange: (value: TValue) => void
   value: TValue

@@ -1,6 +1,10 @@
 import { AudioEngine } from '../audio/audioEngine'
 import type { Tick, TickRange } from '~/domain'
-import { buildSchedule, type PlaybackSchedule } from '~/playback/buildSchedule'
+import {
+  buildSchedule,
+  type NotePlaybackTrigger,
+  type PlaybackSchedule,
+} from '~/playback/buildSchedule'
 import { PlaybackScheduleCursor } from '~/playback/scheduleCursor'
 import { PLAYBACK_START_DELAY_MS, Transport } from '~/playback/transport'
 import type { Workspace } from '~/store/workspace'
@@ -115,6 +119,40 @@ export class PlaybackEngine {
 
     if (wasPlaying) {
       this.startScheduling()
+    }
+  }
+
+  public async auditionTriggers(
+    triggers: readonly NotePlaybackTrigger[],
+  ): Promise<void> {
+    this.requireActive()
+    this.requireSchedule()
+
+    if (triggers.length === 0) {
+      return
+    }
+
+    await this.audioEngine.initialize()
+    this.requireActive()
+
+    const firstStartTick = Math.min(...triggers.map(trigger => trigger.startTick))
+    const startAudioTime = this.audioEngine.getCurrentTime() + (PLAYBACK_START_DELAY_MS / 1000)
+
+    for (const trigger of triggers) {
+      const whenSeconds = startAudioTime + this.transport.getSecondsBetweenTicks(
+        firstStartTick,
+        trigger.startTick,
+      )
+      const durationSeconds = this.transport.getSecondsBetweenTicks(
+        trigger.startTick,
+        trigger.startTick + trigger.durationTicks,
+      )
+
+      this.audioEngine.scheduleTrigger({
+        durationSeconds,
+        trigger,
+        whenSeconds,
+      })
     }
   }
 

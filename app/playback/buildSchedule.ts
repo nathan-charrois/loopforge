@@ -12,10 +12,10 @@ import {
   getChordPlaybackRecipe,
   getGatedDurationTick,
   getPatternEventDurationTicks,
-  getRecipeArpeggioSteps,
   getRecipeStepDurationTicks,
   getRecipeStepNote,
   getRecipeStepPitch,
+  getRecipeStepsForNotes,
   getRecipeStepTicks,
   getRecipeStepVelocity,
   getScheduledEventDurationTicks,
@@ -634,7 +634,7 @@ function createArpeggioChordPlaybackTriggers({
   notes: VoicedNote[]
   recipe: ChordPlaybackRecipe
 }): NotePlaybackTrigger[] {
-  const steps = getRecipeArpeggioSteps(notes, recipe)
+  const steps = getRecipeStepsForNotes(notes, recipe)
 
   if (steps.length === 0) {
     return []
