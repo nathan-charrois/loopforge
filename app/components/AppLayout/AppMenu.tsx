@@ -58,6 +58,7 @@ export function AppMenu({
               <Menu.Item onClick={() => onOpenProjectDemo('vacantReceiver')}>Vacant Receiver</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('sunroomOrbit')}>Sunroom Orbit</Menu.Item>
               <Menu.Item onClick={() => onOpenProjectDemo('marbleVerdict')}>Marble Verdict</Menu.Item>
+              <Menu.Item onClick={() => onOpenProjectDemo('eerieMountain')}>Eerie Mountain</Menu.Item>
             </Menu.Sub.Dropdown>
           </Menu.Sub>
           <Menu.Divider />

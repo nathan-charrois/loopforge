@@ -2,6 +2,7 @@ import { createEmptyEntityStore, createEntityStore, type EntityStore } from '../
 import { blueHourBelow } from './demo/blueHourBelow'
 import { cedarStatic } from './demo/cedarStatic'
 import { cutGlassAlibi } from './demo/cutGlassAlibi'
+import { eerieMountain } from './demo/eerieMountain'
 import { eightfoldParallax } from './demo/eightfoldParallax'
 import { fifthFloorRain } from './demo/fifthFloorRain'
 import { lanternsInFive } from './demo/lanternsInFive'
@@ -47,6 +48,7 @@ const workspaceDemos: Record<string, () => Workspace> = {
   lanternsInFive,
   marbleVerdict,
   cutGlassAlibi,
+  eerieMountain,
   neonOrchard,
   prismCurrent,
   sunroomOrbit,

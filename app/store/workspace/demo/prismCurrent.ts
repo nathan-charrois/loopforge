@@ -409,7 +409,7 @@ export function prismCurrent(): Workspace {
       ]),
       master: {
         muted: false,
-        volumeDb: 5,
+        volumeDb: 0,
       },
     }),
     patterns: createEntityStore([

@@ -412,7 +412,7 @@ export function cedarStatic(): Workspace {
     mixer: createMixer({
       channels: createEntityStore([
         createMixChannel({ id: chordsTrack.mixChannelId, pan: -0.14, volumeDb: -2 }),
-        createMixChannel({ id: voiceTrack.mixChannelId, pan: 0.18, volumeDb: -11 }),
+        createMixChannel({ id: voiceTrack.mixChannelId, pan: 0.18, volumeDb: -9 }),
         createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: 0 }),
         createMixChannel({ id: drumsTrack.mixChannelId, pan: 0.08, volumeDb: 0 }),
       ]),

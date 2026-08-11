@@ -223,18 +223,6 @@ export function eightfoldParallax(): Workspace {
       name: 'Five-Step Gravity',
     }),
     createNotePattern({
-      events: [
-        note(0, PPQ / 4, 45, 82),
-        note(PPQ / 4, PPQ / 4, 48, 88),
-        note(PPQ / 2, PPQ / 4, 52, 94),
-        note((PPQ * 3) / 4, PPQ / 4, 57, 102),
-      ],
-      id: 'eightfold_pattern_bass_fill',
-      lengthTicks: PPQ,
-      name: 'Gravity Slingshot',
-    }),
-
-    createNotePattern({
       events: motif([74, 77, 81, 79, 77, 74, 72, 69], PPQ / 2, 72),
       id: 'eightfold_pattern_lead_44',
       lengthTicks: PPQ * 4,
@@ -258,17 +246,6 @@ export function eightfoldParallax(): Workspace {
       id: 'eightfold_pattern_lead_54',
       lengthTicks: PPQ * 5,
       name: 'Signal D · Expanded',
-    }),
-    createNotePattern({
-      events: [
-        note(0, PPQ / 4, 69, 62),
-        note(PPQ / 4, PPQ / 4, 72, 68),
-        note(PPQ / 2, PPQ / 4, 74, 74),
-        note((PPQ * 3) / 4, PPQ / 4, 77, 80),
-      ],
-      id: 'eightfold_pattern_lead_pickup',
-      lengthTicks: PPQ,
-      name: 'Signal Pickup',
     }),
     createNotePattern({
       events: [
@@ -395,15 +372,6 @@ export function eightfoldParallax(): Workspace {
     }),
     createDrumPattern({
       events: [
-        drum(0, 'crash', 96),
-        drum(PPQ / 2, 'clap', 74),
-      ],
-      id: 'eightfold_pattern_percussion_crash',
-      lengthTicks: PPQ,
-      name: 'Crash Comet',
-    }),
-    createDrumPattern({
-      events: [
         drum(0, 'lowTom', 68),
         drum(PPQ / 4, 'midTom', 76),
         drum(PPQ / 2, 'highTom', 86),
@@ -470,10 +438,8 @@ export function eightfoldParallax(): Workspace {
     block('bass_78', bassTrack, 'eightfold_pattern_bass_78', bar(3), PPQ * 7, 'loop', 'Gravity · 7/8 Loop'),
     block('bass_34', bassTrack, 'eightfold_pattern_bass_34', bar(5), PPQ * 6, 'stretch', 'Gravity · 3/4 Stretch'),
     block('bass_54', bassTrack, 'eightfold_pattern_bass_54', bar(7), PPQ * 10, 'loop', 'Gravity · 5/4 Loop'),
-    block('bass_fill', bassTrack, 'eightfold_pattern_bass_fill', bar(8) + (PPQ * 7) / 2, (PPQ * 3) / 2, 'stretch', 'Overlap · Gravity Slingshot'),
 
     block('lead_44', leadTrack, 'eightfold_pattern_lead_44', bar(1), PPQ * 8, 'loop', 'Signal A · Doubled'),
-    block('lead_pickup', leadTrack, 'eightfold_pattern_lead_pickup', bar(3) - PPQ, PPQ * 2, 'stretch', 'Overlap · Signal Pickup'),
     block('lead_78', leadTrack, 'eightfold_pattern_lead_78', bar(3), PPQ * 7, 'loop', 'Signal B · Crooked'),
     block('lead_34', leadTrack, 'eightfold_pattern_lead_34', bar(5), PPQ * 6, 'stretch', 'Signal C · Falling'),
     block('lead_54', leadTrack, 'eightfold_pattern_lead_54', bar(7), PPQ * 10, 'loop', 'Signal D · Expanded'),
@@ -499,9 +465,6 @@ export function eightfoldParallax(): Workspace {
     block('percussion_78', percussionTrack, 'eightfold_pattern_percussion_78', bar(3), PPQ * 7, 'loop', 'Seven Orbit'),
     block('percussion_34', percussionTrack, 'eightfold_pattern_percussion_34', bar(5), PPQ * 6, 'loop', 'Open Orbit'),
     block('percussion_54', percussionTrack, 'eightfold_pattern_percussion_54', bar(7), PPQ * 10, 'loop', 'Wide Orbit'),
-    block('percussion_crash_a', percussionTrack, 'eightfold_pattern_percussion_crash', bar(3), PPQ, 'oneShot', 'Overlap · Crash Comet A'),
-    block('percussion_crash_b', percussionTrack, 'eightfold_pattern_percussion_crash', bar(5), PPQ, 'stretch', 'Overlap · Crash Comet B'),
-    block('percussion_toms', percussionTrack, 'eightfold_pattern_percussion_tom_comet', bar(7) - PPQ, PPQ * 2, 'stretch', 'Overlap · Tom Comet'),
   ]
 
   return createWorkspace({
@@ -553,8 +516,8 @@ export function eightfoldParallax(): Workspace {
         id: bassTrack.instrumentId,
         name: 'Subgravity Engine',
         oscilators: [
-          createSynthOscillator({ level: 0.62, octave: -1, waveform: 'sine' }),
-          createSynthOscillator({ level: 0.38, octave: -1, waveform: 'sine' }),
+          createSynthOscillator({ level: 0.62, octave: 0, waveform: 'sine' }),
+          createSynthOscillator({ level: 0.38, octave: 1, waveform: 'sine' }),
         ],
         soundId: 'bass.subgravity',
       }),
@@ -612,12 +575,12 @@ export function eightfoldParallax(): Workspace {
     ]),
     mixer: createMixer({
       channels: createEntityStore([
-        createMixChannel({ id: harmonyTrack.mixChannelId, pan: -0.18, volumeDb: -12 }),
-        createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: 0 }),
-        createMixChannel({ id: leadTrack.mixChannelId, pan: 0.2, volumeDb: -12, muted: true }),
+        createMixChannel({ id: harmonyTrack.mixChannelId, pan: -0.18, volumeDb: -8 }),
+        createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: -4 }),
+        createMixChannel({ id: leadTrack.mixChannelId, pan: 0.2, volumeDb: -10 }),
         createMixChannel({ id: arpeggioTrack.mixChannelId, pan: -0.52, volumeDb: -17, muted: true }),
         createMixChannel({ id: drumTrack.mixChannelId, pan: 0, volumeDb: 3 }),
-        createMixChannel({ id: percussionTrack.mixChannelId, pan: 0.58, volumeDb: -12 }),
+        createMixChannel({ id: percussionTrack.mixChannelId, pan: 0.58, volumeDb: -10, muted: true }),
       ]),
       master: { muted: false, volumeDb: 0 },
     }),
