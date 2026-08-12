@@ -157,6 +157,7 @@ import {
   copySelectionAction,
   createArrangementTrackDraft,
   createInspectorDraft,
+  createTickRangeFromSelection,
   deleteSelectionAction,
   type DragState,
   duplicateSelectionAction,
@@ -765,13 +766,13 @@ function ArrangementDebugContent() {
   }, [editor.selection, dispatch])
 
   const loopSelection = useCallback(() => {
-    const block = selectFirstSelectedBlock(editor, workspace)
-    const section = selectFirstSelectedSection(editor, workspace)
-    const entity = block ?? section
+    const tickRange = createTickRangeFromSelection(workspace, editor)
 
-    if (entity === undefined) {
+    if (tickRange.endTick <= tickRange.startTick) {
       return
     }
+
+    const lengthTicks = tickRange.endTick - tickRange.startTick
 
     const loopEvent = getLoopEvent(workspace.timeline)
     if (loopEvent === undefined) {
@@ -780,15 +781,15 @@ function ArrangementDebugContent() {
 
       return dispatch(addTimelineEventAction({
         id: loopEventId,
-        tick: entity.startTick,
-        lengthTicks: entity.lengthTicks,
+        tick: tickRange.startTick,
+        lengthTicks,
       }))
     }
 
     dispatch(updateTimelineEventAction({
       ...loopEvent,
-      tick: entity.startTick,
-      lengthTicks: entity.lengthTicks,
+      tick: tickRange.startTick,
+      lengthTicks,
     }))
   }, [dispatch, workspace, editor])
 

@@ -15,6 +15,8 @@ import {
   type DrumPiece,
   type DurationTicks,
   getBarLengthTicksAtTick,
+  getBlockEndTick,
+  getSectionEndTick,
   type MidiNote,
   type NoteEvent,
   type Pattern,
@@ -22,12 +24,15 @@ import {
   type PatternKind,
   type Section,
   type Tick,
+  type TickRange,
   type Track,
   type TrackId,
 } from '~/domain'
 import {
+  selectBlock,
   selectBlocksInRange,
   selectPatternEventIds,
+  selectSection,
   selectSectionsInRange,
   selectTrackIds,
   type Workspace,
@@ -46,7 +51,7 @@ export function createSelectionState(): SelectionState {
   }
 }
 
-export function createRangeSelectionState(
+export function createSelectionFromTickRange(
   workspace: Workspace,
   startTick: Tick,
   endTick: Tick,
@@ -75,6 +80,36 @@ export function createRangeSelectionState(
       ? selectSectionsInRange(workspace, bounds).map(section => section.id)
       : [],
   }
+}
+
+export function createTickRangeFromSelection(
+  workspace: Workspace,
+  editor: Editor,
+): TickRange {
+  const tickRange: TickRange = {
+    startTick: Number.POSITIVE_INFINITY,
+    endTick: 0,
+  }
+
+  for (const blockId of editor.selection.selectedBlockIds) {
+    const block = selectBlock(workspace, blockId)
+
+    if (block !== undefined) {
+      tickRange.startTick = Math.min(tickRange.startTick, block.startTick)
+      tickRange.endTick = Math.max(tickRange.endTick, getBlockEndTick(block))
+    }
+  }
+
+  for (const sectionId of editor.selection.selectedSectionIds) {
+    const section = selectSection(workspace, sectionId)
+
+    if (section !== undefined) {
+      tickRange.startTick = Math.min(tickRange.startTick, section.startTick)
+      tickRange.endTick = Math.max(tickRange.endTick, getSectionEndTick(section))
+    }
+  }
+
+  return tickRange
 }
 
 export function createClipboardState(): ClipboardState {

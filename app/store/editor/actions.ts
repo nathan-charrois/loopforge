@@ -22,7 +22,7 @@ import {
   createArrangementPatternEventDraft,
   createArrangementSectionDraft,
   createInspectorState,
-  createRangeSelectionState,
+  createSelectionFromTickRange,
   createSelectionState,
 } from './factory'
 import {
@@ -443,7 +443,7 @@ export function completeDragAction(input: {
 
   if (dragState.kind === 'selectRange') {
     return isPointerDrag(movementX, movementY, threshold)
-      ? [createSetSelectionCommand(createRangeSelectionState(
+      ? [createSetSelectionCommand(createSelectionFromTickRange(
           workspace,
           dragState.startTick,
           endTick,
