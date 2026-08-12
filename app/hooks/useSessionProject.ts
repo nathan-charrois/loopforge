@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react'
 
+import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import { useSessionStore } from '~/components/Providers/SessionProvider'
 import {
   createDemoSession,
@@ -20,11 +21,15 @@ export type SessionProject = {
 export function useSessionProject(): SessionProject {
   const sessionStore = useSessionStore()
 
+  const playbackEngine = usePlaybackEngine()
+
   const handleNew = useCallback(() => {
+    playbackEngine.reset()
+
     sessionStore.replace(
       createInitialSession(),
     )
-  }, [createInitialSession, sessionStore])
+  }, [sessionStore, playbackEngine])
 
   const handleSave = useCallback(() => {
     const session = sessionStore.getSnapshot()
@@ -43,16 +48,20 @@ export function useSessionProject(): SessionProject {
       return
     }
 
-    const session = deserializeSession(contents)
+    playbackEngine.reset()
 
-    sessionStore.replace(session)
-  }, [sessionStore])
+    sessionStore.replace(
+      deserializeSession(contents),
+    )
+  }, [sessionStore, playbackEngine])
 
   const handleOpenDemo = useCallback((demo: string) => {
+    playbackEngine.reset()
+
     sessionStore.replace(
       createDemoSession(demo),
     )
-  }, [sessionStore])
+  }, [sessionStore, playbackEngine])
 
   return useMemo(() => ({
     handleNew,

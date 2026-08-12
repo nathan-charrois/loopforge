@@ -315,14 +315,14 @@ export function neonOrchard(): Workspace {
     ]),
     mixer: createMixer({
       channels: createEntityStore([
-        createMixChannel({ id: chordsTrack.mixChannelId, pan: -0.2, volumeDb: -3 }),
-        createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: -12 }),
+        createMixChannel({ id: chordsTrack.mixChannelId, pan: -0.2, volumeDb: -12 }),
+        createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: -9 }),
         createMixChannel({ id: leadTrack.mixChannelId, pan: 0.22, volumeDb: 0 }),
-        createMixChannel({ id: drumsTrack.mixChannelId, pan: 0, volumeDb: 3 }),
+        createMixChannel({ id: drumsTrack.mixChannelId, pan: 0, volumeDb: -8 }),
       ]),
       master: {
         muted: false,
-        volumeDb: 0,
+        volumeDb: -4,
       },
     }),
     patterns: createEntityStore([

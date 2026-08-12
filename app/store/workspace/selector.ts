@@ -12,6 +12,7 @@ import type { Tick, TickRange } from '~/domain/musicPrimitives'
 import type { PatternEvent, PatternEventId } from '~/domain/patternEvents'
 import type { Pattern, PatternId } from '~/domain/patterns'
 import {
+  getGridDivisionTicks,
   getLoopEventEndTick,
   type KeyEvent,
   type MeterEvent,
@@ -145,6 +146,13 @@ export function selectWorkspaceEndTick(workspace: Workspace): Tick {
   const loopEndTicks = workspace.timeline.loopEvents.map(getLoopEventEndTick)
 
   return Math.max(0, ...sectionEndTicks, ...blockEndTicks, ...loopEndTicks)
+}
+
+export function selectWorkspaceLengthTicks(workspace: Workspace): Tick {
+  return Math.max(
+    getGridDivisionTicks(workspace.timeline, 0),
+    selectWorkspaceEndTick(workspace),
+  )
 }
 
 export function selectTimelineEvent(workspace: Workspace, timelineEventId: TimelineEventId): TimelineEvent | undefined {

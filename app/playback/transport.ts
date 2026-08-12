@@ -23,7 +23,7 @@ export const INITIAL_TRANSPORT_SNAPSHOT: TransportSnapshot = {
   status: 'stopped',
   playheadTick: 0,
   projectEndTick: 0,
-  loopEnabled: true,
+  loopEnabled: false,
   loopRange: undefined,
 }
 

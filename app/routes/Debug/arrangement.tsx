@@ -20,7 +20,6 @@ import {
   Key01Icon,
   MagnetIcon,
   MoveIcon,
-  PaintBrush01Icon,
   PauseIcon,
   PencilEdit01Icon,
   PlayIcon,
@@ -76,6 +75,7 @@ import {
   CHORD_PLAYBACK_RECIPES,
   CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
+  createDraftEntityId,
   createSynthOscillator,
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
@@ -199,6 +199,7 @@ import {
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
 import {
+  addTimelineEventAction,
   addTrackAction,
   deletePatternEventAction,
   deleteTimelineEventAction,
@@ -207,9 +208,11 @@ import {
   selectMixChannel,
   selectPattern,
   selectPatterns,
+  selectTimelineEventIds,
   selectTimelineEvents,
   selectTracks,
   selectWorkspaceEndTick,
+  selectWorkspaceLengthTicks,
   setGridDivisionAction,
   updateMixChannelAction,
   updateMixerAction,
@@ -288,7 +291,7 @@ const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_GROUPS.map(group => 
   })),
 }))
 
-const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['drawBlock', 'drawLoop', 'drawSection', 'tempo', 'meter', 'key']
+const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['draw', 'tempo', 'meter', 'key']
 
 const TOOLBAR_SECTION_LEFT = ACTIVE_TOOLS.filter(tool => !TOOLBAR_SECTION_KEYS.includes(tool)).map(tool => ({
   icon: getToolIcon(tool),
@@ -461,7 +464,7 @@ function ArrangementDebugContent() {
       return
     }
 
-    if (editor.activeTool === 'drawSection') {
+    if (editor.activeTool === 'draw') {
       startDrag(event, { kind: 'drawSection' })
       return
     }
@@ -472,10 +475,40 @@ function ArrangementDebugContent() {
   }, [editor.activeTool, startDrag])
 
   const handleLoopLanePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button === 0 && editor.activeTool === 'drawLoop') {
+    if (event.button === 0 && editor.activeTool === 'draw') {
       startDrag(event, { kind: 'drawLoop' })
     }
   }, [editor.activeTool, startDrag])
+
+  const handleLoopLaneDoubleClick = useCallback(() => {
+    const loopEvent = workspace.timeline.loopEvents.at(0)
+    const lengthTicks = selectWorkspaceLengthTicks(workspace)
+
+    if (loopEvent) {
+      return dispatch([
+        updateTimelineEventAction({
+          id: loopEvent.id,
+          lengthTicks,
+          tick: 0,
+        }),
+        selectTimelineEventAction(loopEvent.id),
+        setActiveToolAction('select'),
+      ])
+    }
+
+    const existingIds = selectTimelineEventIds(workspace)
+    const loopEventId = createDraftEntityId('loopEvent', existingIds)
+
+    return dispatch([
+      addTimelineEventAction({
+        id: loopEventId,
+        lengthTicks,
+        tick: 0,
+      }),
+      selectTimelineEventAction(loopEventId),
+      setActiveToolAction('select'),
+    ])
+  }, [dispatch, workspace])
 
   const handleTrackLanePointerDown = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
@@ -485,7 +518,7 @@ function ArrangementDebugContent() {
       return
     }
 
-    if (editor.activeTool === 'drawBlock') {
+    if (editor.activeTool === 'draw') {
       startDrag(event, { kind: 'drawBlock', trackId })
       return
     }
@@ -733,19 +766,29 @@ function ArrangementDebugContent() {
 
   const loopSelection = useCallback(() => {
     const block = selectFirstSelectedBlock(editor, workspace)
-    if (block === undefined) {
+    const section = selectFirstSelectedSection(editor, workspace)
+    const entity = block ?? section
+
+    if (entity === undefined) {
       return
     }
 
     const loopEvent = getLoopEvent(workspace.timeline)
     if (loopEvent === undefined) {
-      return
+      const existingIds = selectTimelineEventIds(workspace)
+      const loopEventId = createDraftEntityId('loopEvent', existingIds)
+
+      return dispatch(addTimelineEventAction({
+        id: loopEventId,
+        tick: entity.startTick,
+        lengthTicks: entity.lengthTicks,
+      }))
     }
 
     dispatch(updateTimelineEventAction({
       ...loopEvent,
-      tick: block.startTick,
-      lengthTicks: block.lengthTicks,
+      tick: entity.startTick,
+      lengthTicks: entity.lengthTicks,
     }))
   }, [dispatch, workspace, editor])
 
@@ -1012,6 +1055,7 @@ function ArrangementDebugContent() {
                   timelineWidth={timelineWidth}
                   viewport={viewport}
                   workspace={workspace}
+                  onDoubleClick={handleLoopLaneDoubleClick}
                   onLoopPointerDown={handleTimelineEventPointerDown}
                   onPointerDown={handleLoopLanePointerDown}
                   onResizePointerDown={resizeTimelineEvent}
@@ -1814,6 +1858,7 @@ const TimelineRuler = memo(function TimelineRuler({
 const LoopLane = memo(function LoopLane({
   drag,
   hoveredTimelineEventId,
+  onDoubleClick,
   onLoopPointerDown,
   onPointerDown,
   onResizePointerDown,
@@ -1825,6 +1870,7 @@ const LoopLane = memo(function LoopLane({
 }: {
   drag?: DragState
   hoveredTimelineEventId?: TimelineEventId
+  onDoubleClick: () => void
   onLoopPointerDown: (event: ReactPointerEvent<HTMLDivElement>, loopEvent: LoopEvent) => void
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, loopEvent: LoopEvent, edge: 'left' | 'right') => void
@@ -1840,6 +1886,7 @@ const LoopLane = memo(function LoopLane({
 
   return (
     <Box
+      onDoubleClick={onDoubleClick}
       onPointerDown={onPointerDown}
       style={{
         background: 'var(--mantine-color-gray-1)',
@@ -3880,12 +3927,8 @@ function angleToValue(
 
 function getToolIcon(tool: ActiveTool) {
   switch (tool) {
-    case 'drawBlock':
+    case 'draw':
       return PencilEdit01Icon
-    case 'drawLoop':
-      return RepeatIcon
-    case 'drawSection':
-      return PaintBrush01Icon
     case 'erase':
       return EraserIcon
     case 'key':
@@ -4025,12 +4068,8 @@ function getTimelineEventMarkerLoopWidth(event: TimelineEvent, tick: number): nu
 
 function getToolLabel(tool: ActiveTool): string {
   switch (tool) {
-    case 'drawBlock':
-      return 'Draw block'
-    case 'drawLoop':
-      return 'Draw loop'
-    case 'drawSection':
-      return 'Draw section'
+    case 'draw':
+      return 'Draw'
     case 'erase':
       return 'Erase'
     case 'key':

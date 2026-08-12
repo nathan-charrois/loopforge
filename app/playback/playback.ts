@@ -94,6 +94,11 @@ export class PlaybackEngine {
     this.transport.stop()
   }
 
+  public reset(): void {
+    this.stop()
+    this.transport.seek(0)
+  }
+
   public seek(tick: Tick): void {
     this.requireActive()
     this.invalidatePendingPlay()
