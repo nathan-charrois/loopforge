@@ -18,7 +18,6 @@ import {
   type AutomationPattern,
   type ChordPattern,
   type DrumPattern,
-  eventMatchesPatternKind,
   type NotePattern,
   type Pattern,
   type PatternId,
@@ -37,10 +36,6 @@ export type CreatePatternInput = {
 
 export function createPattern(input: CreatePatternInput): Pattern {
   const events = sortPatternEventsByTime(input.events ?? [])
-
-  if (!events.every(event => eventMatchesPatternKind(event, input.kind))) {
-    throw new Error(`Pattern ${input.id} contains events that do not match kind ${input.kind}.`)
-  }
 
   const pattern = {
     events,

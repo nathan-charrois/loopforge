@@ -1,5 +1,7 @@
 import {
   addBlock,
+  addInstrument,
+  addMixChannel,
   addPattern,
   addPatternEvent,
   addSection,
@@ -181,6 +183,10 @@ export function applyWorkspaceCommand(
       const track = getPayloadObject<Track>(payload, 'track')
       return track === undefined ? workspace : updateTrack(workspace, track)
     }
+    case 'addInstrument': {
+      const instrument = getPayloadObject<Instrument>(payload, 'instrument')
+      return instrument === undefined ? workspace : addInstrument(workspace, instrument)
+    }
     case 'deleteInstrument':
       return removeInstruments(workspace, getPayloadStringArray(payload, 'instrumentIds'))
     case 'updateInstrument': {
@@ -189,6 +195,10 @@ export function applyWorkspaceCommand(
     }
     case 'reorderTrack':
       return reorderTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
+    case 'addMixChannel': {
+      const mixChannel = getPayloadObject<MixChannel>(payload, 'mixChannel')
+      return mixChannel === undefined ? workspace : addMixChannel(workspace, mixChannel)
+    }
     case 'deleteMixChannel':
       return removeMixChannels(workspace, getPayloadStringArray(payload, 'mixChannelIds'))
     case 'updateMixChannel': {
@@ -413,6 +423,10 @@ export function createDeleteInstrumentCommand(
   return createWorkspaceCommandRecord('deleteInstrument', `Delete ${instrumentIds.length} instrument${instrumentIds.length === 1 ? '' : 's'}`, { instrumentIds: [...instrumentIds] })
 }
 
+export function createAddInstrumentCommand(instrument: Instrument): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addInstrument', `Add instrument ${instrument.name}`, { instrument: toJsonValue(instrument) })
+}
+
 export function createUpdateInstrumentCommand(instrument: Instrument): WorkspaceCommand {
   return createWorkspaceCommandRecord('updateInstrument', `Update instrument ${instrument.name}`, { instrument: toJsonValue(instrument) })
 }
@@ -429,6 +443,10 @@ export function createDeleteMixChannelCommand(
     `Delete ${mixChannelIds.length} mix channel${mixChannelIds.length === 1 ? '' : 's'}`,
     { mixChannelIds: [...mixChannelIds] },
   )
+}
+
+export function createAddMixChannelCommand(mixChannel: MixChannel): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addMixChannel', `Add mix channel ${mixChannel.id}`, { mixChannel: toJsonValue(mixChannel) })
 }
 
 export function createUpdateMixChannelCommand(mixChannel: MixChannel): WorkspaceCommand {

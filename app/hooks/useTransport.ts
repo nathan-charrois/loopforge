@@ -8,6 +8,8 @@ import {
   useSyncExternalStore,
 } from 'react'
 
+import { useSessionStore } from '~/components/Providers/SessionProvider'
+import { formatTransportPosition } from '~/domain'
 import type { PlaybackEngine } from '~/playback/playback'
 import { createDefaultPlayheadMap, type PlayheadMap } from '~/playback/playhead'
 import type { TransportSnapshot, TransportStatus } from '~/playback/transport'
@@ -30,6 +32,19 @@ export function useTransportStatus(playbackEngine: PlaybackEngine): TransportSta
   )
 }
 
+export function useTransportLoopEnabled(playbackEngine: PlaybackEngine): boolean {
+  const getSnapshot = useCallback(
+    () => playbackEngine.transport.getSnapshot().loopEnabled,
+    [playbackEngine],
+  )
+
+  return useSyncExternalStore(
+    playbackEngine.transport.subscribe,
+    getSnapshot,
+    getSnapshot,
+  )
+}
+
 export function useTransportSnapshot(
   playbackEngine: PlaybackEngine,
 ): TransportSnapshot {
@@ -38,6 +53,22 @@ export function useTransportSnapshot(
     playbackEngine.transport.getSnapshot,
     playbackEngine.transport.getSnapshot,
   )
+}
+
+export function useTransportPosition(playbackEngine: PlaybackEngine): string {
+  const sessionStore = useSessionStore()
+  const getTimeline = useCallback(
+    () => sessionStore.getSnapshot().workspace.timeline,
+    [sessionStore],
+  )
+  const timeline = useSyncExternalStore(
+    sessionStore.subscribe,
+    getTimeline,
+    getTimeline,
+  )
+  const transportSnapshot = useTransportSnapshot(playbackEngine)
+
+  return formatTransportPosition(timeline, transportSnapshot.playheadTick)
 }
 
 const DEFAULT_PLAYHEAD_MAP = createDefaultPlayheadMap()

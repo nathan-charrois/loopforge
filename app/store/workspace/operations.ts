@@ -133,6 +133,39 @@ export function updateInstrument(workspace: Workspace, instrument: Instrument): 
   }
 }
 
+export function addInstrument(workspace: Workspace, instrument: Instrument): Workspace {
+  if (workspace.instruments.byId[instrument.id] !== undefined) {
+    throw new Error(`Instrument ${instrument.id} already exists.`)
+  }
+
+  return {
+    ...workspace,
+    instruments: addEntity(workspace.instruments, instrument),
+    project: touchProject(workspace.project),
+  }
+}
+
+export function addMixChannel(workspace: Workspace, mixChannel: MixChannel): Workspace {
+  if (workspace.mixer.channels.byId[mixChannel.id] !== undefined) {
+    throw new Error(`Mix channel ${mixChannel.id} already exists.`)
+  }
+
+  const mixChannelErrors = validateMixChannel(mixChannel)
+
+  if (mixChannelErrors.length > 0) {
+    throw new Error(mixChannelErrors.join(' '))
+  }
+
+  return {
+    ...workspace,
+    mixer: {
+      ...workspace.mixer,
+      channels: addEntity(workspace.mixer.channels, mixChannel),
+    },
+    project: touchProject(workspace.project),
+  }
+}
+
 export function updateMixChannel(workspace: Workspace, mixChannel: MixChannel): Workspace {
   requireMixChannel(workspace, mixChannel.id)
 
@@ -151,6 +184,16 @@ export function removeTracks(workspace: Workspace, trackIds: readonly TrackId[])
 
   return {
     ...workspace,
+    arrangement: {
+      ...workspace.arrangement,
+      blocks: workspace.arrangement.blocks.filter(
+        block => !trackIds.includes(block.trackId),
+      ),
+    },
+    instruments: tracks.reduce(
+      (instruments, track) => removeEntity(instruments, track.instrumentId),
+      workspace.instruments,
+    ),
     mixer: {
       ...workspace.mixer,
       channels: tracks.reduce(

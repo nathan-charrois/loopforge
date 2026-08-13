@@ -16,12 +16,12 @@ import {
   type DurationTicks,
   getBarLengthTicksAtTick,
   getBlockEndTick,
+  getPatternKindForTrack,
   getSectionEndTick,
   type MidiNote,
   type NoteEvent,
   type Pattern,
   type PatternId,
-  type PatternKind,
   type Section,
   type Tick,
   type TickRange,
@@ -198,15 +198,22 @@ export function createArrangementSectionDraft(
 export function createArrangementPatternDraft(
   workspace: Workspace,
   input: {
-    kind?: PatternKind
+    id?: PatternId
     lengthTicks?: DurationTicks
-  } = {},
+    trackId: TrackId
+  },
 ): Pattern {
+  const track = workspace.tracks.byId[input.trackId]
+
+  if (track === undefined) {
+    throw new Error(`Track ${input.trackId} does not exist.`)
+  }
+
   const patternNumber = workspace.patterns.allIds.length + 1
 
   return createPattern({
-    id: createDraftEntityId('pattern', workspace.patterns.allIds),
-    kind: input.kind ?? 'note',
+    id: input.id ?? createDraftEntityId('pattern', workspace.patterns.allIds),
+    kind: getPatternKindForTrack(track),
     lengthTicks: input.lengthTicks ?? getBarLengthTicksAtTick(workspace.timeline, 0),
     name: `Pattern ${patternNumber}`,
   })

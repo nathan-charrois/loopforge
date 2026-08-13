@@ -44,7 +44,7 @@ export function useKeyboardShortcuts({
         return
       }
 
-      if (event.key === 'Spacebar' && onPlayPause !== undefined) {
+      if (event.key === ' ' && onPlayPause !== undefined) {
         event.preventDefault()
         onPlayPause()
         return

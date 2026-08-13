@@ -47,6 +47,12 @@ export function formatTickAsBars(timeline: Timeline, tick: number): string {
   return `Bar ${barBeat.bar}, beat ${barBeat.beat}`
 }
 
+export function formatTransportPosition(timeline: Timeline, tick: Tick): string {
+  const barBeat = tickToBarBeat(timeline, toTimelineTick(tick))
+
+  return `${barBeat.bar}.${barBeat.beat}.${barBeat.tick}`
+}
+
 export function formatTickRangeAsBars(timeline: Timeline, startTick: number, endTick: number): string {
   return `${formatTickAsBars(timeline, startTick)} - ${formatTickAsBars(timeline, endTick)}`
 }

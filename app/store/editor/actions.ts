@@ -283,13 +283,17 @@ export function pasteClipboardAction(clipboard: ClipboardState, offsetTicks: num
 
 export function applyBlockToolAction(input: {
   block: Block
+  focusedBlockId?: BlockId
   tick: Tick
   tool: ActiveTool
 }): readonly Command[] {
-  const { block, tick, tool } = input
+  const { block, focusedBlockId, tick, tool } = input
 
   if (tool === 'erase') {
-    return [deleteBlockAction([block.id])]
+    return [
+      deleteBlockAction([block.id]),
+      ...(focusedBlockId === block.id ? [setFocusedBlockIdAction()] : []),
+    ]
   }
 
   if (tool === 'split') {
@@ -383,6 +387,7 @@ export function completeDragAction(input: {
 
     const pattern = createArrangementPatternDraft(workspace, {
       lengthTicks: range.lengthTicks,
+      trackId: dragState.trackId,
     })
 
     const block = createArrangementBlockDraft(workspace, {

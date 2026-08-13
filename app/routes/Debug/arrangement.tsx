@@ -76,6 +76,8 @@ import {
   CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
   createDraftEntityId,
+  createInstrument,
+  createMixChannel,
   createSynthOscillator,
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
@@ -141,8 +143,9 @@ import {
 import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
 import { useSessionProject } from '~/hooks/useSessionProject'
 import {
+  useTransportLoopEnabled,
   useTransportPlayhead,
-  useTransportSnapshot,
+  useTransportPosition,
   useTransportStatus,
 } from '~/hooks/useTransport'
 import { useViewport } from '~/hooks/useViewport'
@@ -155,6 +158,7 @@ import {
   applySectionToolAction,
   applyTimelineEventToolAction,
   copySelectionAction,
+  createArrangementPatternDraft,
   createArrangementTrackDraft,
   createInspectorDraft,
   createTickRangeFromSelection,
@@ -200,6 +204,9 @@ import {
 } from '~/store/editor'
 import type { CommandHistoryEntry } from '~/store/session'
 import {
+  addInstrumentAction,
+  addMixChannelAction,
+  addPatternAction,
   addTimelineEventAction,
   addTrackAction,
   deletePatternEventAction,
@@ -540,6 +547,7 @@ function ArrangementDebugContent() {
 
     const commands = applyBlockToolAction({
       block,
+      focusedBlockId: editor.focusedBlockId,
       tick: getPointerTick(event.clientX),
       tool: editor.activeTool,
     })
@@ -560,7 +568,7 @@ function ArrangementDebugContent() {
         trackId: block.trackId,
       })
     }
-  }, [dispatch, editor.activeTool, editor.selection.selectedBlockIds, getPointerTick, startDrag])
+  }, [dispatch, editor.activeTool, editor.focusedBlockId, editor.selection.selectedBlockIds, getPointerTick, startDrag])
 
   const handleBlockResizePointerDown = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
@@ -660,6 +668,22 @@ function ArrangementDebugContent() {
     event.stopPropagation()
     dispatch(selectMixChannelAction(mixChannelId, event.shiftKey))
   }, [dispatch])
+
+  const handleCreateTrackInstrument = useCallback((track: Track) => {
+    dispatch(addInstrumentAction(createInstrument({ id: track.instrumentId, track })))
+  }, [dispatch])
+
+  const handleCreateTrackMixChannel = useCallback((track: Track) => {
+    dispatch(addMixChannelAction(createMixChannel({ id: track.mixChannelId })))
+  }, [dispatch])
+
+  const handleCreateBlockPattern = useCallback((block: Block) => {
+    dispatch(addPatternAction(createArrangementPatternDraft(workspace, {
+      id: block.patternId,
+      lengthTicks: block.lengthTicks,
+      trackId: block.trackId,
+    })))
+  }, [dispatch, workspace])
 
   const handlePatternClick = useCallback((
     event: ReactMouseEvent<HTMLButtonElement>,
@@ -1000,6 +1024,7 @@ function ArrangementDebugContent() {
                 viewport={viewport}
                 workspace={workspace}
                 onClick={handleClickInstrument}
+                onCreate={handleCreateTrackInstrument}
                 onSetHoveredInstrument={setHoveredInstrumentId}
               />
               <TimelineMixChannelColumn
@@ -1009,6 +1034,7 @@ function ArrangementDebugContent() {
                 viewport={viewport}
                 workspace={workspace}
                 onClick={handleClickMixChannel}
+                onCreate={handleCreateTrackMixChannel}
                 onClickMute={handleClickMixChannelMute}
                 onClickSolo={handleClickMixChannelSolo}
                 onSetHoveredMixChannel={setHoveredMixChannelId}
@@ -1094,6 +1120,7 @@ function ArrangementDebugContent() {
                       onBlockDoubleClick={handleBlockDoubleClick}
                       onBlockPointerDown={handleBlockPointerDown}
                       onBlockResizePointerDown={handleBlockResizePointerDown}
+                      onCreatePattern={handleCreateBlockPattern}
                       onEmptyDoubleClick={handleBlockCloseFocus}
                       onPointerDown={handleTrackLanePointerDown}
                       onPatternClick={handlePatternClick}
@@ -1312,7 +1339,13 @@ const PlaybackControls = memo(function PlaybackControls({
   onPlay: () => void
 }) {
   const status = useTransportStatus(playbackEngine)
-  const transportSnapshot = useTransportSnapshot(playbackEngine)
+  const loopEnabled = useTransportLoopEnabled(playbackEngine)
+
+  const handleToggleLoop = useCallback(() => {
+    const snapshot = playbackEngine.transport.getSnapshot()
+
+    playbackEngine.setLoop(snapshot.loopRange, !snapshot.loopEnabled)
+  }, [playbackEngine])
 
   return (
     <Group gap={4}>
@@ -1351,22 +1384,44 @@ const PlaybackControls = memo(function PlaybackControls({
           <HugeiconsIcon icon={StopIcon} size={18} />
         </ActionIcon>
       </Tooltip>
-      <Tooltip label={transportSnapshot.loopEnabled ? 'Disable loop' : 'Enable loop'}>
+      <Tooltip label={loopEnabled ? 'Disable loop' : 'Enable loop'}>
         <ActionIcon
-          aria-label={transportSnapshot.loopEnabled ? 'Disable loop' : 'Enable loop'}
-          aria-pressed={transportSnapshot.loopEnabled}
-          color="violet"
+          aria-label={loopEnabled ? 'Disable loop' : 'Enable loop'}
+          aria-pressed={loopEnabled}
+          color={loopEnabled ? 'violet' : 'gay'}
           size="lg"
-          variant={transportSnapshot.loopEnabled ? 'filled' : 'light'}
-          onClick={() => playbackEngine.setLoop(
-            transportSnapshot.loopRange,
-            !transportSnapshot.loopEnabled,
-          )}
+          variant={loopEnabled ? 'filled' : 'light'}
+          onClick={handleToggleLoop}
         >
           <HugeiconsIcon icon={RepeatIcon} size={18} />
         </ActionIcon>
       </Tooltip>
+      <TransportPosition playbackEngine={playbackEngine} />
     </Group>
+  )
+})
+
+const TransportPosition = memo(function TransportPosition({
+  playbackEngine,
+}: {
+  playbackEngine: PlaybackEngine
+}) {
+  const position = useTransportPosition(playbackEngine)
+
+  return (
+    <Text
+      aria-label={`Transport position ${position}`}
+      ff="monospace"
+      fw={400}
+      miw={76}
+      mx={4}
+      size="sm"
+      ta="center"
+      title="Bar.Beat.Tick"
+      style={{ fontVariantNumeric: 'tabular-nums' }}
+    >
+      {position}
+    </Text>
   )
 })
 
@@ -1546,6 +1601,7 @@ const TimelineTrackLabel = memo(function TimelineTrackLabel({
 const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
   hoveredInstrumentId,
   onClick: onClickInstrument,
+  onCreate,
   onSetHoveredInstrument,
   selectedInstrumentIds,
   tracks,
@@ -1554,6 +1610,7 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
 }: {
   hoveredInstrumentId?: InstrumentId
   onClick: (event: ReactMouseEvent<HTMLDivElement>, instrumentId: InstrumentId) => void
+  onCreate: (track: Track) => void
   onSetHoveredInstrument: (instrumentId: InstrumentId | undefined) => void
   selectedInstrumentIds: InstrumentId[]
   tracks: Track[]
@@ -1585,7 +1642,10 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
               key={`missing:${track.id}`}
               height={viewport.laneHeight}
               tintColor={track.color}
-            />
+              onClick={() => onCreate(track)}
+            >
+              <Text c="dimmed" size="xs">Add instrument</Text>
+            </StaticTimelineLabel>
           )
         }
 
@@ -1618,6 +1678,7 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
   onClick: onClickMixChannel,
   onClickMute,
   onClickSolo,
+  onCreate,
   onSetHoveredMixChannel,
   selectedMixChannelIds,
   tracks,
@@ -1628,6 +1689,7 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
   onClick: (event: ReactMouseEvent<HTMLDivElement>, mixChannelId: MixChannelId) => void
   onClickMute: (event: ReactMouseEvent<HTMLButtonElement>, mixChannel: MixChannel) => void
   onClickSolo: (event: ReactMouseEvent<HTMLButtonElement>, mixChannel: MixChannel) => void
+  onCreate: (track: Track) => void
   onSetHoveredMixChannel: (mixChannelId: MixChannelId | undefined) => void
   selectedMixChannelIds: MixChannelId[]
   tracks: Track[]
@@ -1659,7 +1721,10 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
               key={`missing:${track.id}`}
               height={viewport.laneHeight}
               tintColor={track.color}
-            />
+              onClick={() => onCreate(track)}
+            >
+              <Text c="dimmed" size="xs">Add mix channel</Text>
+            </StaticTimelineLabel>
           )
         }
 
@@ -2198,6 +2263,7 @@ const TrackLane = memo(function TrackLane({
   onBlockDoubleClick,
   onBlockPointerDown,
   onBlockResizePointerDown,
+  onCreatePattern,
   onEmptyDoubleClick,
   onPatternClick,
   onPatternEventClick,
@@ -2217,6 +2283,7 @@ const TrackLane = memo(function TrackLane({
   onBlockDoubleClick: (blockId: string) => void
   onBlockPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
   onBlockResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block, edge: 'left' | 'right') => void
+  onCreatePattern: (block: Block) => void
   onEmptyDoubleClick: () => void
   onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
   onPatternEventClick: (event: ReactMouseEvent<HTMLButtonElement>, patternEventId: PatternEventId) => void
@@ -2271,6 +2338,7 @@ const TrackLane = memo(function TrackLane({
           workspace={workspace}
           zIndex={zIndex}
           onDoubleClick={onBlockDoubleClick}
+          onCreatePattern={onCreatePattern}
           onPointerDown={onBlockPointerDown}
           onPatternClick={onPatternClick}
           onPatternEventClick={onPatternEventClick}
@@ -2315,6 +2383,7 @@ const BlockView = memo(function BlockView({
   focusedBlockId,
   hovered,
   onDoubleClick,
+  onCreatePattern,
   onPatternClick,
   onPatternEventClick,
   onPointerDown,
@@ -2332,6 +2401,7 @@ const BlockView = memo(function BlockView({
   focusedBlockId?: string
   hovered: boolean
   onDoubleClick: (blockId: string) => void
+  onCreatePattern: (block: Block) => void
   onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
   onPatternEventClick: (event: ReactMouseEvent<HTMLButtonElement>, patternEventId: PatternEventId) => void
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
@@ -2399,6 +2469,7 @@ const BlockView = memo(function BlockView({
           pattern={pattern}
           selectedPatternEventIds={selectedPatternEventIds}
           selectedPatternIds={selectedPatternIds}
+          onCreatePattern={onCreatePattern}
           onPatternClick={onPatternClick}
           onPatternEventClick={onPatternEventClick}
         />
@@ -2409,6 +2480,7 @@ const BlockView = memo(function BlockView({
 
 const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
   block,
+  onCreatePattern,
   onPatternClick,
   onPatternEventClick,
   pattern,
@@ -2416,6 +2488,7 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
   selectedPatternIds,
 }: {
   block: Block
+  onCreatePattern: (block: Block) => void
   onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
   onPatternEventClick: (event: ReactMouseEvent<HTMLButtonElement>, patternEventId: PatternEventId) => void
   pattern?: Pattern
@@ -2451,6 +2524,21 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
         top: 25,
       }}
     >
+      {pattern === undefined && (
+        <Button
+          h="100%"
+          size="compact-xs"
+          variant="subtle"
+          w="100%"
+          onClick={(event) => {
+            event.stopPropagation()
+            onCreatePattern(block)
+          }}
+          onPointerDown={event => event.stopPropagation()}
+        >
+          Add pattern
+        </Button>
+      )}
       {pattern !== undefined && Array.from({ length: patternInstanceCount }, (_, instanceIndex) => (
         <Box
           key={instanceIndex}

@@ -1,5 +1,7 @@
 import {
   createAddBlockCommand,
+  createAddInstrumentCommand,
+  createAddMixChannelCommand,
   createAddPatternCommand,
   createAddPatternEventCommand,
   createAddSectionCommand,
@@ -160,6 +162,10 @@ export function deleteInstrumentAction(instrumentIds: readonly InstrumentId[]): 
   return createDeleteInstrumentCommand(instrumentIds)
 }
 
+export function addInstrumentAction(instrument: Instrument): WorkspaceCommand {
+  return createAddInstrumentCommand(instrument)
+}
+
 export function updateInstrumentAction(instrument: Instrument): WorkspaceCommand {
   return createUpdateInstrumentCommand(instrument)
 }
@@ -170,6 +176,10 @@ export function reorderTrackAction(trackIds: readonly TrackId[]): WorkspaceComma
 
 export function updateMixChannelAction(mixChannel: MixChannel): WorkspaceCommand {
   return createUpdateMixChannelCommand(mixChannel)
+}
+
+export function addMixChannelAction(mixChannel: MixChannel): WorkspaceCommand {
+  return createAddMixChannelCommand(mixChannel)
 }
 
 export function deleteMixChannelAction(mixChannelIds: readonly MixChannelId[]): WorkspaceCommand {
