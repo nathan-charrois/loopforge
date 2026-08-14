@@ -74,10 +74,18 @@ export function redoHistoryEntry(history: CommandHistory): {
   }
 }
 
-export function canUndoCommand(history: CommandHistory): boolean {
-  return history.undoStack.length > 0
+export function selectCommandHistory(commandHistory: CommandHistory): CommandHistoryEntry[] {
+  return commandHistory.undoStack
 }
 
-export function canRedoCommand(history: CommandHistory): boolean {
-  return history.redoStack.length > 0
+export function selectCommandHistoryCount(commandHistory: CommandHistory): number {
+  return commandHistory.undoStack.length
+}
+
+export function selectCanUndoCommandHistory(commandHistory: CommandHistory): boolean {
+  return commandHistory.undoStack.length > 0
+}
+
+export function selectCanRedoCommandHistory(commandHistory: CommandHistory): boolean {
+  return commandHistory.redoStack.length > 0
 }

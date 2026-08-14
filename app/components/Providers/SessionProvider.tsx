@@ -2,16 +2,19 @@ import {
   createContext,
   type ReactNode,
   useContext,
+  useMemo,
   useRef,
   useSyncExternalStore,
 } from 'react'
 
 import type { Editor } from '~/store/editor'
 import {
-  canRedoCommand,
-  canUndoCommand,
+  type CommandHistory,
   createSession,
   createSessionStore,
+  createSnapshot,
+  type SelectorType,
+  type Session,
   type SessionStore,
 } from '~/store/session'
 import type { Workspace } from '~/store/workspace'
@@ -66,8 +69,6 @@ export function useSession() {
 
   return {
     ...session,
-    canRedo: canRedoCommand(session.commandHistory),
-    canUndo: canUndoCommand(session.commandHistory),
     dispatch: store.dispatch,
     replace: store.replace,
     redo: store.redo,
@@ -75,32 +76,62 @@ export function useSession() {
   }
 }
 
-export function useWorkspace() {
+export function useWorkspace<T>(selector: SelectorType<Workspace, T>): T {
   const store = useSessionStore()
+
+  const selectWorkspace = useMemo(
+    () => (session: Session) => selector(session.workspace),
+    [selector],
+  )
+
+  const getSnapshot = useMemo(
+    () => createSnapshot(store.getSnapshot, selectWorkspace),
+    [selectWorkspace, store],
+  )
 
   return useSyncExternalStore(
     store.subscribe,
-    () => store.getSnapshot().workspace,
-    () => store.getSnapshot().workspace,
+    getSnapshot,
+    getSnapshot,
   )
 }
 
-export function useEditor() {
+export function useEditor<T>(selector: SelectorType<Editor, T>): T {
   const store = useSessionStore()
+
+  const selectEditor = useMemo(
+    () => (session: Session) => selector(session.editor),
+    [selector],
+  )
+
+  const getSnapshot = useMemo(
+    () => createSnapshot(store.getSnapshot, selectEditor),
+    [selectEditor, store],
+  )
 
   return useSyncExternalStore(
     store.subscribe,
-    () => store.getSnapshot().editor,
-    () => store.getSnapshot().editor,
+    getSnapshot,
+    getSnapshot,
   )
 }
 
-export function useCommandHistory() {
+export function useCommandHistory<T>(selector: SelectorType<CommandHistory, T>): T {
   const store = useSessionStore()
+
+  const selectCommandHistory = useMemo(
+    () => (session: Session) => selector(session.commandHistory),
+    [selector],
+  )
+
+  const getSnapshot = useMemo(
+    () => createSnapshot(store.getSnapshot, selectCommandHistory),
+    [selectCommandHistory, store],
+  )
 
   return useSyncExternalStore(
     store.subscribe,
-    () => store.getSnapshot().commandHistory,
-    () => store.getSnapshot().commandHistory,
+    getSnapshot,
+    getSnapshot,
   )
 }

@@ -63,7 +63,7 @@ import { AppMenu } from '~/components/AppLayout/AppMenu'
 import { PatternPanel } from '~/components/PatternPanel/PatternPanel'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
-import { useSession } from '~/components/Providers/SessionProvider'
+import { useCommandHistory, useSession } from '~/components/Providers/SessionProvider'
 import {
   type Block,
   BLOCK_PLAYBACK_MODES,
@@ -202,7 +202,7 @@ import {
   updateTrackFromInspectorAction,
   type ViewportState,
 } from '~/store/editor'
-import type { CommandHistoryEntry } from '~/store/session'
+import { selectCanRedoCommandHistory, selectCanUndoCommandHistory, selectCommandHistory, selectCommandHistoryCount } from '~/store/session'
 import {
   addInstrumentAction,
   addMixChannelAction,
@@ -329,9 +329,6 @@ export default function Arrangement() {
 
 function ArrangementDebugContent() {
   const {
-    canRedo,
-    canUndo,
-    commandHistory,
     dispatch,
     editor,
     redo,
@@ -972,18 +969,12 @@ function ArrangementDebugContent() {
             <Badge color={workspaceErrors.length === 0 ? 'green' : 'red'} variant="light">
               {workspaceErrors.length === 0 ? 'valid' : `${workspaceErrors.length} errors`}
             </Badge>
-            <Badge color="gray" variant="light">
-              {commandHistory.undoStack.length}
-              {' '}
-              commands
-            </Badge>
+            <CommandHistoryBadge />
           </Group>
         </Group>
         <Toolbar
           playbackEngine={playbackEngine}
           activeTool={editor.activeTool}
-          canRedo={canRedo}
-          canUndo={canUndo}
           focusedBlockId={editor.focusedBlockId}
           grid={workspace.timeline.grid}
           onCloseFocus={handleBlockCloseFocus}
@@ -1199,9 +1190,7 @@ function ArrangementDebugContent() {
               onUpdateTimelineEvent={updateSelectedTimelineEventFromInspector}
               onUpdateTrack={updateSelectedTrackFromInspector}
             />
-            <CommandHistoryList
-              commandHistory={commandHistory.undoStack}
-            />
+            <CommandHistoryStack />
           </Stack>
         </SimpleGrid>
       </Stack>
@@ -1212,8 +1201,6 @@ function ArrangementDebugContent() {
 const Toolbar = memo(function Toolbar({
   playbackEngine,
   activeTool,
-  canRedo,
-  canUndo,
   focusedBlockId,
   grid,
   onCloseFocus,
@@ -1229,8 +1216,6 @@ const Toolbar = memo(function Toolbar({
 }: {
   playbackEngine: PlaybackEngine
   activeTool: ActiveTool
-  canRedo: boolean
-  canUndo: boolean
   focusedBlockId?: string
   grid: GridDivision
   onCloseFocus: () => void
@@ -1244,6 +1229,9 @@ const Toolbar = memo(function Toolbar({
   onZoomIn: () => void
   onZoomOut: () => void
 }) {
+  const canRedoCommandHistory = useCommandHistory(selectCanRedoCommandHistory)
+  const canUndoCommandHistory = useCommandHistory(selectCanUndoCommandHistory)
+
   return (
     <Paper withBorder radius="sm" p="xs">
       <Group justify="space-between" gap="xs">
@@ -1280,12 +1268,12 @@ const Toolbar = memo(function Toolbar({
         </Group>
         <Group gap="xs">
           <Tooltip label="Undo">
-            <ActionIcon aria-label="Undo" disabled={!canUndo} size="lg" variant="light" onClick={onUndo}>
+            <ActionIcon aria-label="Undo" disabled={!canUndoCommandHistory} size="lg" variant="light" onClick={onUndo}>
               <HugeiconsIcon icon={Undo03Icon} size={18} />
             </ActionIcon>
           </Tooltip>
           <Tooltip label="Redo">
-            <ActionIcon aria-label="Redo" disabled={!canRedo} size="lg" variant="light" onClick={onRedo}>
+            <ActionIcon aria-label="Redo" disabled={!canRedoCommandHistory} size="lg" variant="light" onClick={onRedo}>
               <HugeiconsIcon icon={Redo03Icon} size={18} />
             </ActionIcon>
           </Tooltip>
@@ -3677,11 +3665,21 @@ const InspectorPanel = memo(function InspectorPanel({
   )
 })
 
-const CommandHistoryList = memo(function InspectorPanel({
-  commandHistory,
-}: {
-  commandHistory: CommandHistoryEntry[]
-}) {
+const CommandHistoryBadge = memo(function CommandHistoryBadge() {
+  const commandHistoryCount = useCommandHistory(selectCommandHistoryCount)
+
+  return (
+    <Badge color="gray" variant="light">
+      {commandHistoryCount}
+      {' '}
+      commands
+    </Badge>
+  )
+})
+
+const CommandHistoryStack = memo(function CommandHistoryStack() {
+  const commandHistory = useCommandHistory(selectCommandHistory)
+
   return (
     <Paper withBorder radius="sm" p="md">
       <Stack gap="xs">
