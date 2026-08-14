@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 
+type KeyboardShortcutTool = 'select' | 'erase' | 'split' | 'resize' | 'move' | 'draw'
+
 type KeyboardShortcutHandlers = {
   onCopy?: () => void
   onDelete?: () => void
@@ -9,6 +11,7 @@ type KeyboardShortcutHandlers = {
   onPaste?: () => void
   onPlayPause?: () => void
   onRedo?: () => void
+  onSetTool?: (tool: KeyboardShortcutTool) => void
   onUndo?: () => void
 }
 
@@ -21,6 +24,7 @@ export function useKeyboardShortcuts({
   onPaste,
   onPlayPause,
   onRedo,
+  onSetTool,
   onUndo,
 }: KeyboardShortcutHandlers): void {
   useEffect(() => {
@@ -89,6 +93,42 @@ export function useKeyboardShortcuts({
       if (modifierPressed && key === 'v' && onPaste !== undefined) {
         event.preventDefault()
         onPaste()
+        return
+      }
+
+      if (key === 'a' && onSetTool !== undefined) {
+        event.preventDefault()
+        onSetTool('select')
+        return
+      }
+
+      if (key === 'e' && onSetTool !== undefined) {
+        event.preventDefault()
+        onSetTool('erase')
+        return
+      }
+
+      if (key === 's' && onSetTool !== undefined) {
+        event.preventDefault()
+        onSetTool('split')
+        return
+      }
+
+      if (key === 'r' && onSetTool !== undefined) {
+        event.preventDefault()
+        onSetTool('resize')
+        return
+      }
+
+      if (key === 'm' && onSetTool !== undefined) {
+        event.preventDefault()
+        onSetTool('move')
+        return
+      }
+
+      if (key === 'd' && onSetTool !== undefined) {
+        event.preventDefault()
+        onSetTool('draw')
       }
     }
 
@@ -104,6 +144,7 @@ export function useKeyboardShortcuts({
     onPaste,
     onPlayPause,
     onRedo,
+    onSetTool,
     onUndo,
   ])
 }

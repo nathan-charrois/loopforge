@@ -760,7 +760,7 @@ function ArrangementDebugContent() {
     dispatch(copySelectionAction())
   }, [dispatch])
 
-  const setActiveTool = useCallback((tool: ActiveTool) => {
+  const handleSetTool = useCallback((tool: ActiveTool) => {
     dispatch(setActiveToolAction(tool))
   }, [dispatch])
 
@@ -942,6 +942,7 @@ function ArrangementDebugContent() {
     onCopy: handleCopy,
     onPaste: handlePaste,
     onPlayPause: handlePlayPause,
+    onSetTool: handleSetTool,
     onRedo: redo,
     onUndo: undo,
   })
@@ -992,7 +993,7 @@ function ArrangementDebugContent() {
           onRedo={redo}
           onUndo={undo}
           onSetGrid={updateGridDivision}
-          onSetTool={setActiveTool}
+          onSetTool={handleSetTool}
           onZoomIn={handleToolbarZoomIn}
           onZoomOut={handleToolbarZoomOut}
         />
