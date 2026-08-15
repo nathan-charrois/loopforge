@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   memo,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -63,10 +64,16 @@ import { AppMenu } from '~/components/AppLayout/AppMenu'
 import { PatternPanel } from '~/components/PatternPanel/PatternPanel'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
-import { useCommandHistory, useSession } from '~/components/Providers/SessionProvider'
+import {
+  useCommandHistory,
+  useEditor,
+  useSessionStore,
+  useWorkspace,
+} from '~/components/Providers/SessionProvider'
 import {
   type Block,
   BLOCK_PLAYBACK_MODES,
+  type BlockId,
   type BlockPlaybackMode,
   CHORD_ALTERATIONS,
   CHORD_EXTENSIONS,
@@ -119,6 +126,7 @@ import {
   type RulerMark,
   type Section,
   type SectionId,
+  sortBlocksByStartTick,
   type Tick,
   TIME_SIGNATURE_DENOMINATORS,
   type TimelineEvent,
@@ -168,7 +176,9 @@ import {
   type InspectorDraft,
   pasteClipboardAction,
   type PatternEventDraft,
+  selectActiveTool,
   selectBlockAction,
+  selectEditor,
   selectFirstSelectedBlock,
   selectFirstSelectedInstrument,
   selectFirstSelectedMixChannel,
@@ -177,18 +187,30 @@ import {
   selectFirstSelectedSection,
   selectFirstSelectedTimelineEvent,
   selectFirstSelectedTrack,
+  selectFocusedBlockId,
   selectInstrumentAction,
   type SelectionState,
   selectMixChannelAction,
   selectPatternAction,
   selectPatternEventAction,
   selectSectionAction,
+  selectSelectedBlockIds,
+  selectSelectedInstrumentIds,
+  selectSelectedMixChannelIds,
+  selectSelectedPatternEventIds,
+  selectSelectedPatternIds,
+  selectSelectedSectionIds,
+  selectSelectedTimelineEventIds,
+  selectSelectedTrackIds,
   selectTimelineEventAction,
   selectTrackAction,
   setActivePatternPanelToolAction,
   setActiveToolAction,
   setFocusedBlockIdAction,
   tickToX,
+  TIMELINE_RULER_HEIGHT,
+  TIMELINE_SECTION_LANE_HEIGHT,
+  TIMELINE_TRACK_LANE_HEIGHT,
   unfocusSelectionAction,
   updateBlockFromInspectorAction,
   updateInspectorDraftFromSelection,
@@ -200,9 +222,13 @@ import {
   updateSectionFromInspectorAction,
   updateTimelineEventFromInspectorAction,
   updateTrackFromInspectorAction,
-  type ViewportState,
 } from '~/store/editor'
-import { selectCanRedoCommandHistory, selectCanUndoCommandHistory, selectCommandHistory, selectCommandHistoryCount } from '~/store/session'
+import {
+  selectCanRedoCommandHistory,
+  selectCanUndoCommandHistory,
+  selectCommandHistory,
+  selectCommandHistoryCount,
+} from '~/store/session'
 import {
   addInstrumentAction,
   addMixChannelAction,
@@ -211,15 +237,20 @@ import {
   addTrackAction,
   deletePatternEventAction,
   deleteTimelineEventAction,
-  selectBlocksForTrack,
-  selectInstrument,
-  selectMixChannel,
-  selectPattern,
+  selectArrangement,
+  selectGridDivision,
+  selectInstrumentStore,
+  selectMasterMixChannel,
+  selectMixer,
   selectPatterns,
+  selectPatternStore,
+  selectTimeline,
+  selectTimelineEndTick,
   selectTimelineEventIds,
-  selectTimelineEvents,
-  selectTracks,
-  selectWorkspaceEndTick,
+  selectTimelineEventsFromTimeline,
+  selectTrackIds,
+  selectTrackStore,
+  selectWorkspace,
   selectWorkspaceLengthTicks,
   setGridDivisionAction,
   updateMixChannelAction,
@@ -247,6 +278,12 @@ const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
 const MAX_SYNTH_ENVELOPE_VALUE = 3
+
+type TimelineZoomStyle = CSSProperties & {
+  '--timeline-pixels-per-tick': string
+  '--timeline-width': string
+}
+
 const SYNTH_OSCILLATOR_WAVEFORMS: SynthOscillator['waveform'][] = [
   'sine',
   'triangle',
@@ -330,11 +367,16 @@ export default function Arrangement() {
 function ArrangementDebugContent() {
   const {
     dispatch,
-    editor,
     redo,
     undo,
-    workspace,
-  } = useSession()
+  } = useSessionStore()
+
+  const editor = useEditor(selectEditor)
+  const workspace = useWorkspace(selectWorkspace)
+
+  const trackIds = useWorkspace(selectTrackIds)
+  const timeline = useWorkspace(selectTimeline)
+  const timelineEndTick = useWorkspace(selectTimelineEndTick)
 
   const playbackEngine = usePlaybackEngine()
 
@@ -357,79 +399,37 @@ function ArrangementDebugContent() {
     getPointerTick,
   } = useDrag({
     dispatch,
-    viewport,
+    pixelsPerTick: viewport.pixelsPerTick,
     workspace,
     onUpdateDrag: handleAutoScroll,
   })
 
-  const [inspectorDraft, setInspectorDraft] = useState<InspectorDraft>(() => createInspectorDraft())
-
-  const [hoveredBlockId, setHoveredBlockId] = useState<string | undefined>(undefined)
+  const [hoveredBlockId, setHoveredBlockId] = useState<BlockId | undefined>(undefined)
   const [hoveredInstrumentId, setHoveredInstrumentId] = useState<InstrumentId | undefined>(undefined)
   const [hoveredMixChannelId, setHoveredMixChannelId] = useState<MixChannelId | undefined>(undefined)
   const [hoveredSectionId, setHoveredSectionId] = useState<SectionId | undefined>(undefined)
-  const [hoveredTimelineEventId, setHoveredTimelineEventId] = useState<string | undefined>(undefined)
+  const [hoveredTimelineEventId, setHoveredTimelineEventId] = useState<TimelineEventId | undefined>(undefined)
   const [hoveredTrackId, setHoveredTrackId] = useState<TrackId | undefined>(undefined)
 
-  const tracks = useMemo(() => selectTracks(workspace), [workspace])
-  const patterns = useMemo(() => selectPatterns(workspace), [workspace])
-
-  const selectedBlock = useMemo(() => selectFirstSelectedBlock(editor, workspace), [editor, workspace])
-  const selectedInstrument = useMemo(() => selectFirstSelectedInstrument(editor, workspace), [editor, workspace])
-  const selectedMixChannel = useMemo(() => selectFirstSelectedMixChannel(editor, workspace), [editor, workspace])
-  const selectedPattern = useMemo(() => selectFirstSelectedPattern(editor, workspace), [editor, workspace])
-  const selectedPatternEvent = useMemo(() => selectFirstSelectedPatternEvent(editor, workspace), [editor, workspace])
-  const selectedSection = useMemo(() => selectFirstSelectedSection(editor, workspace), [editor, workspace])
-  const selectedTimelineEvent = useMemo(() => selectFirstSelectedTimelineEvent(editor, workspace), [editor, workspace])
-  const selectedTrack = useMemo(() => selectFirstSelectedTrack(editor, workspace), [editor, workspace])
-
-  const timelineEndTick = useMemo(
-    () => selectWorkspaceEndTick(workspace) + TIMELINE_PADDING_TICKS,
-    [workspace],
-  )
-
   const timelineWidth = useMemo(
-    () => Math.max(980, Math.ceil(tickToX(viewport.pixelsPerTick, timelineEndTick))),
+    () => Math.max(980, Math.ceil(tickToX(viewport.pixelsPerTick, timelineEndTick + TIMELINE_PADDING_TICKS))),
     [viewport.pixelsPerTick, timelineEndTick],
   )
 
   const timelineHeight = useMemo(
-    () => tracks.length * viewport.laneHeight,
-    [tracks.length, viewport.laneHeight],
+    () => trackIds.length * TIMELINE_TRACK_LANE_HEIGHT,
+    [trackIds.length],
   )
 
   const rulerMarks = useMemo(
-    () => getRulerMarks(workspace.timeline, 0, timelineEndTick),
-    [timelineEndTick, workspace.timeline],
+    () => getRulerMarks(timeline, 0, timelineEndTick + TIMELINE_PADDING_TICKS),
+    [timeline, timelineEndTick],
   )
 
-  const workspaceErrors = useMemo(
-    () => validateWorkspace(workspace),
-    [workspace],
+  const selectedPatternEvent = useMemo(
+    () => selectFirstSelectedPatternEvent(editor, workspace),
+    [editor, workspace],
   )
-
-  useEffect(() => {
-    setInspectorDraft(currentDraft => updateInspectorDraftFromSelection(
-      currentDraft,
-      selectedTrack,
-      selectedInstrument,
-      selectedMixChannel,
-      selectedBlock,
-      selectedPattern,
-      selectedPatternEvent,
-      selectedSection,
-      selectedTimelineEvent,
-    ))
-  }, [
-    selectedBlock,
-    selectedInstrument,
-    selectedMixChannel,
-    selectedPattern,
-    selectedPatternEvent,
-    selectedSection,
-    selectedTimelineEvent,
-    selectedTrack,
-  ])
 
   const handleRulerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -437,7 +437,6 @@ function ArrangementDebugContent() {
 
     const tick = getPointerTick(event.clientX)
     playbackEngine.seek(tick)
-
     const commands = applyTimelineEventToolAction(
       workspace,
       editor.activeTool,
@@ -531,17 +530,16 @@ function ArrangementDebugContent() {
     if (editor.activeTool === 'select') {
       startDrag(event, {
         kind: 'selectRange',
-        row: workspace.tracks.allIds.indexOf(trackId) + 1,
+        row: trackIds.indexOf(trackId) + 1,
       })
     }
-  }, [editor.activeTool, startDrag, workspace.tracks.allIds])
+  }, [editor.activeTool, startDrag, trackIds])
 
   const handleBlockPointerDown = useCallback((
     event: ReactPointerEvent<HTMLDivElement>,
     block: Block,
   ) => {
     event.stopPropagation()
-
     const commands = applyBlockToolAction({
       block,
       focusedBlockId: editor.focusedBlockId,
@@ -582,7 +580,6 @@ function ArrangementDebugContent() {
     section: Section,
   ) => {
     event.stopPropagation()
-
     const commands = applySectionToolAction({
       section,
       tick: getPointerTick(event.clientX),
@@ -616,7 +613,6 @@ function ArrangementDebugContent() {
     timelineEvent: TimelineEvent,
   ) => {
     event.stopPropagation()
-
     if (editor.activeTool === 'erase') {
       dispatch(deleteTimelineEventAction([timelineEvent.id]))
       return
@@ -715,7 +711,7 @@ function ArrangementDebugContent() {
       patternEvent,
       workspace,
     }) ?? [])
-  }, [dispatch])
+  }, [dispatch, workspace])
 
   const handleClickMixChannelMute = useCallback((
     event: ReactMouseEvent<HTMLButtonElement>,
@@ -740,10 +736,12 @@ function ArrangementDebugContent() {
   })
 
   const handleMasterMixChannelMute = useCallback(() => {
+    const master = workspace.mixer.master
+
     dispatch(updateMixerAction({
-      muted: !workspace.mixer.master.muted,
+      muted: !master.muted,
     }))
-  }, [dispatch, workspace.mixer.master.muted])
+  }, [dispatch, workspace.mixer.master])
 
   const handleAddTrack = useCallback(() => {
     dispatch(
@@ -766,12 +764,12 @@ function ArrangementDebugContent() {
   }, [dispatch])
 
   const handlePaste = useCallback(() => {
-    dispatch(pasteClipboardAction(editor.clipboard, workspace.timeline.ppq))
-  }, [editor.clipboard, dispatch, workspace.timeline.ppq])
+    dispatch(pasteClipboardAction(editor.clipboard, timeline.ppq))
+  }, [dispatch, editor.clipboard, timeline.ppq])
 
   const duplicateSelection = useCallback(() => {
-    dispatch(duplicateSelectionAction(editor.selection, workspace.timeline.ppq))
-  }, [editor.selection, dispatch, workspace.timeline.ppq])
+    dispatch(duplicateSelectionAction(editor.selection, timeline.ppq))
+  }, [dispatch, editor.selection, timeline.ppq])
 
   const handlePlayPause = useCallback(() => {
     if (playbackEngine.transport.getSnapshot().status === 'playing') {
@@ -784,7 +782,7 @@ function ArrangementDebugContent() {
 
   const deleteSelection = useCallback(() => {
     dispatch(deleteSelectionAction(editor.selection))
-  }, [editor.selection, dispatch])
+  }, [dispatch, editor.selection])
 
   const loopSelection = useCallback(() => {
     const tickRange = createTickRangeFromSelection(workspace, editor)
@@ -812,7 +810,7 @@ function ArrangementDebugContent() {
       tick: tickRange.startTick,
       lengthTicks,
     }))
-  }, [dispatch, workspace, editor])
+  }, [dispatch, editor, workspace])
 
   const updateGridDivision = useCallback((grid: GridDivision) => {
     dispatch(setGridDivisionAction(
@@ -837,95 +835,6 @@ function ArrangementDebugContent() {
   const handleToolbarZoomOut = useCallback(() => {
     handleZoomBy(0.8)
   }, [handleZoomBy])
-
-  const updateSelectedBlockFromInspector = useCallback(() => {
-    if (selectedBlock === undefined) {
-      return
-    }
-
-    dispatch(updateBlockFromInspectorAction({
-      block: selectedBlock,
-      draft: inspectorDraft,
-    }))
-  }, [inspectorDraft, dispatch, selectedBlock])
-
-  const updateSelectedSectionFromInspector = useCallback(() => {
-    if (selectedSection === undefined) {
-      return
-    }
-
-    dispatch(updateSectionFromInspectorAction({
-      draft: inspectorDraft,
-      section: selectedSection,
-    }))
-  }, [inspectorDraft, dispatch, selectedSection])
-
-  const updateSelectedTimelineEventFromInspector = useCallback(() => {
-    if (selectedTimelineEvent === undefined) {
-      return
-    }
-
-    dispatch(updateTimelineEventFromInspectorAction({
-      draft: inspectorDraft,
-      timelineEvent: selectedTimelineEvent,
-    }))
-  }, [inspectorDraft, dispatch, selectedTimelineEvent])
-
-  const updateSelectedTrackFromInspector = useCallback(() => {
-    if (selectedTrack === undefined) {
-      return
-    }
-
-    dispatch(updateTrackFromInspectorAction({
-      draft: inspectorDraft,
-      track: selectedTrack,
-    }))
-  }, [dispatch, inspectorDraft, selectedTrack])
-
-  const updateSelectedInstrumentFromInspector = useCallback(() => {
-    if (selectedInstrument === undefined) {
-      return
-    }
-
-    dispatch(updateInstrumentFromInspectorAction({
-      draft: inspectorDraft,
-      instrument: selectedInstrument,
-    }))
-  }, [dispatch, inspectorDraft, selectedInstrument])
-
-  const updateSelectedMixChannelFromInspector = useCallback(() => {
-    if (selectedMixChannel === undefined) {
-      return
-    }
-
-    dispatch(updateMixChannelFromInspectorAction({
-      draft: inspectorDraft,
-      mixChannel: selectedMixChannel,
-    }))
-  }, [dispatch, inspectorDraft, selectedMixChannel])
-
-  const updateSelectedPatternFromInspector = useCallback(() => {
-    if (selectedPattern === undefined) {
-      return
-    }
-
-    dispatch(updatePatternFromInspectorAction({
-      draft: inspectorDraft,
-      pattern: selectedPattern,
-    }))
-  }, [dispatch, inspectorDraft, selectedPattern])
-
-  const updateSelectedPatternEventFromInspector = useCallback(() => {
-    if (selectedPatternEvent === undefined) {
-      return
-    }
-
-    dispatch(updatePatternEventFromInspectorAction({
-      draft: inspectorDraft,
-      patternEvent: selectedPatternEvent,
-      workspace,
-    }) ?? [])
-  }, [dispatch, inspectorDraft, selectedPatternEvent, workspace])
 
   const unfocusSelection = useCallback(() => {
     dispatch(unfocusSelectionAction(editor.focusedBlockId))
@@ -966,17 +875,12 @@ function ArrangementDebugContent() {
             onCopyCommand={handleCopy}
           />
           <Group gap="xs">
-            <Badge color={workspaceErrors.length === 0 ? 'green' : 'red'} variant="light">
-              {workspaceErrors.length === 0 ? 'valid' : `${workspaceErrors.length} errors`}
-            </Badge>
+            <WorkspaceValidationBadge />
             <CommandHistoryBadge />
           </Group>
         </Group>
         <Toolbar
           playbackEngine={playbackEngine}
-          activeTool={editor.activeTool}
-          focusedBlockId={editor.focusedBlockId}
-          grid={workspace.timeline.grid}
           onCloseFocus={handleBlockCloseFocus}
           onDeleteSelected={deleteSelection}
           onDuplicate={duplicateSelection}
@@ -1001,30 +905,18 @@ function ArrangementDebugContent() {
               }}
             >
               <TimelineLabelColumn
-                focusedBlockId={editor.focusedBlockId}
                 hoveredTrackId={hoveredTrackId}
-                selectedTrackIds={editor.selection.selectedTrackIds}
-                tracks={tracks}
-                viewport={viewport}
                 onClickTrackLabel={handleTimelineLabelPointerDown}
                 onSetHoveredTrack={setHoveredTrackId}
               />
               <TimelineInstrumentColumn
                 hoveredInstrumentId={hoveredInstrumentId}
-                selectedInstrumentIds={editor.selection.selectedInstrumentIds}
-                tracks={tracks}
-                viewport={viewport}
-                workspace={workspace}
                 onClick={handleClickInstrument}
                 onCreate={handleCreateTrackInstrument}
                 onSetHoveredInstrument={setHoveredInstrumentId}
               />
               <TimelineMixChannelColumn
                 hoveredMixChannelId={hoveredMixChannelId}
-                selectedMixChannelIds={editor.selection.selectedMixChannelIds}
-                tracks={tracks}
-                viewport={viewport}
-                workspace={workspace}
                 onClick={handleClickMixChannel}
                 onCreate={handleCreateTrackMixChannel}
                 onClickMute={handleClickMixChannelMute}
@@ -1038,27 +930,25 @@ function ArrangementDebugContent() {
                 onPointerUp={finishDrag}
                 onWheel={handleViewportWheel}
                 style={{
-                  minWidth: 0,
-                  overflow: 'auto',
-                  paddingBottom: 10,
-                  position: 'relative',
-                }}
+                  '--timeline-pixels-per-tick': `${viewport.pixelsPerTick}px`,
+                  '--timeline-width': `${timelineWidth}px`,
+                  'minWidth': 0,
+                  'overflow': 'auto',
+                  'paddingBottom': 10,
+                  'position': 'relative',
+                } as TimelineZoomStyle}
               >
                 <Box
                   ref={timelineRef}
                   style={{
                     position: 'absolute',
                     top: 0,
-                    width: timelineWidth,
+                    width: 'var(--timeline-width)',
                   }}
                 />
                 <TimelineRuler
                   drag={dragState}
                   hoveredTimelineEventId={hoveredTimelineEventId}
-                  selectedTimelineEventIds={editor.selection.selectedTimelineEventIds}
-                  timelineWidth={timelineWidth}
-                  viewport={viewport}
-                  workspace={workspace}
                   marks={rulerMarks}
                   onMarkerPointerEnter={setHoveredTimelineEventId}
                   onMarkerPointerDown={handleTimelineEventPointerDown}
@@ -1070,10 +960,6 @@ function ArrangementDebugContent() {
                 <LoopLane
                   drag={dragState}
                   hoveredTimelineEventId={hoveredTimelineEventId}
-                  selectedTimelineEventIds={editor.selection.selectedTimelineEventIds}
-                  timelineWidth={timelineWidth}
-                  viewport={viewport}
-                  workspace={workspace}
                   onDoubleClick={handleLoopLaneDoubleClick}
                   onLoopPointerDown={handleTimelineEventPointerDown}
                   onPointerDown={handleLoopLanePointerDown}
@@ -1082,33 +968,27 @@ function ArrangementDebugContent() {
                 />
                 <SectionLane
                   drag={dragState}
-                  focusedBlockId={editor.focusedBlockId}
                   hoveredSectionId={hoveredSectionId}
                   marks={rulerMarks}
-                  selectedSectionIds={editor.selection.selectedSectionIds}
+                  pixelsPerTick={viewport.pixelsPerTick}
                   timelineWidth={timelineWidth}
-                  viewport={viewport}
-                  workspace={workspace}
                   onEmptyDoubleClick={handleBlockCloseFocus}
                   onPointerDown={handleSectionLanePointerDown}
                   onResizePointerDown={handleSectionResizePointerDown}
                   onSectionPointerDown={handleSectionPointerDown}
                   onSetHoveredSection={setHoveredSectionId}
                 />
-                <Box ref={trackRowsRef} pos="relative">
-                  {tracks.map(track => (
+                <Box
+                  ref={trackRowsRef}
+                  pos="relative"
+                  style={{ width: 'var(--timeline-width)' }}
+                >
+                  {trackIds.map(trackId => (
                     <TrackLane
-                      key={track.id}
+                      key={trackId}
                       drag={dragState}
-                      focusedBlockId={editor.focusedBlockId}
                       hoveredBlockId={hoveredBlockId}
-                      selectedBlockIds={editor.selection.selectedBlockIds}
-                      selectedPatternEventIds={editor.selection.selectedPatternEventIds}
-                      selectedPatternIds={editor.selection.selectedPatternIds}
-                      timelineWidth={timelineWidth}
-                      track={track}
-                      viewport={viewport}
-                      workspace={workspace}
+                      trackId={trackId}
                       onBlockDoubleClick={handleBlockDoubleClick}
                       onBlockPointerDown={handleBlockPointerDown}
                       onBlockResizePointerDown={handleBlockResizePointerDown}
@@ -1123,25 +1003,25 @@ function ArrangementDebugContent() {
                   <TimelineGridLines
                     height={timelineHeight}
                     marks={rulerMarks}
+                    pixelsPerTick={viewport.pixelsPerTick}
                     timelineWidth={timelineWidth}
-                    viewport={viewport}
                   />
                 </Box>
                 <TimelinePlayhead
                   playbackEngine={playbackEngine}
+                  pixelsPerTick={viewport.pixelsPerTick}
                   timelineRef={timelineRef}
-                  viewport={viewport}
                 />
               </Box>
             </Paper>
             <PatternPanel
               dispatch={dispatch}
-              workspace={workspace}
-              tool={editor.activePatternPanelTool}
-              timeline={workspace.timeline}
               focusedBlockId={editor.focusedBlockId}
               selectedPatternEvent={selectedPatternEvent}
               selectedPatternEventIds={editor.selection.selectedPatternEventIds}
+              timeline={workspace.timeline}
+              tool={editor.activePatternPanelTool}
+              workspace={workspace}
               onDeletePatternEvent={handleDeletePatternEvent}
               onSelectPatternEvent={handleSelectPatternEvent}
               onSetActiveTool={handleSetActivePatternPanelTool}
@@ -1150,46 +1030,14 @@ function ArrangementDebugContent() {
             <Button size="xs" onClick={handleAddTrack}>Add Track</Button>
           </Box>
           <Stack gap="md" style={{ gridColumn: 'span 2', overflow: 'hidden' }}>
-            {workspaceErrors.length > 0 && (
-              <Paper withBorder radius="sm" p="md">
-                <Text fw={700} size="sm" mb="sm">Workspace Errors</Text>
-                <Stack gap={8}>
-                  {workspaceErrors.map(error => (
-                    <Text key={error} c="red" size="xs">{error}</Text>
-                  ))}
-                </Stack>
-              </Paper>
-            )}
+            <WorkspaceErrors />
             <Paper withBorder radius="sm" p="md">
-              <MasterMixChannelControls
-                master={workspace.mixer.master}
+              <MasterMixChannelControlsContainer
                 onToggleMuted={handleMasterMixChannelMute}
                 onVolumeChange={handleMasterMixChannelVolumeChange}
               />
             </Paper>
-            <InspectorPanel
-              draft={inspectorDraft}
-              patterns={patterns}
-              selectedBlock={selectedBlock}
-              selectedInstrument={selectedInstrument}
-              selectedMixChannel={selectedMixChannel}
-              selectedPattern={selectedPattern}
-              selectedPatternEvent={selectedPatternEvent}
-              selectedSection={selectedSection}
-              selectedTimelineEvent={selectedTimelineEvent}
-              selectedTrack={selectedTrack}
-              selection={editor.selection}
-              setDraft={setInspectorDraft}
-              workspace={workspace}
-              onUpdateBlock={updateSelectedBlockFromInspector}
-              onUpdateInstrument={updateSelectedInstrumentFromInspector}
-              onUpdateMixChannel={updateSelectedMixChannelFromInspector}
-              onUpdatePattern={updateSelectedPatternFromInspector}
-              onUpdatePatternEvent={updateSelectedPatternEventFromInspector}
-              onUpdateSection={updateSelectedSectionFromInspector}
-              onUpdateTimelineEvent={updateSelectedTimelineEventFromInspector}
-              onUpdateTrack={updateSelectedTrackFromInspector}
-            />
+            <InspectorPanelContainer />
             <CommandHistoryStack />
           </Stack>
         </SimpleGrid>
@@ -1200,9 +1048,6 @@ function ArrangementDebugContent() {
 
 const Toolbar = memo(function Toolbar({
   playbackEngine,
-  activeTool,
-  focusedBlockId,
-  grid,
   onCloseFocus,
   onDeleteSelected,
   onDuplicate,
@@ -1215,9 +1060,6 @@ const Toolbar = memo(function Toolbar({
   onZoomOut,
 }: {
   playbackEngine: PlaybackEngine
-  activeTool: ActiveTool
-  focusedBlockId?: string
-  grid: GridDivision
   onCloseFocus: () => void
   onDeleteSelected: () => void
   onDuplicate: () => void
@@ -1229,8 +1071,11 @@ const Toolbar = memo(function Toolbar({
   onZoomIn: () => void
   onZoomOut: () => void
 }) {
+  const activeTool = useEditor(selectActiveTool)
   const canRedoCommandHistory = useCommandHistory(selectCanRedoCommandHistory)
   const canUndoCommandHistory = useCommandHistory(selectCanUndoCommandHistory)
+  const focusedBlockId = useEditor(selectFocusedBlockId)
+  const grid = useWorkspace(selectGridDivision)
 
   return (
     <Paper withBorder radius="sm" p="xs">
@@ -1416,22 +1261,21 @@ const TransportPosition = memo(function TransportPosition({
 
 const TimelinePlayhead = memo(function TimelinePlayhead({
   playbackEngine,
+  pixelsPerTick,
   timelineRef,
-  viewport,
 }: {
   playbackEngine: PlaybackEngine
+  pixelsPerTick: number
   timelineRef: RefObject<HTMLDivElement | null>
-  viewport: ViewportState
 }) {
   const playheadProps = useTransportPlayhead(
     playbackEngine,
-    viewport.pixelsPerTick,
+    pixelsPerTick,
     timelineRef,
   )
 
   return (
     <Box
-
       onPointerCancel={playheadProps.onPointerCancel}
       onPointerDown={playheadProps.onPointerDown}
       onPointerMove={playheadProps.onPointerMove}
@@ -1460,6 +1304,37 @@ const TimelinePlayhead = memo(function TimelinePlayhead({
         }}
       />
     </Box>
+  )
+})
+
+const WorkspaceValidationBadge = memo(function WorkspaceValidationBadge() {
+  const workspace = useWorkspace(selectWorkspace)
+  const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
+
+  return (
+    <Badge color={workspaceErrors.length === 0 ? 'green' : 'red'} variant="light">
+      {workspaceErrors.length === 0 ? 'valid' : `${workspaceErrors.length} errors`}
+    </Badge>
+  )
+})
+
+const WorkspaceErrors = memo(function WorkspaceErrors() {
+  const workspace = useWorkspace(selectWorkspace)
+  const workspaceErrors = useMemo(() => validateWorkspace(workspace), [workspace])
+
+  if (workspaceErrors.length === 0) {
+    return null
+  }
+
+  return (
+    <Paper withBorder radius="sm" p="md">
+      <Text fw={700} size="sm" mb="sm">Workspace Errors</Text>
+      <Stack gap={8}>
+        {workspaceErrors.map(error => (
+          <Text key={error} c="red" size="xs">{error}</Text>
+        ))}
+      </Stack>
+    </Paper>
   )
 })
 
@@ -1502,23 +1377,41 @@ const MasterMixChannelControls = memo(function MasterMixChannelControls({
   )
 })
 
+const MasterMixChannelControlsContainer = memo(function MasterMixChannelControlsContainer({
+  onToggleMuted,
+  onVolumeChange,
+}: {
+  onToggleMuted: () => void
+  onVolumeChange: (volumeDb: number) => void
+}) {
+  const master = useWorkspace(selectMasterMixChannel)
+
+  return (
+    <MasterMixChannelControls
+      master={master}
+      onToggleMuted={onToggleMuted}
+      onVolumeChange={onVolumeChange}
+    />
+  )
+})
+
 const TimelineLabelColumn = memo(function TimelineLabelColumn({
-  focusedBlockId,
   hoveredTrackId,
   onClickTrackLabel,
   onSetHoveredTrack,
-  selectedTrackIds,
-  tracks,
-  viewport,
 }: {
-  focusedBlockId?: string
   hoveredTrackId?: TrackId
   onClickTrackLabel: (event: ReactMouseEvent<HTMLDivElement>, trackId: TrackId) => void
   onSetHoveredTrack: (trackId: TrackId | undefined) => void
-  selectedTrackIds: TrackId[]
-  tracks: Track[]
-  viewport: ViewportState
 }) {
+  const focusedBlockId = useEditor(selectFocusedBlockId)
+  const selectedTrackIds = useEditor(selectSelectedTrackIds)
+  const trackStore = useWorkspace(selectTrackStore)
+  const tracks = useMemo(
+    () => trackStore.allIds.map(trackId => trackStore.byId[trackId]),
+    [trackStore],
+  )
+
   return (
     <Box
       style={{
@@ -1528,13 +1421,13 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
         zIndex: 2,
       }}
     >
-      <StaticTimelineLabel height={viewport.rulerHeight}>
+      <StaticTimelineLabel height={TIMELINE_RULER_HEIGHT}>
         <Group gap={6}>
           <Text fw={700} size="sm"></Text>
         </Group>
       </StaticTimelineLabel>
       <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
-      <StaticTimelineLabel height={viewport.sectionLaneHeight} opacity={focusedBlockId === undefined ? 1 : 0.4}>
+      <StaticTimelineLabel height={TIMELINE_SECTION_LANE_HEIGHT} opacity={focusedBlockId === undefined ? 1 : 0.4}>
         <Text c="dimmed" size="xs">Track</Text>
       </StaticTimelineLabel>
       {tracks.map(track => (
@@ -1543,7 +1436,6 @@ const TimelineLabelColumn = memo(function TimelineLabelColumn({
           hovered={hoveredTrackId === track.id}
           selected={selectedTrackIds.includes(track.id)}
           track={track}
-          viewport={viewport}
           onClick={event => onClickTrackLabel(event, track.id)}
           onSetHoveredTrack={onSetHoveredTrack}
         />
@@ -1558,18 +1450,16 @@ const TimelineTrackLabel = memo(function TimelineTrackLabel({
   onSetHoveredTrack,
   selected,
   track,
-  viewport,
 }: {
   hovered: boolean
   onClick: (event: ReactMouseEvent<HTMLDivElement>) => void
   onSetHoveredTrack: (trackId: TrackId | undefined) => void
   selected: boolean
   track: Track
-  viewport: ViewportState
 }) {
   return (
     <StaticTimelineLabel
-      height={viewport.laneHeight}
+      height={TIMELINE_TRACK_LANE_HEIGHT}
       hovered={hovered}
       selected={selected}
       tintColor={track.color}
@@ -1592,20 +1482,20 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
   onClick: onClickInstrument,
   onCreate,
   onSetHoveredInstrument,
-  selectedInstrumentIds,
-  tracks,
-  viewport,
-  workspace,
 }: {
   hoveredInstrumentId?: InstrumentId
   onClick: (event: ReactMouseEvent<HTMLDivElement>, instrumentId: InstrumentId) => void
   onCreate: (track: Track) => void
   onSetHoveredInstrument: (instrumentId: InstrumentId | undefined) => void
-  selectedInstrumentIds: InstrumentId[]
-  tracks: Track[]
-  viewport: ViewportState
-  workspace: Workspace
 }) {
+  const instrumentStore = useWorkspace(selectInstrumentStore)
+  const selectedInstrumentIds = useEditor(selectSelectedInstrumentIds)
+  const trackStore = useWorkspace(selectTrackStore)
+  const tracks = useMemo(
+    () => trackStore.allIds.map(trackId => trackStore.byId[trackId]),
+    [trackStore],
+  )
+
   return (
     <Box
       style={{
@@ -1615,21 +1505,21 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
         zIndex: 2,
       }}
     >
-      <StaticTimelineLabel height={viewport.rulerHeight}>
+      <StaticTimelineLabel height={TIMELINE_RULER_HEIGHT}>
         <Text fw={700} size="sm"></Text>
       </StaticTimelineLabel>
       <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
-      <StaticTimelineLabel height={viewport.sectionLaneHeight}>
+      <StaticTimelineLabel height={TIMELINE_SECTION_LANE_HEIGHT}>
         <Text c="dimmed" size="xs">Instrument</Text>
       </StaticTimelineLabel>
       {tracks.map((track) => {
-        const instrument = selectInstrument(workspace, track.instrumentId)
+        const instrument = instrumentStore.byId[track.instrumentId]
 
         if (instrument === undefined) {
           return (
             <StaticTimelineLabel
               key={`missing:${track.id}`}
-              height={viewport.laneHeight}
+              height={TIMELINE_TRACK_LANE_HEIGHT}
               tintColor={track.color}
               onClick={() => onCreate(track)}
             >
@@ -1641,7 +1531,7 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
         return (
           <StaticTimelineLabel
             key={`${track.id}:${instrument.id}`}
-            height={viewport.laneHeight}
+            height={TIMELINE_TRACK_LANE_HEIGHT}
             hovered={hoveredInstrumentId === instrument.id}
             selected={selectedInstrumentIds.includes(instrument.id)}
             tintColor={track.color}
@@ -1669,10 +1559,6 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
   onClickSolo,
   onCreate,
   onSetHoveredMixChannel,
-  selectedMixChannelIds,
-  tracks,
-  viewport,
-  workspace,
 }: {
   hoveredMixChannelId?: MixChannelId
   onClick: (event: ReactMouseEvent<HTMLDivElement>, mixChannelId: MixChannelId) => void
@@ -1680,11 +1566,15 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
   onClickSolo: (event: ReactMouseEvent<HTMLButtonElement>, mixChannel: MixChannel) => void
   onCreate: (track: Track) => void
   onSetHoveredMixChannel: (mixChannelId: MixChannelId | undefined) => void
-  selectedMixChannelIds: MixChannelId[]
-  tracks: Track[]
-  viewport: ViewportState
-  workspace: Workspace
 }) {
+  const mixer = useWorkspace(selectMixer)
+  const selectedMixChannelIds = useEditor(selectSelectedMixChannelIds)
+  const trackStore = useWorkspace(selectTrackStore)
+  const tracks = useMemo(
+    () => trackStore.allIds.map(trackId => trackStore.byId[trackId]),
+    [trackStore],
+  )
+
   return (
     <Box
       style={{
@@ -1694,21 +1584,21 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
         zIndex: 2,
       }}
     >
-      <StaticTimelineLabel height={viewport.rulerHeight}>
+      <StaticTimelineLabel height={TIMELINE_RULER_HEIGHT}>
         <Text fw={700} size="sm"></Text>
       </StaticTimelineLabel>
       <StaticTimelineLabel height={LOOP_LANE_HEIGHT} />
-      <StaticTimelineLabel height={viewport.sectionLaneHeight}>
+      <StaticTimelineLabel height={TIMELINE_SECTION_LANE_HEIGHT}>
         <Text c="dimmed" size="xs">Mix</Text>
       </StaticTimelineLabel>
       {tracks.map((track) => {
-        const mixChannel = selectMixChannel(workspace, track.mixChannelId)
+        const mixChannel = mixer.channels.byId[track.mixChannelId]
 
         if (mixChannel === undefined) {
           return (
             <StaticTimelineLabel
               key={`missing:${track.id}`}
-              height={viewport.laneHeight}
+              height={TIMELINE_TRACK_LANE_HEIGHT}
               tintColor={track.color}
               onClick={() => onCreate(track)}
             >
@@ -1720,7 +1610,7 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
         return (
           <StaticTimelineLabel
             key={mixChannel.id}
-            height={viewport.laneHeight}
+            height={TIMELINE_TRACK_LANE_HEIGHT}
             hovered={hoveredMixChannelId === mixChannel.id}
             selected={selectedMixChannelIds.includes(mixChannel.id)}
             tintColor={track.color}
@@ -1816,10 +1706,6 @@ const TimelineRuler = memo(function TimelineRuler({
   onRulerPointerMove,
   onRulerPointerUp,
   onMarkerPointerEnter,
-  selectedTimelineEventIds,
-  timelineWidth,
-  viewport,
-  workspace,
 }: {
   drag?: DragState
   hoveredTimelineEventId?: TimelineEventId
@@ -1830,12 +1716,13 @@ const TimelineRuler = memo(function TimelineRuler({
   onRulerPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
   onRulerPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
   onMarkerPointerEnter: (timelineEventId: TimelineEventId | undefined) => void
-  selectedTimelineEventIds: TimelineEventId[]
-  timelineWidth: number
-  viewport: ViewportState
-  workspace: Workspace
 }) {
-  const timelineEvents = selectTimelineEvents(workspace)
+  const selectedTimelineEventIds = useEditor(selectSelectedTimelineEventIds)
+  const timeline = useWorkspace(selectTimeline)
+  const timelineEvents = useMemo(
+    () => selectTimelineEventsFromTimeline(timeline),
+    [timeline],
+  )
   const timelineEventPlaceholder = useTimelineEventOverlay(drag)
 
   return (
@@ -1847,10 +1734,10 @@ const TimelineRuler = memo(function TimelineRuler({
       style={{
         background: 'var(--mantine-color-gray-0)',
         borderBottom: '1px solid var(--mantine-color-gray-3)',
-        height: viewport.rulerHeight,
+        height: TIMELINE_RULER_HEIGHT,
         position: 'relative',
         touchAction: 'none',
-        width: timelineWidth,
+        width: 'var(--timeline-width)',
       }}
     >
       {marks.map(mark => (
@@ -1859,7 +1746,7 @@ const TimelineRuler = memo(function TimelineRuler({
           style={{
             borderLeft: getRulerBorder(mark),
             height: mark.kind === 'bar' ? '100%' : mark.kind === 'beat' ? '70%' : '42%',
-            left: tickToX(viewport.pixelsPerTick, mark.tick),
+            left: getTimelineTickCssPosition(mark.tick),
             position: 'absolute',
             top: 0,
           }}
@@ -1885,7 +1772,7 @@ const TimelineRuler = memo(function TimelineRuler({
             isHovered={hoveredTimelineEventId === timelineEvent.id}
             isSelected={selectedTimelineEventIds.includes(timelineEvent.id)}
             label={getTimelineEventMarkerLabel(timelineEvent)}
-            left={tickToX(viewport.pixelsPerTick, timelineEvent.tick)}
+            left={getTimelineTickCssPosition(timelineEvent.tick)}
             top={getTimelineEventMarkerTop(timelineEvent)}
             onMouseEnter={() => onMarkerPointerEnter(timelineEvent.id)}
             onMouseLeave={() => onMarkerPointerEnter(undefined)}
@@ -1901,9 +1788,9 @@ const TimelineRuler = memo(function TimelineRuler({
           isHovered={false}
           isSelected={false}
           label={getTimelineEventMarkerLabel(timelineEventPlaceholder)}
-          left={tickToX(viewport.pixelsPerTick, timelineEventPlaceholder.tick)}
+          left={getTimelineTickCssPosition(timelineEventPlaceholder.tick)}
           top={getTimelineEventMarkerTop(timelineEventPlaceholder)}
-          width={getTimelineEventMarkerLoopWidth(timelineEventPlaceholder, viewport.pixelsPerTick)}
+          width={getTimelineEventMarkerLoopWidth(timelineEventPlaceholder)}
         />
       )}
     </Box>
@@ -1918,10 +1805,6 @@ const LoopLane = memo(function LoopLane({
   onPointerDown,
   onResizePointerDown,
   onSetHoveredLoop,
-  selectedTimelineEventIds,
-  timelineWidth,
-  viewport,
-  workspace,
 }: {
   drag?: DragState
   hoveredTimelineEventId?: TimelineEventId
@@ -1930,12 +1813,10 @@ const LoopLane = memo(function LoopLane({
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, loopEvent: LoopEvent, edge: 'left' | 'right') => void
   onSetHoveredLoop: (timelineEventId: TimelineEventId | undefined) => void
-  selectedTimelineEventIds: TimelineEventId[]
-  timelineWidth: number
-  viewport: ViewportState
-  workspace: Workspace
 }) {
-  const loopEvent = getLoopEvent(workspace.timeline)
+  const selectedTimelineEventIds = useEditor(selectSelectedTimelineEventIds)
+  const timeline = useWorkspace(selectTimeline)
+  const loopEvent = getLoopEvent(timeline)
   const { drawRange, loopPlaceholder } = useLoopLaneOverlay(drag)
   const visibleLoop = loopPlaceholder ?? loopEvent
 
@@ -1948,7 +1829,7 @@ const LoopLane = memo(function LoopLane({
         borderBottom: '1px solid var(--mantine-color-gray-3)',
         height: LOOP_LANE_HEIGHT + 2,
         position: 'relative',
-        width: timelineWidth,
+        width: 'var(--timeline-width)',
       }}
     >
       {visibleLoop !== undefined && (
@@ -1960,10 +1841,10 @@ const LoopLane = memo(function LoopLane({
           isPlaceholder={loopPlaceholder !== undefined}
           isSelected={selectedTimelineEventIds.includes(visibleLoop.id)}
           label="Loop"
-          left={tickToX(viewport.pixelsPerTick, visibleLoop.tick)}
-          title={`Loop: ${formatTickRangeAsBars(workspace.timeline, visibleLoop.tick, getLoopEventEndTick(visibleLoop))}`}
+          left={getTimelineTickCssPosition(visibleLoop.tick)}
+          title={`Loop: ${formatTickRangeAsBars(timeline, visibleLoop.tick, getLoopEventEndTick(visibleLoop))}`}
           top={0}
-          width={Math.max(MIN_LOOP_WIDTH, tickToX(viewport.pixelsPerTick, visibleLoop.lengthTicks))}
+          width={getTimelineTickCssWidth(visibleLoop.lengthTicks, MIN_LOOP_WIDTH)}
           onMouseEnter={() => onSetHoveredLoop(visibleLoop.id)}
           onMouseLeave={() => onSetHoveredLoop(undefined)}
           onPointerDown={event => onLoopPointerDown(event, visibleLoop)}
@@ -1981,11 +1862,11 @@ const LoopLane = memo(function LoopLane({
           isPlaceholder
           isSelected={false}
           label="Loop"
-          left={tickToX(viewport.pixelsPerTick, Math.min(drawRange.startTick, drawRange.endTick))}
+          left={getTimelineTickCssPosition(Math.min(drawRange.startTick, drawRange.endTick))}
           top={0}
-          width={Math.max(
+          width={getTimelineTickCssWidth(
+            Math.abs(drawRange.endTick - drawRange.startTick),
             MIN_LOOP_WIDTH,
-            tickToX(viewport.pixelsPerTick, Math.abs(drawRange.endTick - drawRange.startTick)),
           )}
         />
       )}
@@ -2019,11 +1900,11 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
   isPlaceholder?: boolean
   isSelected: boolean
   label: string
-  left: number
+  left: CSSProperties['left']
   onResizePointerDown?: (event: ReactPointerEvent<HTMLDivElement>, edge: 'left' | 'right') => void
   title?: string
   top: number
-  width?: number
+  width?: CSSProperties['width']
   onMouseEnter?: () => void
   onMouseLeave?: () => void
   onPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void
@@ -2039,7 +1920,7 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
         cursor: 'grab',
         display: 'flex',
         height,
-        left: left,
+        left,
         minWidth: width ?? 42,
         opacity: isPlaceholder ? 0.75 : 1,
         padding: 0,
@@ -2087,13 +1968,13 @@ const TimelineEventMarker = memo(function TimelineEventMarker({
 const TimelineGridLines = memo(function TimelineGridLines({
   height,
   marks,
+  pixelsPerTick,
   timelineWidth,
-  viewport,
 }: {
   height: number
   marks: RulerMark[]
+  pixelsPerTick: number
   timelineWidth: number
-  viewport: ViewportState
 }) {
   if (height <= 0) {
     return null
@@ -2117,7 +1998,7 @@ const TimelineGridLines = memo(function TimelineGridLines({
       {(['bar', 'beat', 'subdivision'] as const).map(kind => (
         <path
           key={kind}
-          d={getTimelineGridPath(marks, kind, viewport.pixelsPerTick, height)}
+          d={getTimelineGridPath(marks, kind, pixelsPerTick, height)}
           fill="none"
           opacity={getGridLineOpacity(kind)}
           stroke={getGridLineColor(kind)}
@@ -2130,7 +2011,6 @@ const TimelineGridLines = memo(function TimelineGridLines({
 
 const SectionLane = memo(function SectionLane({
   drag,
-  focusedBlockId,
   hoveredSectionId,
   marks,
   onEmptyDoubleClick,
@@ -2138,13 +2018,10 @@ const SectionLane = memo(function SectionLane({
   onResizePointerDown,
   onSectionPointerDown,
   onSetHoveredSection,
-  selectedSectionIds,
+  pixelsPerTick,
   timelineWidth,
-  viewport,
-  workspace,
 }: {
   drag?: DragState
-  focusedBlockId?: string
   hoveredSectionId?: SectionId
   marks: RulerMark[]
   onEmptyDoubleClick: () => void
@@ -2152,11 +2029,13 @@ const SectionLane = memo(function SectionLane({
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, section: Section, edge: 'left' | 'right') => void
   onSectionPointerDown: (event: ReactPointerEvent<HTMLDivElement>, section: Section) => void
   onSetHoveredSection: (sectionId: SectionId | undefined) => void
-  selectedSectionIds: string[]
+  pixelsPerTick: number
   timelineWidth: number
-  viewport: ViewportState
-  workspace: Workspace
 }) {
+  const arrangement = useWorkspace(selectArrangement)
+  const focusedBlockId = useEditor(selectFocusedBlockId)
+  const selectedSectionIds = useEditor(selectSelectedSectionIds)
+  const timeline = useWorkspace(selectTimeline)
   const {
     drawRange,
     sectionPlaceholders,
@@ -2170,25 +2049,25 @@ const SectionLane = memo(function SectionLane({
       style={{
         background: 'var(--mantine-color-gray-0)',
         borderBottom: '1px solid var(--mantine-color-gray-3)',
-        height: viewport.sectionLaneHeight,
+        height: TIMELINE_SECTION_LANE_HEIGHT,
         opacity: focusedBlockId === undefined ? 1 : 0.4,
         position: 'relative',
-        width: timelineWidth,
+        width: 'var(--timeline-width)',
       }}
     >
       <TimelineGridLines
-        height={viewport.sectionLaneHeight}
+        height={TIMELINE_SECTION_LANE_HEIGHT}
         marks={marks}
+        pixelsPerTick={pixelsPerTick}
         timelineWidth={timelineWidth}
-        viewport={viewport}
       />
-      {workspace.arrangement.sections.map(section => (
+      {arrangement.sections.map(section => (
         <Box
           key={section.id}
           onMouseEnter={() => onSetHoveredSection(section.id)}
           onMouseLeave={() => onSetHoveredSection(undefined)}
           onPointerDown={event => onSectionPointerDown(event, section)}
-          title={`${section.name}: ${formatTickRangeAsBars(workspace.timeline, section.startTick, getSectionEndTick(section))}`}
+          title={`${section.name}: ${formatTickRangeAsBars(timeline, section.startTick, getSectionEndTick(section))}`}
           style={{
             alignItems: 'center',
             background: 'var(--mantine-color-gray-1)',
@@ -2198,13 +2077,13 @@ const SectionLane = memo(function SectionLane({
             cursor: 'grab',
             display: 'flex',
             height: 28,
-            left: tickToX(viewport.pixelsPerTick, section.startTick),
+            left: getTimelineTickCssPosition(section.startTick),
             outline: selectedSectionIds.includes(section.id) ? SELECTED_STYLES.outline : undefined,
             overflow: 'hidden',
             paddingInline: 7,
             position: 'absolute',
             top: 8,
-            width: Math.max(MIN_SECTION_WIDTH, tickToX(viewport.pixelsPerTick, section.lengthTicks)),
+            width: getTimelineTickCssWidth(section.lengthTicks, MIN_SECTION_WIDTH),
             userSelect: 'none',
           }}
         >
@@ -2218,7 +2097,6 @@ const SectionLane = memo(function SectionLane({
           color="gray"
           startTick={drawRange.startTick}
           endTick={drawRange.endTick}
-          viewport={viewport}
         />
       )}
       {selectionRange !== undefined && (
@@ -2226,7 +2104,6 @@ const SectionLane = memo(function SectionLane({
           color="yellow"
           startTick={selectionRange.startTick}
           endTick={selectionRange.endTick}
-          viewport={viewport}
         />
       )}
       {sectionPlaceholders.map(section => (
@@ -2238,7 +2115,6 @@ const SectionLane = memo(function SectionLane({
           lengthTicks={section.lengthTicks}
           startTick={section.startTick}
           top={8}
-          viewport={viewport}
         />
       ))}
     </Box>
@@ -2247,7 +2123,6 @@ const SectionLane = memo(function SectionLane({
 
 const TrackLane = memo(function TrackLane({
   drag,
-  focusedBlockId,
   hoveredBlockId,
   onBlockDoubleClick,
   onBlockPointerDown,
@@ -2258,16 +2133,9 @@ const TrackLane = memo(function TrackLane({
   onPatternEventClick,
   onPointerDown,
   onSetHoveredBlock,
-  selectedBlockIds,
-  selectedPatternEventIds,
-  selectedPatternIds,
-  timelineWidth,
-  track,
-  viewport,
-  workspace,
+  trackId,
 }: {
   drag?: DragState
-  focusedBlockId?: string
   hoveredBlockId?: string
   onBlockDoubleClick: (blockId: string) => void
   onBlockPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
@@ -2278,28 +2146,37 @@ const TrackLane = memo(function TrackLane({
   onPatternEventClick: (event: ReactMouseEvent<HTMLButtonElement>, patternEventId: PatternEventId) => void
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>, trackId: string) => void
   onSetHoveredBlock: (blockId: string | undefined) => void
-  selectedBlockIds: string[]
-  selectedPatternEventIds: PatternEventId[]
-  selectedPatternIds: PatternId[]
-  timelineWidth: number
-  track: Track
-  viewport: ViewportState
-  workspace: Workspace
+  trackId: TrackId
 }) {
+  const arrangement = useWorkspace(selectArrangement)
+  const focusedBlockId = useEditor(selectFocusedBlockId)
+  const patternStore = useWorkspace(selectPatternStore)
+  const selectedBlockIds = useEditor(selectSelectedBlockIds)
+  const selectedPatternEventIds = useEditor(selectSelectedPatternEventIds)
+  const selectedPatternIds = useEditor(selectSelectedPatternIds)
+  const timeline = useWorkspace(selectTimeline)
+  const trackStore = useWorkspace(selectTrackStore)
+  const track = trackStore.byId[trackId]
   const blocks = useMemo(
-    () => selectBlocksForTrack(workspace, track.id),
-    [workspace, track.id],
+    () => sortBlocksByStartTick(
+      arrangement.blocks.filter(block => block.trackId === trackId),
+    ),
+    [arrangement.blocks, trackId],
   )
   const stackedBlocks = useBlockStack(
     blocks,
-    viewport.laneHeight - BLOCK_TOP - BLOCK_HEIGHT,
+    TIMELINE_TRACK_LANE_HEIGHT - BLOCK_TOP - BLOCK_HEIGHT,
   )
 
   const {
     blockPlaceholders,
     drawRange,
     selectionRange,
-  } = useTrackLaneOverlay(drag, workspace, track.id)
+  } = useTrackLaneOverlay(drag, arrangement.blocks, trackStore.allIds, trackId)
+
+  if (track === undefined) {
+    return null
+  }
 
   return (
     <Box
@@ -2308,9 +2185,9 @@ const TrackLane = memo(function TrackLane({
       style={{
         background: getTrackTint(track.color, 10),
         borderBottom: '1px solid var(--mantine-color-gray-3)',
-        height: viewport.laneHeight,
+        height: TIMELINE_TRACK_LANE_HEIGHT,
         position: 'relative',
-        width: timelineWidth,
+        width: '100%',
       }}
     >
       {stackedBlocks.map(({ block, offset, zIndex }) => (
@@ -2323,8 +2200,8 @@ const TrackLane = memo(function TrackLane({
           selectedPatternEventIds={selectedPatternEventIds}
           selectedPatternIds={selectedPatternIds}
           top={BLOCK_TOP + offset}
-          viewport={viewport}
-          workspace={workspace}
+          patternStore={patternStore}
+          timeline={timeline}
           zIndex={zIndex}
           onDoubleClick={onBlockDoubleClick}
           onCreatePattern={onCreatePattern}
@@ -2340,7 +2217,6 @@ const TrackLane = memo(function TrackLane({
           color="blue"
           startTick={drawRange.startTick}
           endTick={drawRange.endTick}
-          viewport={viewport}
         />
       )}
       {selectionRange !== undefined && (
@@ -2348,7 +2224,6 @@ const TrackLane = memo(function TrackLane({
           color="yellow"
           startTick={selectionRange.startTick}
           endTick={selectionRange.endTick}
-          viewport={viewport}
         />
       )}
       {blockPlaceholders.map(block => (
@@ -2360,7 +2235,6 @@ const TrackLane = memo(function TrackLane({
           lengthTicks={block.lengthTicks}
           startTick={block.startTick}
           top={BLOCK_TOP}
-          viewport={viewport}
         />
       ))}
     </Box>
@@ -2381,9 +2255,9 @@ const BlockView = memo(function BlockView({
   selected,
   selectedPatternEventIds,
   selectedPatternIds,
+  patternStore,
+  timeline,
   top,
-  viewport,
-  workspace,
   zIndex,
 }: {
   block: Block
@@ -2399,18 +2273,15 @@ const BlockView = memo(function BlockView({
   selected: boolean
   selectedPatternEventIds: PatternEventId[]
   selectedPatternIds: PatternId[]
+  patternStore: ReturnType<typeof selectPatternStore>
+  timeline: ReturnType<typeof selectTimeline>
   top: number
-  viewport: ViewportState
-  workspace: Workspace
   zIndex: number
 }) {
   const isFocused = focusedBlockId === block.id
   const dimmedByFocus = focusedBlockId !== undefined && !isFocused
 
-  const pattern = useMemo(
-    () => selectPattern(workspace, block.patternId),
-    [block.patternId, workspace],
-  )
+  const pattern = patternStore.byId[block.patternId]
 
   return (
     <Box
@@ -2421,7 +2292,7 @@ const BlockView = memo(function BlockView({
       onMouseEnter={() => onSetHoveredBlock(block.id)}
       onMouseLeave={() => onSetHoveredBlock(undefined)}
       onPointerDown={event => onPointerDown(event, block)}
-      title={`${block.name}: ${formatTickRangeAsBars(workspace.timeline, block.startTick, getBlockEndTick(block))}`}
+      title={`${block.name}: ${formatTickRangeAsBars(timeline, block.startTick, getBlockEndTick(block))}`}
       style={{
         background: block.muted ? 'var(--mantine-color-gray-5)' : block.color,
         border: '1px solid rgba(0, 0, 0, 0.24)',
@@ -2429,15 +2300,15 @@ const BlockView = memo(function BlockView({
         boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? HOVER_BOX_SHADOWS.entity : undefined,
         color: 'white',
         cursor: 'grab',
-        height: isFocused ? viewport.laneHeight : BLOCK_HEIGHT,
-        left: tickToX(viewport.pixelsPerTick, block.startTick),
+        height: isFocused ? TIMELINE_TRACK_LANE_HEIGHT : BLOCK_HEIGHT,
+        left: getTimelineTickCssPosition(block.startTick),
         opacity: dimmedByFocus ? 0.22 : block.muted ? 0.58 : 0.96,
         outline: selected ? SELECTED_STYLES.outline : undefined,
         overflow: 'hidden',
         padding: '5px 8px',
         position: 'absolute',
         top: isFocused ? 0 : top,
-        width: Math.max(MIN_BLOCK_WIDTH, tickToX(viewport.pixelsPerTick, block.lengthTicks)),
+        width: getTimelineTickCssWidth(block.lengthTicks, MIN_BLOCK_WIDTH),
         zIndex: isFocused ? 7 : zIndex,
         userSelect: 'none',
       }}
@@ -2604,6 +2475,124 @@ const FocusedBlockOverlay = memo(function FocusedBlockOverlay({
         </Box>
       ))}
     </Box>
+  )
+})
+
+const InspectorPanelContainer = memo(function InspectorPanelContainer() {
+  const { dispatch } = useSessionStore()
+  const editor = useEditor(selectEditor)
+  const workspace = useWorkspace(selectWorkspace)
+  const [draft, setDraft] = useState<InspectorDraft>(() => createInspectorDraft())
+
+  const patterns = useMemo(() => selectPatterns(workspace), [workspace])
+  const selectedBlock = useMemo(() => selectFirstSelectedBlock(editor, workspace), [editor, workspace])
+  const selectedInstrument = useMemo(() => selectFirstSelectedInstrument(editor, workspace), [editor, workspace])
+  const selectedMixChannel = useMemo(() => selectFirstSelectedMixChannel(editor, workspace), [editor, workspace])
+  const selectedPattern = useMemo(() => selectFirstSelectedPattern(editor, workspace), [editor, workspace])
+  const selectedPatternEvent = useMemo(() => selectFirstSelectedPatternEvent(editor, workspace), [editor, workspace])
+  const selectedSection = useMemo(() => selectFirstSelectedSection(editor, workspace), [editor, workspace])
+  const selectedTimelineEvent = useMemo(() => selectFirstSelectedTimelineEvent(editor, workspace), [editor, workspace])
+  const selectedTrack = useMemo(() => selectFirstSelectedTrack(editor, workspace), [editor, workspace])
+
+  useEffect(() => {
+    setDraft(currentDraft => updateInspectorDraftFromSelection(
+      currentDraft,
+      selectedTrack,
+      selectedInstrument,
+      selectedMixChannel,
+      selectedBlock,
+      selectedPattern,
+      selectedPatternEvent,
+      selectedSection,
+      selectedTimelineEvent,
+    ))
+  }, [
+    selectedBlock,
+    selectedInstrument,
+    selectedMixChannel,
+    selectedPattern,
+    selectedPatternEvent,
+    selectedSection,
+    selectedTimelineEvent,
+    selectedTrack,
+  ])
+
+  const updateSelectedBlock = useCallback(() => {
+    if (selectedBlock !== undefined) {
+      dispatch(updateBlockFromInspectorAction({ block: selectedBlock, draft }))
+    }
+  }, [dispatch, draft, selectedBlock])
+
+  const updateSelectedInstrument = useCallback(() => {
+    if (selectedInstrument !== undefined) {
+      dispatch(updateInstrumentFromInspectorAction({ draft, instrument: selectedInstrument }))
+    }
+  }, [dispatch, draft, selectedInstrument])
+
+  const updateSelectedMixChannel = useCallback(() => {
+    if (selectedMixChannel !== undefined) {
+      dispatch(updateMixChannelFromInspectorAction({ draft, mixChannel: selectedMixChannel }))
+    }
+  }, [dispatch, draft, selectedMixChannel])
+
+  const updateSelectedPattern = useCallback(() => {
+    if (selectedPattern !== undefined) {
+      dispatch(updatePatternFromInspectorAction({ draft, pattern: selectedPattern }))
+    }
+  }, [dispatch, draft, selectedPattern])
+
+  const updateSelectedPatternEvent = useCallback(() => {
+    if (selectedPatternEvent !== undefined) {
+      dispatch(updatePatternEventFromInspectorAction({
+        draft,
+        patternEvent: selectedPatternEvent,
+        workspace,
+      }) ?? [])
+    }
+  }, [dispatch, draft, selectedPatternEvent, workspace])
+
+  const updateSelectedSection = useCallback(() => {
+    if (selectedSection !== undefined) {
+      dispatch(updateSectionFromInspectorAction({ draft, section: selectedSection }))
+    }
+  }, [dispatch, draft, selectedSection])
+
+  const updateSelectedTimelineEvent = useCallback(() => {
+    if (selectedTimelineEvent !== undefined) {
+      dispatch(updateTimelineEventFromInspectorAction({ draft, timelineEvent: selectedTimelineEvent }))
+    }
+  }, [dispatch, draft, selectedTimelineEvent])
+
+  const updateSelectedTrack = useCallback(() => {
+    if (selectedTrack !== undefined) {
+      dispatch(updateTrackFromInspectorAction({ draft, track: selectedTrack }))
+    }
+  }, [dispatch, draft, selectedTrack])
+
+  return (
+    <InspectorPanel
+      draft={draft}
+      patterns={patterns}
+      selectedBlock={selectedBlock}
+      selectedInstrument={selectedInstrument}
+      selectedMixChannel={selectedMixChannel}
+      selectedPattern={selectedPattern}
+      selectedPatternEvent={selectedPatternEvent}
+      selectedSection={selectedSection}
+      selectedTimelineEvent={selectedTimelineEvent}
+      selectedTrack={selectedTrack}
+      selection={editor.selection}
+      setDraft={setDraft}
+      workspace={workspace}
+      onUpdateBlock={updateSelectedBlock}
+      onUpdateInstrument={updateSelectedInstrument}
+      onUpdateMixChannel={updateSelectedMixChannel}
+      onUpdatePattern={updateSelectedPattern}
+      onUpdatePatternEvent={updateSelectedPatternEvent}
+      onUpdateSection={updateSelectedSection}
+      onUpdateTimelineEvent={updateSelectedTimelineEvent}
+      onUpdateTrack={updateSelectedTrack}
+    />
   )
 })
 
@@ -3867,12 +3856,10 @@ function TickRangeOverlay({
   color,
   endTick,
   startTick,
-  viewport,
 }: {
   color: string
   endTick: Tick
   startTick: Tick
-  viewport: ViewportState
 }) {
   const leftTick = Math.min(startTick, endTick)
   const lengthTicks = Math.max(1, Math.abs(endTick - startTick))
@@ -3884,12 +3871,12 @@ function TickRangeOverlay({
         border: `1px solid var(--mantine-color-${color}-6)`,
         borderRadius: 4,
         bottom: 8,
-        left: tickToX(viewport.pixelsPerTick, leftTick),
+        left: getTimelineTickCssPosition(leftTick),
         opacity: 0.55,
         pointerEvents: 'none',
         position: 'absolute',
         top: 8,
-        width: Math.max(MIN_OVERLAY_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
+        width: getTimelineTickCssWidth(lengthTicks, MIN_OVERLAY_WIDTH),
         zIndex: 8,
       }}
     />
@@ -3903,7 +3890,6 @@ function EntityPlaceholder({
   lengthTicks,
   startTick,
   top,
-  viewport,
 }: {
   color: string
   height: number
@@ -3911,7 +3897,6 @@ function EntityPlaceholder({
   lengthTicks: number
   startTick: Tick
   top: number
-  viewport: ViewportState
 }) {
   return (
     <Box
@@ -3923,14 +3908,14 @@ function EntityPlaceholder({
         color: `var(--mantine-color-${color}-9)`,
         display: 'flex',
         height,
-        left: tickToX(viewport.pixelsPerTick, startTick),
+        left: getTimelineTickCssPosition(startTick),
         opacity: 0.72,
         overflow: 'hidden',
         paddingInline: 6,
         pointerEvents: 'none',
         position: 'absolute',
         top,
-        width: Math.max(MIN_OVERLAY_WIDTH, tickToX(viewport.pixelsPerTick, lengthTicks)),
+        width: getTimelineTickCssWidth(lengthTicks, MIN_OVERLAY_WIDTH),
         zIndex: 9,
       }}
     >
@@ -4047,6 +4032,17 @@ function getRulerBorder(mark: RulerMark): string {
   }
 }
 
+function getTimelineTickCssPosition(tick: number): CSSProperties['left'] {
+  return `calc(${tick} * var(--timeline-pixels-per-tick))`
+}
+
+function getTimelineTickCssWidth(
+  lengthTicks: number,
+  minimumWidth: number,
+): CSSProperties['width'] {
+  return `max(${minimumWidth}px, calc(${lengthTicks} * var(--timeline-pixels-per-tick)))`
+}
+
 function getTimelineGridPath(
   marks: RulerMark[],
   kind: RulerMark['kind'],
@@ -4148,9 +4144,9 @@ function getTimelineEventMarkerTop(event: TimelineEvent): number {
   return TIMELINE_MARKER_TOP
 }
 
-function getTimelineEventMarkerLoopWidth(event: TimelineEvent, tick: number): number | undefined {
+function getTimelineEventMarkerLoopWidth(event: TimelineEvent): CSSProperties['width'] | undefined {
   return isLoopEvent(event)
-    ? Math.max(MIN_LOOP_WIDTH, tickToX(tick, event.lengthTicks))
+    ? getTimelineTickCssWidth(event.lengthTicks, MIN_LOOP_WIDTH)
     : undefined
 }
 

@@ -154,7 +154,7 @@ export const NotePatternPanel = memo(function NotePatternPanel({
     updateDrag,
   } = useDrag({
     dispatch,
-    viewport,
+    pixelsPerTick: viewport.pixelsPerTick,
     workspace,
   })
 

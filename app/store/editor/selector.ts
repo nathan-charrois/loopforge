@@ -13,6 +13,50 @@ import {
 import type { Editor, SelectionState } from './type'
 import type { Block, Instrument, MixChannel, Pattern, PatternEvent, Section, TimelineEvent, Track } from '~/domain'
 
+export function selectEditor(editor: Editor): Editor {
+  return editor
+}
+
+export function selectActiveTool(editor: Editor): Editor['activeTool'] {
+  return editor.activeTool
+}
+
+export function selectFocusedBlockId(editor: Editor): Editor['focusedBlockId'] {
+  return editor.focusedBlockId
+}
+
+export function selectSelectedBlockIds(editor: Editor): SelectionState['selectedBlockIds'] {
+  return editor.selection.selectedBlockIds
+}
+
+export function selectSelectedInstrumentIds(editor: Editor): SelectionState['selectedInstrumentIds'] {
+  return editor.selection.selectedInstrumentIds
+}
+
+export function selectSelectedMixChannelIds(editor: Editor): SelectionState['selectedMixChannelIds'] {
+  return editor.selection.selectedMixChannelIds
+}
+
+export function selectSelectedPatternIds(editor: Editor): SelectionState['selectedPatternIds'] {
+  return editor.selection.selectedPatternIds
+}
+
+export function selectSelectedPatternEventIds(editor: Editor): SelectionState['selectedPatternEventIds'] {
+  return editor.selection.selectedPatternEventIds
+}
+
+export function selectSelectedSectionIds(editor: Editor): SelectionState['selectedSectionIds'] {
+  return editor.selection.selectedSectionIds
+}
+
+export function selectSelectedTimelineEventIds(editor: Editor): SelectionState['selectedTimelineEventIds'] {
+  return editor.selection.selectedTimelineEventIds
+}
+
+export function selectSelectedTrackIds(editor: Editor): SelectionState['selectedTrackIds'] {
+  return editor.selection.selectedTrackIds
+}
+
 export function selectFirstSelectedBlock(editor: Editor, workspace: Workspace): Block | undefined {
   if (editor.selection.selectedBlockIds.length === 1) {
     return selectBlock(workspace, editor.selection.selectedBlockIds[0])

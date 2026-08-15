@@ -1,11 +1,13 @@
 import type { Workspace } from './type'
 import {
+  type Arrangement,
   type Instrument,
   type InstrumentId,
   type MasterMixChannel,
   type MixChannel,
   type MixChannelId,
   type Mixer,
+  type Timeline,
 } from '~/domain'
 import { type Block, type BlockId, getBlockEndTick, getSectionEndTick, isBlockInRange, isSectionInRange, type Section, type SectionId, sortBlocksByStartTick } from '~/domain/arrangement'
 import type { Tick, TickRange } from '~/domain/musicPrimitives'
@@ -22,6 +24,35 @@ import {
   type TimelineEventId,
 } from '~/domain/timeline'
 import type { Track, TrackId } from '~/domain/tracks'
+import type { EntityStore } from '~/store/type'
+
+export function selectWorkspace(workspace: Workspace): Workspace {
+  return workspace
+}
+
+export function selectArrangement(workspace: Workspace): Arrangement {
+  return workspace.arrangement
+}
+
+export function selectTimeline(workspace: Workspace): Timeline {
+  return workspace.timeline
+}
+
+export function selectGridDivision(workspace: Workspace): Timeline['grid'] {
+  return workspace.timeline.grid
+}
+
+export function selectInstrumentStore(workspace: Workspace): EntityStore<Instrument> {
+  return workspace.instruments
+}
+
+export function selectPatternStore(workspace: Workspace): EntityStore<Pattern> {
+  return workspace.patterns
+}
+
+export function selectTrackStore(workspace: Workspace): EntityStore<Track> {
+  return workspace.tracks
+}
 
 export function selectMixer(workspace: Workspace): Mixer {
   return workspace.mixer
@@ -64,7 +95,7 @@ export function selectTracks(workspace: Workspace): Track[] {
 }
 
 export function selectTrackIds(workspace: Workspace): TrackId[] {
-  return selectTracks(workspace).map(track => track.id)
+  return workspace.tracks.allIds
 }
 
 export function selectTrack(workspace: Workspace, trackId: TrackId): Track | undefined {
@@ -140,7 +171,7 @@ export function selectSectionsInRange(workspace: Workspace, range: TickRange): S
   return workspace.arrangement.sections.filter(section => isSectionInRange(section, range))
 }
 
-export function selectWorkspaceEndTick(workspace: Workspace): Tick {
+export function selectTimelineEndTick(workspace: Workspace): Tick {
   const sectionEndTicks = workspace.arrangement.sections.map(getSectionEndTick)
   const blockEndTicks = workspace.arrangement.blocks.map(getBlockEndTick)
   const loopEndTicks = workspace.timeline.loopEvents.map(getLoopEventEndTick)
@@ -151,7 +182,7 @@ export function selectWorkspaceEndTick(workspace: Workspace): Tick {
 export function selectWorkspaceLengthTicks(workspace: Workspace): Tick {
   return Math.max(
     getGridDivisionTicks(workspace.timeline, 0),
-    selectWorkspaceEndTick(workspace),
+    selectTimelineEndTick(workspace),
   )
 }
 
@@ -160,11 +191,15 @@ export function selectTimelineEvent(workspace: Workspace, timelineEventId: Timel
 }
 
 export function selectTimelineEvents(workspace: Workspace): TimelineEvent[] {
+  return selectTimelineEventsFromTimeline(workspace.timeline)
+}
+
+export function selectTimelineEventsFromTimeline(timeline: Timeline): TimelineEvent[] {
   return sortTimelineEventsByTick([
-    ...workspace.timeline.tempoEvents,
-    ...workspace.timeline.meterEvents,
-    ...workspace.timeline.keyEvents,
-    ...workspace.timeline.loopEvents,
+    ...timeline.tempoEvents,
+    ...timeline.meterEvents,
+    ...timeline.keyEvents,
+    ...timeline.loopEvents,
   ])
 }
 

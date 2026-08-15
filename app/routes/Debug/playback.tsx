@@ -91,9 +91,9 @@ import {
   selectBlocksForTrack,
   selectPattern,
   selectPatterns,
+  selectTimelineEndTick,
   selectTrack,
   selectTracks,
-  selectWorkspaceEndTick,
   summarizeWorkspaceAction,
   updateBlock as updateWorkspaceBlock,
   updateSection as updateWorkspaceSection,
@@ -246,7 +246,7 @@ function PlaybackDebugContent() {
       playbackEngine.loadWorkspace(nextWorkspace)
       playbackEngine.seek(0)
       playbackEngine.setLoop({
-        endTick: selectWorkspaceEndTick(nextWorkspace),
+        endTick: selectTimelineEndTick(nextWorkspace),
         startTick: 0,
       }, true)
 
@@ -296,7 +296,7 @@ function PlaybackDebugContent() {
       playbackEngine.loadWorkspace(nextWorkspace)
       playbackEngine.seek(0)
       playbackEngine.setLoop({
-        endTick: selectWorkspaceEndTick(nextWorkspace),
+        endTick: selectTimelineEndTick(nextWorkspace),
         startTick: 0,
       }, true)
 
@@ -1430,7 +1430,7 @@ function getBarMarkers(workspace: Workspace, timelineWidth: number): Array<{
   tick: Tick
 }> {
   const markers: Array<{ label: string, left: number, tick: Tick }> = []
-  const projectEndTick = selectWorkspaceEndTick(workspace)
+  const projectEndTick = selectTimelineEndTick(workspace)
   let tick = 0
 
   while (tick <= projectEndTick) {

@@ -26,7 +26,7 @@ import {
   getInitialDrawEndTick,
   getInitialGridDrawEndTick,
   snapTimelineTick,
-  type ViewportState,
+  TIMELINE_TRACK_LANE_HEIGHT,
   xToTick,
 } from '~/store/editor'
 import type { SessionStore } from '~/store/session'
@@ -112,16 +112,18 @@ type DragIntent
 
 export function useDrag({
   dispatch,
-  viewport,
+  pixelsPerTick,
   workspace,
   onUpdateDrag,
 }: {
   dispatch: SessionStore['dispatch']
-  viewport: ViewportState
+  pixelsPerTick: number
   workspace: Workspace
   onUpdateDrag?: (clientX: number) => void
 }) {
   const timelineRef = useRef<HTMLDivElement>(null)
+  const pixelsPerTickRef = useRef(pixelsPerTick)
+  pixelsPerTickRef.current = pixelsPerTick
 
   const trackRowsRef = useRef<HTMLDivElement>(null)
   const drumPieceRowsRef = useRef<HTMLDivElement>(null)
@@ -135,9 +137,9 @@ export function useDrag({
     }
 
     const rect = timelineRef.current.getBoundingClientRect()
-    const rawTick = xToTick(viewport.pixelsPerTick, Math.max(0, clientX - rect.left))
+    const rawTick = xToTick(pixelsPerTickRef.current, Math.max(0, clientX - rect.left))
     return snapTimelineTick(workspace.timeline, rawTick)
-  }, [viewport.pixelsPerTick, workspace.timeline])
+  }, [workspace.timeline])
 
   const getPointerTrackId = useCallback((clientY: number): TrackId | undefined => {
     if (trackRowsRef.current === null) {
@@ -145,9 +147,9 @@ export function useDrag({
     }
 
     const rect = trackRowsRef.current.getBoundingClientRect()
-    const trackIndex = Math.floor((clientY - rect.top) / viewport.laneHeight)
+    const trackIndex = Math.floor((clientY - rect.top) / TIMELINE_TRACK_LANE_HEIGHT)
     return workspace.tracks.allIds[trackIndex]
-  }, [viewport.laneHeight, workspace.tracks.allIds])
+  }, [workspace.tracks.allIds])
 
   const getPointerPitch = useCallback((clientY: number): MidiNote => {
     if (pitchRowsRef.current === null) {
@@ -204,9 +206,9 @@ export function useDrag({
 
     return Math.min(
       workspace.tracks.allIds.length,
-      Math.max(1, Math.floor((clientY - rect.top) / viewport.laneHeight) + 1),
+      Math.max(1, Math.floor((clientY - rect.top) / TIMELINE_TRACK_LANE_HEIGHT) + 1),
     )
-  }, [viewport.laneHeight, workspace.tracks.allIds])
+  }, [workspace.tracks.allIds])
 
   const startDrag = useCallback((
     event: ReactPointerEvent<HTMLElement>,

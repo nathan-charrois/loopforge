@@ -1,5 +1,6 @@
 export * from './actions'
 export * from './clipboard'
+export * from './constants'
 export * from './factory'
 export * from './inspector'
 export * from './selector'

@@ -67,9 +67,6 @@ export type ViewportState = {
   pixelsPerTick: number
   minPixelsPerTick: number
   maxPixelsPerTick: number
-  laneHeight: number
-  sectionLaneHeight: number
-  rulerHeight: number
 }
 
 export type DragState

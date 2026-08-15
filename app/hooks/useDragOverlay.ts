@@ -17,10 +17,6 @@ import {
   type TrackId,
 } from '~/domain'
 import type { DragState } from '~/store/editor'
-import {
-  selectBlock,
-  type Workspace,
-} from '~/store/workspace'
 
 type TickRange = {
   endTick: Tick
@@ -29,19 +25,20 @@ type TickRange = {
 
 export function useTrackLaneOverlay(
   drag: DragState | undefined,
-  workspace: Workspace,
+  blocks: readonly Block[],
+  trackIds: readonly TrackId[],
   trackId: TrackId,
 ) {
   return useMemo(() => ({
-    blockPlaceholders: buildBlockPlaceholders(drag, workspace)
+    blockPlaceholders: buildBlockPlaceholders(drag, blocks)
       .filter(block => block.trackId === trackId),
     drawRange: drag?.kind === 'drawBlock' && drag.trackId === trackId
       ? getTickRange(drag)
       : undefined,
-    selectionRange: isRowSelected(drag, workspace.tracks.allIds.indexOf(trackId) + 1)
+    selectionRange: isRowSelected(drag, trackIds.indexOf(trackId) + 1)
       ? getTickRange(drag)
       : undefined,
-  }), [drag, trackId, workspace])
+  }), [blocks, drag, trackId, trackIds])
 }
 
 export function useSectionLaneOverlay(
@@ -116,13 +113,13 @@ function getDeltaTicks(drag: DragState): Tick {
 
 function buildBlockPlaceholders(
   drag: DragState | undefined,
-  workspace: Workspace,
+  blocks: readonly Block[],
 ): Block[] {
   if (drag?.kind === 'moveBlock') {
     const deltaTicks = getDeltaTicks(drag)
 
     return drag.blockIds.flatMap((blockId) => {
-      const block = selectBlock(workspace, blockId)
+      const block = blocks.find(candidate => candidate.id === blockId)
 
       return block === undefined
         ? []

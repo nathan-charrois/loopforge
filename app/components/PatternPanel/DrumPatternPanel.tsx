@@ -121,7 +121,7 @@ export const DrumPatternPanel = memo(function DrumPatternPanel({
     updateDrag,
   } = useDrag({
     dispatch,
-    viewport,
+    pixelsPerTick: viewport.pixelsPerTick,
     workspace,
   })
 

@@ -39,8 +39,8 @@ import {
 import {
   selectMixChannel,
   selectPattern,
+  selectTimelineEndTick,
   selectTrack,
-  selectWorkspaceEndTick,
   type Workspace,
 } from '~/store/workspace'
 
@@ -144,7 +144,7 @@ export function buildSchedule(workspace: Workspace): PlaybackSchedule {
     events: sortedEvents,
     eventStartTicks: sortedStartTicks,
     triggers: sortedTriggers,
-    projectEndTick: selectWorkspaceEndTick(workspace),
+    projectEndTick: selectTimelineEndTick(workspace),
     warnings,
   }
 }
