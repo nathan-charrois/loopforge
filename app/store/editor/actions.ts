@@ -702,6 +702,40 @@ export function updateInstrumentFromInspectorAction(input: {
   instrument: Instrument
 }): Command {
   switch (input.instrument.kind) {
+    case 'subtractor': {
+      const draftOscillators = input.draft.instrumentSynthOscillators
+
+      return updateInstrumentAction({
+        ...input.instrument,
+        envelope: input.draft.instrumentSynthEnvelope
+          ? { ...input.draft.instrumentSynthEnvelope }
+          : input.instrument.envelope,
+        filter: input.draft.instrumentSubtractorFilter
+          ? { ...input.draft.instrumentSubtractorFilter }
+          : input.instrument.filter,
+        glideSeconds: Math.max(
+          0,
+          input.draft.instrumentSubtractorGlideSeconds
+          ?? input.instrument.glideSeconds,
+        ),
+        mono: input.draft.instrumentSubtractorMono ?? input.instrument.mono,
+        name: input.draft.instrumentName.trim() || input.instrument.name,
+        oscillatorMix: Math.max(
+          0,
+          Math.min(
+            1,
+            input.draft.instrumentSubtractorOscillatorMix
+            ?? input.instrument.oscillatorMix,
+          ),
+        ),
+        oscillators: draftOscillators === undefined
+          ? input.instrument.oscillators
+          : [
+              { ...(draftOscillators[0] ?? input.instrument.oscillators[0]) },
+              { ...(draftOscillators[1] ?? input.instrument.oscillators[1]) },
+            ],
+      })
+    }
     case 'thor':
       return updateInstrumentAction({
         ...input.instrument,

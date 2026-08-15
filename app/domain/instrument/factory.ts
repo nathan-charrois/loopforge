@@ -7,6 +7,7 @@ import type {
   Instrument,
   InstrumentId,
   InstrumentSoundId,
+  SubtractorInstrument,
   ThorInstrument,
 } from './instrument'
 import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
@@ -71,6 +72,43 @@ export function createThorInstrument(input: {
       sustain: 0,
       release: 0,
     },
+  }
+}
+
+export function createSubtractorInstrument(input: {
+  id: InstrumentId
+  name: string
+  effectIds?: EffectId[]
+  oscillators?: [SynthOscillator, SynthOscillator]
+  oscillatorMix?: number
+  filter?: SynthFilter
+  envelope?: SynthEnvelope
+  glideSeconds?: number
+  mono?: boolean
+}): SubtractorInstrument {
+  return {
+    effectIds: input.effectIds ?? [],
+    envelope: input.envelope ?? {
+      attack: 0.005,
+      decay: 0.2,
+      release: 0.15,
+      sustain: 0.65,
+    },
+    filter: input.filter ?? {
+      cutoffHz: 1200,
+      resonance: 4,
+      type: 'lowpass',
+    },
+    glideSeconds: Math.max(0, input.glideSeconds ?? 0),
+    id: input.id,
+    kind: 'subtractor',
+    mono: input.mono ?? false,
+    name: input.name,
+    oscillatorMix: Math.max(0, Math.min(1, input.oscillatorMix ?? 0.5)),
+    oscillators: input.oscillators ?? [
+      createSynthOscillator({ waveform: 'sawtooth' }),
+      createSynthOscillator({ detuneCents: 7, waveform: 'square' }),
+    ],
   }
 }
 

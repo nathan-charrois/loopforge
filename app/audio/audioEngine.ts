@@ -8,7 +8,9 @@ import {
   type DrumInstrument,
   type DrumPiece,
   type Instrument,
+  type InstrumentId,
   type MidiNote,
+  type SubtractorInstrument,
   type ThorInstrument,
   type Velocity,
 } from '~/domain'
@@ -42,6 +44,11 @@ export const INITIAL_AUDIO_ENGINE_SNAPSHOT: AudioEngineSnapshot = {
   state: 'uninitialized',
 }
 
+type SubtractorMonoVoice = {
+  oscillators: OscillatorNode[]
+  pitch: MidiNote
+}
+
 export class AudioEngine {
   private context: AudioContext | undefined
   private mixerGraph: MixerGraph | undefined
@@ -52,6 +59,7 @@ export class AudioEngine {
   private activeVoices = new Map<OscillatorNode, () => void>()
   private listeners = new Set<() => void>()
   private mixerMeterListeners = new Set<() => void>()
+  private subtractorMonoVoices = new Map<InstrumentId, SubtractorMonoVoice>()
   private unsubscribeMixerMeters: (() => void) | undefined
 
   private snapshot = INITIAL_AUDIO_ENGINE_SNAPSHOT
@@ -172,7 +180,7 @@ export class AudioEngine {
         }
         return
       case 'note':
-        if (instrument.kind === 'thor') {
+        if (instrument.kind !== 'drum') {
           this.scheduleInstrumentNoteVoice(
             destination,
             instrument,
@@ -189,6 +197,7 @@ export class AudioEngine {
     const activeVoices = [...this.activeVoices.entries()]
 
     this.activeVoices.clear()
+    this.subtractorMonoVoices.clear()
 
     for (const [voice, disconnect] of activeVoices) {
       voice.onended = null
@@ -265,6 +274,16 @@ export class AudioEngine {
     requestedDurationSeconds: number | undefined,
   ): void {
     switch (instrument.kind) {
+      case 'subtractor':
+        this.scheduleSubtractorVoice(
+          destination,
+          instrument,
+          pitch,
+          velocity,
+          whenSeconds,
+          requestedDurationSeconds,
+        )
+        return
       case 'thor':
         this.scheduleThorVoice(
           destination,
@@ -276,6 +295,226 @@ export class AudioEngine {
         )
         return
     }
+  }
+
+  private scheduleSubtractorVoice(
+    destination: GainNode,
+    instrument: SubtractorInstrument,
+    pitch: MidiNote,
+    velocity: Velocity,
+    whenSeconds: number,
+    requestedDurationSeconds: number | undefined,
+  ): void {
+    const context = this.requiredRunningContext()
+    const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
+    const oscillatorMix = Math.max(0, Math.min(1, instrument.oscillatorMix))
+    const oscillatorLevels = [
+      instrument.oscillators[0].level * (1 - oscillatorMix),
+      instrument.oscillators[1].level * oscillatorMix,
+    ] as const
+    const totalLevel = oscillatorLevels.reduce((sum, level) => sum + Math.max(0, level), 0)
+
+    if (totalLevel === 0) {
+      return
+    }
+
+    const previousMonoVoice = instrument.mono
+      ? this.subtractorMonoVoices.get(instrument.id)
+      : undefined
+
+    if (previousMonoVoice !== undefined) {
+      for (const oscillator of previousMonoVoice.oscillators) {
+        try {
+          oscillator.stop(whenSeconds)
+        }
+        catch {
+          // A short previous voice may already have ended.
+        }
+      }
+    }
+
+    const filter = context.createBiquadFilter()
+    const envelope = context.createGain()
+    const endSeconds = this.schedulePunchySynthEnvelope(
+      envelope.gain,
+      instrument.envelope,
+      velocity,
+      whenSeconds,
+      durationSeconds,
+    )
+
+    this.scheduleSubtractorFilter(
+      filter,
+      instrument,
+      whenSeconds,
+      durationSeconds,
+    )
+
+    filter.connect(envelope)
+    envelope.connect(destination)
+
+    const monoVoice: SubtractorMonoVoice = {
+      oscillators: [],
+      pitch,
+    }
+    const levelNormalization = 1 / Math.max(1, totalLevel)
+    let remainingOscillators = instrument.oscillators.length
+    let sharedNodesDisconnected = false
+
+    instrument.oscillators.forEach((oscillatorSettings, oscillatorIndex) => {
+      const oscillator = context.createOscillator()
+      const oscillatorGain = context.createGain()
+      const oscillatorPitch = pitch
+        + oscillatorSettings.octave * 12
+        + oscillatorSettings.semitone
+      const previousOscillatorPitch = previousMonoVoice === undefined
+        ? oscillatorPitch
+        : previousMonoVoice.pitch
+          + oscillatorSettings.octave * 12
+          + oscillatorSettings.semitone
+      const glideSeconds = instrument.mono
+        ? Math.min(Math.max(0, instrument.glideSeconds), durationSeconds)
+        : 0
+
+      oscillator.type = oscillatorSettings.waveform
+      oscillator.frequency.setValueAtTime(
+        midiNoteToFrequency(previousOscillatorPitch),
+        whenSeconds,
+      )
+
+      if (glideSeconds > 0 && previousOscillatorPitch !== oscillatorPitch) {
+        oscillator.frequency.exponentialRampToValueAtTime(
+          midiNoteToFrequency(oscillatorPitch),
+          whenSeconds + glideSeconds,
+        )
+      }
+      else {
+        oscillator.frequency.setValueAtTime(
+          midiNoteToFrequency(oscillatorPitch),
+          whenSeconds,
+        )
+      }
+
+      oscillator.detune.setValueAtTime(
+        oscillatorSettings.detuneCents,
+        whenSeconds,
+      )
+      oscillatorGain.gain.setValueAtTime(
+        Math.max(0, oscillatorLevels[oscillatorIndex]) * levelNormalization,
+        whenSeconds,
+      )
+
+      oscillator.connect(oscillatorGain)
+      oscillatorGain.connect(filter)
+      oscillator.start(whenSeconds)
+      oscillator.stop(endSeconds + 0.01)
+      monoVoice.oscillators.push(oscillator)
+
+      let oscillatorCleanedUp = false
+
+      this.registerVoice(oscillator, () => {
+        if (oscillatorCleanedUp) {
+          return
+        }
+
+        oscillatorCleanedUp = true
+        oscillator.disconnect()
+        oscillatorGain.disconnect()
+        remainingOscillators -= 1
+
+        if (remainingOscillators === 0 && !sharedNodesDisconnected) {
+          sharedNodesDisconnected = true
+          filter.disconnect()
+          envelope.disconnect()
+
+          if (this.subtractorMonoVoices.get(instrument.id) === monoVoice) {
+            this.subtractorMonoVoices.delete(instrument.id)
+          }
+        }
+      })
+    })
+
+    if (instrument.mono) {
+      this.subtractorMonoVoices.set(instrument.id, monoVoice)
+    }
+  }
+
+  private scheduleSubtractorFilter(
+    filterNode: BiquadFilterNode,
+    instrument: SubtractorInstrument,
+    whenSeconds: number,
+    durationSeconds: number,
+  ): void {
+    const context = this.requiredRunningContext()
+    const cutoffHz = Math.max(
+      20,
+      Math.min(context.sampleRate / 2, instrument.filter.cutoffHz),
+    )
+    const transientCutoffHz = Math.min(
+      context.sampleRate / 2,
+      cutoffHz * (1.5 + Math.max(0, instrument.filter.resonance) * 0.15),
+    )
+    const settleSeconds = Math.min(
+      durationSeconds,
+      Math.max(0.01, instrument.envelope.attack + instrument.envelope.decay),
+    )
+
+    filterNode.type = instrument.filter.type
+    filterNode.Q.setValueAtTime(
+      Math.max(0, instrument.filter.resonance),
+      whenSeconds,
+    )
+    filterNode.frequency.setValueAtTime(transientCutoffHz, whenSeconds)
+    filterNode.frequency.exponentialRampToValueAtTime(
+      cutoffHz,
+      whenSeconds + settleSeconds,
+    )
+  }
+
+  private schedulePunchySynthEnvelope(
+    gain: AudioParam,
+    envelope: SynthEnvelope,
+    velocity: Velocity,
+    whenSeconds: number,
+    durationSeconds: number,
+  ): number {
+    const minimumGain = 0.0001
+    const peakGain = Math.max(minimumGain, velocity / 127)
+    const sustainGain = Math.max(
+      minimumGain,
+      peakGain * Math.max(0, envelope.sustain),
+    )
+    const noteOffSeconds = whenSeconds + durationSeconds
+    const attack = Math.min(Math.max(0, envelope.attack), durationSeconds)
+    const attackEnd = whenSeconds + attack
+    const availableDecay = Math.max(0, noteOffSeconds - attackEnd)
+    const decay = Math.min(Math.max(0, envelope.decay), availableDecay)
+    const decayEnd = attackEnd + decay
+    const release = Math.max(0.01, envelope.release)
+    const endSeconds = noteOffSeconds + release
+
+    gain.cancelScheduledValues(whenSeconds)
+    gain.setValueAtTime(minimumGain, whenSeconds)
+
+    if (attack === 0) {
+      gain.setValueAtTime(peakGain, whenSeconds)
+    }
+    else {
+      gain.exponentialRampToValueAtTime(peakGain, attackEnd)
+    }
+
+    if (decay > 0) {
+      gain.exponentialRampToValueAtTime(sustainGain, decayEnd)
+    }
+
+    if (noteOffSeconds > decayEnd) {
+      gain.setValueAtTime(decay > 0 ? sustainGain : peakGain, noteOffSeconds)
+    }
+
+    gain.exponentialRampToValueAtTime(minimumGain, endSeconds)
+    gain.setValueAtTime(0, endSeconds)
+
+    return endSeconds
   }
 
   private scheduleThorVoice(

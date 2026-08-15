@@ -20,6 +20,7 @@ import {
   createProject,
   createProjectMetadata,
   createSection,
+  createSubtractorInstrument,
   createSynthOscillator,
   createTempoEvent,
   createThorInstrument,
@@ -581,16 +582,18 @@ export function eightfoldParallax(): Workspace {
         ],
         soundId: 'keys.prismatic',
       }),
-      createThorInstrument({
+      createSubtractorInstrument({
         envelope: { attack: 0.008, decay: 0.34, release: 0.24, sustain: 0.68 },
         filter: { cutoffHz: 820, resonance: 4.2, type: 'lowpass' },
+        glideSeconds: 0.045,
         id: bassTrack.instrumentId,
+        mono: true,
         name: 'Subgravity Engine',
-        oscilators: [
-          createSynthOscillator({ level: 0.62, octave: 0, waveform: 'sine' }),
-          createSynthOscillator({ level: 0.38, octave: 1, waveform: 'sine' }),
+        oscillatorMix: 0.28,
+        oscillators: [
+          createSynthOscillator({ level: 0.82, octave: -1, waveform: 'sawtooth' }),
+          createSynthOscillator({ detuneCents: 4, level: 0.58, waveform: 'square' }),
         ],
-        soundId: 'bass.subgravity',
       }),
       createThorInstrument({
         envelope: { attack: 0.004, decay: 0.28, release: 0.38, sustain: 0.34 },
@@ -659,7 +662,7 @@ export function eightfoldParallax(): Workspace {
     project: createProject({
       id: 'project_eightfold_parallax',
       metadata: createProjectMetadata({
-        description: 'An eight-bar mixed-meter maximalist demo: six Tracks, every Track role and PatternEvent kind, layered same-Track overlaps, all Block playback modes, two instrument kinds, all ten drum pieces, four oscillator waveforms, three filter types, three automation targets, and a deliberately muted alternate Block.',
+        description: 'An eight-bar mixed-meter maximalist demo: six Tracks, every Track role and PatternEvent kind, layered same-Track overlaps, all Block playback modes, three instrument kinds, all ten drum pieces, four oscillator waveforms, three filter types, three automation targets, and a deliberately muted alternate Block.',
         tags: ['3/4', '4/4', '5/4', '7/8', 'automation', 'complex', 'demo', 'mixed-meter', 'overlapping-blocks'],
       }),
       name: 'Eightfold Parallax',

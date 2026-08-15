@@ -142,7 +142,7 @@ import {
   type TrackRole,
   VOICING_TYPES,
 } from '~/domain'
-import type { SynthOscillator } from '~/domain/instrument/synth'
+import type { SynthFilter, SynthOscillator } from '~/domain/instrument/synth'
 import { useAnimationFrameThrottle } from '~/hooks/useAnimationFrameThrottle'
 import { useBlockStack } from '~/hooks/useBlockStack'
 import { useDrag } from '~/hooks/useDrag'
@@ -296,6 +296,12 @@ const SYNTH_OSCILLATOR_WAVEFORMS: SynthOscillator['waveform'][] = [
   'triangle',
   'sawtooth',
   'square',
+]
+
+const SYNTH_FILTER_TYPES: SynthFilter['type'][] = [
+  'lowpass',
+  'highpass',
+  'bandpass',
 ]
 
 const HOVER_BOX_SHADOWS = {
@@ -2789,6 +2795,25 @@ const InspectorPanel = memo(function InspectorPanel({
     })
   }
 
+  const updateInstrumentSubtractorFilterDraft = (
+    property: keyof NonNullable<InspectorDraft['instrumentSubtractorFilter']>,
+    value: number | SynthFilter['type'],
+  ) => {
+    setDraft((currentDraft) => {
+      if (currentDraft.instrumentSubtractorFilter === undefined) {
+        return currentDraft
+      }
+
+      return {
+        ...currentDraft,
+        instrumentSubtractorFilter: {
+          ...currentDraft.instrumentSubtractorFilter,
+          [property]: value,
+        },
+      }
+    })
+  }
+
   const updateInstrumentSynthOscillatorDraft = (
     oscillatorIndex: number,
     update: (oscillator: SynthOscillator) => SynthOscillator,
@@ -2935,33 +2960,99 @@ const InspectorPanel = memo(function InspectorPanel({
                 setDraft(currentDraft => ({ ...currentDraft, instrumentName: value }))
               }}
             />
-            {selectedInstrument.kind === 'thor' && (
+            {selectedInstrument.kind === 'subtractor' && (
+              <Paper withBorder radius="sm" p="md">
+                <Stack gap="md">
+                  <Text fw={600} size="xs">Voice</Text>
+                  <Switch
+                    checked={draft.instrumentSubtractorMono ?? selectedInstrument.mono}
+                    label="Mono"
+                    size="xs"
+                    onChange={(event) => {
+                      const { checked } = event.currentTarget
+
+                      setDraft(currentDraft => ({
+                        ...currentDraft,
+                        instrumentSubtractorMono: checked,
+                      }))
+                    }}
+                  />
+                  <NumberInput
+                    decimalScale={3}
+                    label="Glide (seconds)"
+                    min={0}
+                    size="xs"
+                    step={0.01}
+                    value={draft.instrumentSubtractorGlideSeconds}
+                    onChange={value => setDraft(currentDraft => ({
+                      ...currentDraft,
+                      instrumentSubtractorGlideSeconds: Math.max(
+                        0,
+                        parseNumber(
+                          value.toString(),
+                          currentDraft.instrumentSubtractorGlideSeconds
+                          ?? selectedInstrument.glideSeconds,
+                        ),
+                      ),
+                    }))}
+                  />
+                  <Stack gap={4}>
+                    <Group justify="space-between">
+                      <Text size="xs">Oscillator mix</Text>
+                      <Text c="dimmed" size="xs">
+                        {draft.instrumentSubtractorOscillatorMix?.toFixed(2)}
+                      </Text>
+                    </Group>
+                    <Slider
+                      aria-label="Oscillator mix"
+                      label={null}
+                      max={1}
+                      min={0}
+                      step={0.01}
+                      value={draft.instrumentSubtractorOscillatorMix}
+                      onChange={value => setDraft(currentDraft => ({
+                        ...currentDraft,
+                        instrumentSubtractorOscillatorMix: value,
+                      }))}
+                    />
+                  </Stack>
+                </Stack>
+              </Paper>
+            )}
+            {(
+              selectedInstrument.kind === 'thor'
+              || selectedInstrument.kind === 'subtractor'
+            ) && (
               <Paper withBorder radius="sm" p="md">
                 <Stack gap="md">
                   <Group justify="space-between">
                     <Text fw={600} size="xs">Oscillators</Text>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={addInstrumentSynthOscillatorDraft}
-                    >
-                      Add oscillator
-                    </Button>
+                    {selectedInstrument.kind === 'thor' && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        onClick={addInstrumentSynthOscillatorDraft}
+                      >
+                        Add oscillator
+                      </Button>
+                    )}
                   </Group>
                   {draft.instrumentSynthOscillators?.map((oscillator, oscillatorIndex) => (
                     <Paper key={oscillatorIndex} withBorder radius="sm" p="sm">
                       <Stack gap="sm">
                         <Group justify="space-between">
                           <Text fw={500} size="xs">{`Oscillator ${oscillatorIndex + 1}`}</Text>
-                          <ActionIcon
-                            aria-label={`Remove oscillator ${oscillatorIndex + 1}`}
-                            color="red"
-                            size="sm"
-                            variant="light"
-                            onClick={() => removeInstrumentSynthOscillatorDraft(oscillatorIndex)}
-                          >
-                            <HugeiconsIcon icon={Delete01Icon} size={14} />
-                          </ActionIcon>
+                          {selectedInstrument.kind === 'thor' && (
+                            <ActionIcon
+                              aria-label={`Remove oscillator ${oscillatorIndex + 1}`}
+                              color="red"
+                              size="sm"
+                              variant="light"
+                              onClick={() => removeInstrumentSynthOscillatorDraft(oscillatorIndex)}
+                            >
+                              <HugeiconsIcon icon={Delete01Icon} size={14} />
+                            </ActionIcon>
+                          )}
                         </Group>
                         <Select
                           allowDeselect={false}
@@ -3058,7 +3149,69 @@ const InspectorPanel = memo(function InspectorPanel({
                 </Stack>
               </Paper>
             )}
-            {selectedInstrument.kind === 'thor' && (
+            {selectedInstrument.kind === 'subtractor' && (
+              <Paper withBorder radius="sm" p="md">
+                <Stack gap="md">
+                  <Text fw={600} size="xs">Filter</Text>
+                  <Select
+                    allowDeselect={false}
+                    data={SYNTH_FILTER_TYPES.map(value => ({ label: value, value }))}
+                    label="Type"
+                    size="xs"
+                    value={draft.instrumentSubtractorFilter?.type}
+                    onChange={(value) => {
+                      const type = SYNTH_FILTER_TYPES.find(candidate => candidate === value)
+
+                      if (type !== undefined) {
+                        updateInstrumentSubtractorFilterDraft('type', type)
+                      }
+                    }}
+                  />
+                  <SimpleGrid cols={2} spacing="sm">
+                    <NumberInput
+                      label="Cutoff (Hz)"
+                      min={20}
+                      size="xs"
+                      value={draft.instrumentSubtractorFilter?.cutoffHz}
+                      onChange={value => updateInstrumentSubtractorFilterDraft(
+                        'cutoffHz',
+                        Math.max(
+                          20,
+                          parseNumber(
+                            value.toString(),
+                            draft.instrumentSubtractorFilter?.cutoffHz
+                            ?? selectedInstrument.filter.cutoffHz,
+                          ),
+                        ),
+                      )}
+                    />
+                    <NumberInput
+                      decimalScale={2}
+                      label="Resonance"
+                      min={0}
+                      size="xs"
+                      step={0.1}
+                      value={draft.instrumentSubtractorFilter?.resonance}
+                      onChange={value => updateInstrumentSubtractorFilterDraft(
+                        'resonance',
+                        Math.max(
+                          0,
+                          parseNumber(
+                            value.toString(),
+                            draft.instrumentSubtractorFilter?.resonance
+                            ?? selectedInstrument.filter.resonance,
+                          ),
+                        ),
+                      )}
+                    />
+                  </SimpleGrid>
+                </Stack>
+              </Paper>
+            )}
+            {(
+              selectedInstrument.kind === 'thor'
+              || selectedInstrument.kind === 'subtractor'
+            ) && (
               <Paper withBorder radius="sm" p="md">
                 <Stack gap="md">
                   <Text fw={600} size="xs">Envelope</Text>

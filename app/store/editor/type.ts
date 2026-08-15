@@ -8,7 +8,7 @@ import type {
 import type { EffectId } from '~/domain/effect'
 import type { ChordSymbol, Key } from '~/domain/harmony'
 import type { DrumPiece, InstrumentId } from '~/domain/instrument'
-import type { SynthEnvelope, SynthOscillator } from '~/domain/instrument/synth'
+import type { SynthEnvelope, SynthFilter, SynthOscillator } from '~/domain/instrument/synth'
 import type { MixChannelId } from '~/domain/mixer'
 import type { MidiNote, Tick } from '~/domain/musicPrimitives'
 import type {
@@ -290,6 +290,10 @@ export type PatternEventDraft = {
 
 export type InstrumentDraft = {
   instrumentName: string
+  instrumentSubtractorFilter?: SynthFilter
+  instrumentSubtractorGlideSeconds?: number
+  instrumentSubtractorMono?: boolean
+  instrumentSubtractorOscillatorMix?: number
   instrumentSynthEnvelope?: SynthEnvelope
   instrumentSynthOscillators?: SynthOscillator[]
 }

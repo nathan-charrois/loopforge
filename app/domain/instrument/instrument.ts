@@ -7,7 +7,24 @@ export type InstrumentSoundId = string
 
 export type Instrument
   = | DrumInstrument
+    | SubtractorInstrument
     | ThorInstrument
+
+export type SubtractorInstrument = {
+  kind: 'subtractor'
+  id: InstrumentId
+  name: string
+  effectIds: EffectId[]
+  oscillators: [
+    SynthOscillator,
+    SynthOscillator,
+  ]
+  oscillatorMix: number
+  filter: SynthFilter
+  envelope: SynthEnvelope
+  glideSeconds: number
+  mono: boolean
+}
 
 export type ThorInstrument = {
   kind: 'thor'

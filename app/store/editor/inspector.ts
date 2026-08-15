@@ -97,8 +97,11 @@ export function updateInspectorDraftFromInstrument(
     instrumentName: selectedInstrument.name,
   }
 
-  if (selectedInstrument.kind === 'thor') {
-    return {
+  if (
+    selectedInstrument.kind === 'thor'
+    || selectedInstrument.kind === 'subtractor'
+  ) {
+    const synthDraft: InspectorDraft = {
       ...nextDraft,
       instrumentSynthEnvelope: {
         ...selectedInstrument.envelope,
@@ -106,6 +109,22 @@ export function updateInspectorDraftFromInstrument(
       instrumentSynthOscillators: selectedInstrument.oscillators.map(oscillator => ({
         ...oscillator,
       })),
+    }
+
+    if (selectedInstrument.kind === 'subtractor') {
+      return {
+        ...synthDraft,
+        instrumentSubtractorFilter: {
+          ...selectedInstrument.filter,
+        },
+        instrumentSubtractorGlideSeconds: selectedInstrument.glideSeconds,
+        instrumentSubtractorMono: selectedInstrument.mono,
+        instrumentSubtractorOscillatorMix: selectedInstrument.oscillatorMix,
+      }
+    }
+
+    return {
+      ...synthDraft,
     }
   }
 
