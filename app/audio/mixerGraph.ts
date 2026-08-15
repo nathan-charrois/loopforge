@@ -1,13 +1,19 @@
 import {
+  createEffectGraph,
+  type EffectGraph,
+} from './effectGraph'
+import {
   decibelsToGain,
+  type Effect,
   type MixChannel,
   type MixChannelId,
 } from '~/domain'
 import type { Workspace } from '~/store/workspace'
 
 type MixChannelGraph = {
+  effectGraphs: EffectGraph[]
+  effects: Effect[]
   input: GainNode
-  filter: BiquadFilterNode
   gain: GainNode
   panner: StereoPannerNode
   meter: AnalyserNode
@@ -61,7 +67,9 @@ export class MixerGraph {
     for (const channel of mixChannels) {
       const graph = this.getChannelGraph(channel.id)
       const audible = this.getChannelAudible(mixChannels, channel)
+      const effects = this.resolveChannelEffects(workspace, channel.id)
 
+      this.reconcileChannelEffects(graph, effects)
       graph.gain.gain.value = audible ? decibelsToGain(channel.volumeDb) : 0
       graph.panner.pan.value = channel.pan
     }
@@ -128,16 +136,6 @@ export class MixerGraph {
     }
 
     switch (parameter) {
-      case 'filterCutoff': {
-        const normalizedValue = Math.max(0, Math.min(1, value))
-        const frequency = 80 * ((20000 / 80) ** normalizedValue)
-
-        channelGraph.filter.frequency.setValueAtTime(
-          frequency,
-          whenSeconds,
-        )
-        return
-      }
       case 'pan':
         channelGraph.panner.pan.setValueAtTime(
           Math.max(-1, Math.min(1, value)),
@@ -174,27 +172,92 @@ export class MixerGraph {
   ): MixChannelGraph {
     const input = this.context.createGain()
     const gain = this.context.createGain()
-    const filter = this.context.createBiquadFilter()
     const panner = this.context.createStereoPanner()
     const meter = this.context.createAnalyser()
 
-    filter.type = 'lowpass'
-    filter.frequency.value = this.context.sampleRate / 2
     meter.fftSize = METER_FFT_SIZE
 
-    input.connect(filter)
-    filter.connect(gain)
-    gain.connect(panner)
-    panner.connect(meter)
+    input.connect(panner)
+    panner.connect(gain)
+    gain.connect(meter)
     meter.connect(masterGain)
 
     return {
+      effectGraphs: [],
+      effects: [],
       input,
-      filter,
       gain,
       panner,
       meter,
     }
+  }
+
+  private reconcileChannelEffects(
+    graph: MixChannelGraph,
+    effects: Effect[],
+  ): void {
+    const hasSameStructure = graph.effects.length === effects.length
+      && graph.effects.every((effect, index) => (
+        effect.id === effects[index].id
+        && effect.kind === effects[index].kind
+      ))
+
+    if (hasSameStructure) {
+      effects.forEach((effect, index) => {
+        if (effect !== graph.effects[index]) {
+          graph.effectGraphs[index].update(effect)
+        }
+      })
+
+      graph.effects = effects
+      return
+    }
+
+    graph.input.disconnect()
+
+    for (const effectGraph of graph.effectGraphs) {
+      effectGraph.dispose()
+    }
+
+    const effectGraphs = effects.map(effect => (
+      createEffectGraph(this.context, effect)
+    ))
+    let chainOutput: AudioNode = graph.input
+
+    for (const effectGraph of effectGraphs) {
+      chainOutput.connect(effectGraph.input)
+      chainOutput = effectGraph.output
+    }
+
+    chainOutput.connect(graph.panner)
+    graph.effectGraphs = effectGraphs
+    graph.effects = effects
+  }
+
+  private resolveChannelEffects(
+    workspace: Workspace,
+    mixChannelId: MixChannelId,
+  ): Effect[] {
+    const trackId = workspace.tracks.allIds.find(currentTrackId => (
+      workspace.tracks.byId[currentTrackId].mixChannelId === mixChannelId
+    ))
+
+    if (trackId === undefined) {
+      return []
+    }
+
+    const instrument = workspace.instruments.byId[
+      workspace.tracks.byId[trackId].instrumentId
+    ]
+
+    if (instrument === undefined) {
+      return []
+    }
+
+    return instrument.effectIds.flatMap((effectId) => {
+      const effect = workspace.effects.byId[effectId]
+      return effect === undefined ? [] : [effect]
+    })
   }
 
   private renderMeters = (frameTime: number): void => {
@@ -290,9 +353,12 @@ export class MixerGraph {
     for (const graph of this.channelGraphs.values()) {
       graph.input.disconnect()
       graph.gain.disconnect()
-      graph.filter.disconnect()
       graph.panner.disconnect()
       graph.meter.disconnect()
+
+      for (const effectGraph of graph.effectGraphs) {
+        effectGraph.dispose()
+      }
     }
 
     this.channelGraphs.clear()

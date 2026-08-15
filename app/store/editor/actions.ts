@@ -739,6 +739,7 @@ export function updateEffectFromInspectorAction(input: {
     case 'eq':
       return updateEffectAction({
         ...effect,
+        enabled: draft.effectEnabled,
         highFrequencyHz: draft.effectEqHighFrequencyHz,
         highGainDb: draft.effectEqHighGainDb,
         lowFrequencyHz: draft.effectEqLowFrequencyHz,
@@ -752,6 +753,7 @@ export function updateEffectFromInspectorAction(input: {
       return updateEffectAction({
         ...effect,
         attackSeconds: draft.effectCompressorAttackSeconds,
+        enabled: draft.effectEnabled,
         kneeDb: draft.effectCompressorKneeDb,
         name,
         ratio: draft.effectCompressorRatio,
@@ -762,6 +764,7 @@ export function updateEffectFromInspectorAction(input: {
       return updateEffectAction({
         ...effect,
         delaySeconds: draft.effectDelayDelaySeconds,
+        enabled: draft.effectEnabled,
         feedback: draft.effectDelayFeedback,
         name,
         wet: draft.effectDelayWet,
@@ -770,6 +773,7 @@ export function updateEffectFromInspectorAction(input: {
       return updateEffectAction({
         ...effect,
         decaySeconds: draft.effectReverbDecaySeconds,
+        enabled: draft.effectEnabled,
         name,
         preDelaySeconds: draft.effectReverbPreDelaySeconds,
         wet: draft.effectReverbWet,

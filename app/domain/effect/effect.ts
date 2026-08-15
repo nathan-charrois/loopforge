@@ -16,6 +16,7 @@ export type Effect
     | ReverbEffect
 
 export type EqEffect = {
+  enabled: boolean
   kind: 'eq'
   id: EffectId
   name: string
@@ -29,6 +30,7 @@ export type EqEffect = {
 }
 
 export type CompressorEffect = {
+  enabled: boolean
   kind: 'compressor'
   id: EffectId
   name: string
@@ -40,6 +42,7 @@ export type CompressorEffect = {
 }
 
 export type DelayEffect = {
+  enabled: boolean
   kind: 'delay'
   id: EffectId
   name: string
@@ -49,6 +52,7 @@ export type DelayEffect = {
 }
 
 export type ReverbEffect = {
+  enabled: boolean
   kind: 'reverb'
   id: EffectId
   name: string

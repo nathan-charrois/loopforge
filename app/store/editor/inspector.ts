@@ -34,6 +34,7 @@ export function createInspectorDraft(): InspectorDraft {
     effectDelayDelaySeconds: 0.25,
     effectDelayFeedback: 0.35,
     effectDelayWet: 0.25,
+    effectEnabled: true,
     effectEqHighFrequencyHz: 8000,
     effectEqHighGainDb: 0,
     effectEqLowFrequencyHz: 200,
@@ -116,6 +117,7 @@ export function updateInspectorDraftFromEffect(
 
   const nextDraft = {
     ...currentDraft,
+    effectEnabled: selectedEffect.enabled ?? true,
     effectName: selectedEffect.name,
   }
 

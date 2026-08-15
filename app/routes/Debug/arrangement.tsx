@@ -1435,9 +1435,14 @@ const InstrumentEffects = memo(function InstrumentEffects({
                 onClick={event => onClick(event, effect.id)}
               >
                 <Text inherit truncate>{effect.name}</Text>
-                <Badge color="gray" size="xs" variant="filled">
-                  {EFFECT_KIND_LABELS[effect.kind]}
-                </Badge>
+                <Group gap={4} wrap="nowrap">
+                  {effect.enabled === false && (
+                    <Badge color="yellow" size="xs" variant="light">Bypassed</Badge>
+                  )}
+                  <Badge color="gray" size="xs" variant="filled">
+                    {EFFECT_KIND_LABELS[effect.kind]}
+                  </Badge>
+                </Group>
               </Button>
             ))}
       </Stack>
@@ -1661,7 +1666,7 @@ const TimelineInstrumentColumn = memo(function TimelineInstrumentColumn({
                     color="violet"
                     size="xs"
                     title={effects.map(effect => (
-                      `${effect.name} (${EFFECT_KIND_LABELS[effect.kind]})`
+                      `${effect.name} (${EFFECT_KIND_LABELS[effect.kind]})${effect.enabled === false ? ' — bypassed' : ''}`
                     )).join(', ')}
                     variant="light"
                   >
@@ -2835,7 +2840,7 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
   )
 })
 
-type EffectNumberDraftProperty = Exclude<keyof EffectDraft, 'effectName'>
+type EffectNumberDraftProperty = Exclude<keyof EffectDraft, 'effectEnabled' | 'effectName'>
 
 const EffectInspector = memo(function EffectInspector({
   draft,
@@ -2874,6 +2879,15 @@ const EffectInspector = memo(function EffectInspector({
         onChange={(event) => {
           const { value } = event.currentTarget
           setDraft(currentDraft => ({ ...currentDraft, effectName: value }))
+        }}
+      />
+      <Switch
+        checked={draft.effectEnabled}
+        label="Enabled"
+        size="xs"
+        onChange={(event) => {
+          const { checked } = event.currentTarget
+          setDraft(currentDraft => ({ ...currentDraft, effectEnabled: checked }))
         }}
       />
       {effect.kind === 'eq' && (

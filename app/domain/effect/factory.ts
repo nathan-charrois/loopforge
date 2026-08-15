@@ -1,6 +1,7 @@
 import type { Effect, EffectId, EffectKind } from './effect'
 
 export function createEffect(input: {
+  enabled?: boolean
   id: EffectId
   kind: EffectKind
   name: string
@@ -8,6 +9,7 @@ export function createEffect(input: {
   switch (input.kind) {
     case 'eq':
       return {
+        enabled: input.enabled ?? true,
         highFrequencyHz: 8000,
         highGainDb: 0,
         id: input.id,
@@ -22,6 +24,7 @@ export function createEffect(input: {
     case 'compressor':
       return {
         attackSeconds: 0.003,
+        enabled: input.enabled ?? true,
         id: input.id,
         kneeDb: 30,
         kind: 'compressor',
@@ -33,6 +36,7 @@ export function createEffect(input: {
     case 'delay':
       return {
         delaySeconds: 0.25,
+        enabled: input.enabled ?? true,
         feedback: 0.35,
         id: input.id,
         kind: 'delay',
@@ -42,6 +46,7 @@ export function createEffect(input: {
     case 'reverb':
       return {
         decaySeconds: 1.5,
+        enabled: input.enabled ?? true,
         id: input.id,
         kind: 'reverb',
         name: input.name,

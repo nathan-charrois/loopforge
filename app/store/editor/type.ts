@@ -295,6 +295,7 @@ export type InstrumentDraft = {
 }
 
 export type EffectDraft = {
+  effectEnabled: boolean
   effectName: string
   effectEqHighFrequencyHz: number
   effectEqHighGainDb: number

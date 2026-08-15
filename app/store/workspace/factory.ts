@@ -63,7 +63,7 @@ const workspaceDemos: Record<string, () => Workspace> = {
 export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
   const tracks = normalizeEntityStore(input.tracks, createEntityStore<Track>())
   const instruments = normalizeEntityStore(input.instruments, createEmptyEntityStore<Instrument>())
-  const effects = normalizeEntityStore(input.effects, createEmptyEntityStore<Effect>())
+  const effects = normalizeEffectStore(input.effects)
   const patterns = normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>())
 
   return {
@@ -279,6 +279,23 @@ function normalizeEntityStore<TEntity extends { id: string }>(
   }
 
   return createEntityStore(input)
+}
+
+function normalizeEffectStore(
+  input: EntityStore<Effect> | readonly Effect[] | undefined,
+): EntityStore<Effect> {
+  const effects = normalizeEntityStore(input, createEmptyEntityStore<Effect>())
+
+  if (effects.allIds.every(effectId => (
+    typeof effects.byId[effectId].enabled === 'boolean'
+  ))) {
+    return effects
+  }
+
+  return createEntityStore(effects.allIds.map(effectId => ({
+    ...effects.byId[effectId],
+    enabled: effects.byId[effectId].enabled ?? true,
+  })))
 }
 
 function isEntityStore<TEntity extends { id: string }>(
