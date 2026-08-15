@@ -56,7 +56,6 @@ import {
   createPattern,
   createSeedPatternEvents,
   createTempoEvent,
-  type Effect,
   type EffectId,
   getKeyAtTick,
   getLoopEventEndTick,
@@ -117,7 +116,6 @@ import {
   splitBlockAction,
   splitSectionAction,
   updateBlockAction,
-  updateEffectAction,
   updateInstrumentAction,
   updateMixChannelAction,
   updatePatternAction,
@@ -725,59 +723,6 @@ export function updateInstrumentFromInspectorAction(input: {
         name: input.draft.instrumentName.trim() || input.instrument.name,
       })
     }
-  }
-}
-
-export function updateEffectFromInspectorAction(input: {
-  draft: InspectorDraft
-  effect: Effect
-}): Command {
-  const { draft, effect } = input
-  const name = draft.effectName.trim() || effect.name
-
-  switch (effect.kind) {
-    case 'eq':
-      return updateEffectAction({
-        ...effect,
-        enabled: draft.effectEnabled,
-        highFrequencyHz: draft.effectEqHighFrequencyHz,
-        highGainDb: draft.effectEqHighGainDb,
-        lowFrequencyHz: draft.effectEqLowFrequencyHz,
-        lowGainDb: draft.effectEqLowGainDb,
-        midFrequencyHz: draft.effectEqMidFrequencyHz,
-        midGainDb: draft.effectEqMidGainDb,
-        midQ: draft.effectEqMidQ,
-        name,
-      })
-    case 'compressor':
-      return updateEffectAction({
-        ...effect,
-        attackSeconds: draft.effectCompressorAttackSeconds,
-        enabled: draft.effectEnabled,
-        kneeDb: draft.effectCompressorKneeDb,
-        name,
-        ratio: draft.effectCompressorRatio,
-        releaseSeconds: draft.effectCompressorReleaseSeconds,
-        thresholdDb: draft.effectCompressorThresholdDb,
-      })
-    case 'delay':
-      return updateEffectAction({
-        ...effect,
-        delaySeconds: draft.effectDelayDelaySeconds,
-        enabled: draft.effectEnabled,
-        feedback: draft.effectDelayFeedback,
-        name,
-        wet: draft.effectDelayWet,
-      })
-    case 'reverb':
-      return updateEffectAction({
-        ...effect,
-        decaySeconds: draft.effectReverbDecaySeconds,
-        enabled: draft.effectEnabled,
-        name,
-        preDelaySeconds: draft.effectReverbPreDelaySeconds,
-        wet: draft.effectReverbWet,
-      })
   }
 }
 

@@ -294,30 +294,7 @@ export type InstrumentDraft = {
   instrumentSynthOscillators?: SynthOscillator[]
 }
 
-export type EffectDraft = {
-  effectEnabled: boolean
-  effectName: string
-  effectEqHighFrequencyHz: number
-  effectEqHighGainDb: number
-  effectEqLowFrequencyHz: number
-  effectEqLowGainDb: number
-  effectEqMidFrequencyHz: number
-  effectEqMidGainDb: number
-  effectEqMidQ: number
-  effectCompressorAttackSeconds: number
-  effectCompressorKneeDb: number
-  effectCompressorRatio: number
-  effectCompressorReleaseSeconds: number
-  effectCompressorThresholdDb: number
-  effectDelayDelaySeconds: number
-  effectDelayFeedback: number
-  effectDelayWet: number
-  effectReverbDecaySeconds: number
-  effectReverbPreDelaySeconds: number
-  effectReverbWet: number
-}
-
-export type InspectorDraft = BlockDraft & EffectDraft & InstrumentDraft & PatternEventDraft & TimelineEventDraft & {
+export type InspectorDraft = BlockDraft & InstrumentDraft & PatternEventDraft & TimelineEventDraft & {
   mixChannelMuted: boolean
   mixChannelPan: number
   mixChannelSoloed: boolean

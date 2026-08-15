@@ -61,6 +61,7 @@ import {
 
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import { AppMenu } from '~/components/AppLayout/AppMenu'
+import { EffectsPanel } from '~/components/EffectsPanel/EffectsPanel'
 import { PatternPanel } from '~/components/PatternPanel/PatternPanel'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
@@ -83,16 +84,12 @@ import {
   CHORD_PLAYBACK_STYLES,
   CHORD_QUALITIES,
   createDraftEntityId,
-  createEffect,
   createInstrument,
   createMixChannel,
   createSynthOscillator,
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
   type DrumPiece,
-  type Effect,
-  EFFECT_KINDS,
-  type EffectId,
   type EffectKind,
   formatTickAsBars,
   formatTickRangeAsBars,
@@ -181,16 +178,13 @@ import {
   deleteSelectionAction,
   type DragState,
   duplicateSelectionAction,
-  type EffectDraft,
   type InspectorDraft,
   pasteClipboardAction,
   type PatternEventDraft,
   selectActiveTool,
   selectBlockAction,
   selectEditor,
-  selectEffectAction,
   selectFirstSelectedBlock,
-  selectFirstSelectedEffect,
   selectFirstSelectedInstrument,
   selectFirstSelectedMixChannel,
   selectFirstSelectedPattern,
@@ -206,7 +200,6 @@ import {
   selectPatternEventAction,
   selectSectionAction,
   selectSelectedBlockIds,
-  selectSelectedEffectIds,
   selectSelectedInstrumentIds,
   selectSelectedMixChannelIds,
   selectSelectedPatternEventIds,
@@ -225,7 +218,6 @@ import {
   TIMELINE_TRACK_LANE_HEIGHT,
   unfocusSelectionAction,
   updateBlockFromInspectorAction,
-  updateEffectFromInspectorAction,
   updateInspectorDraftFromSelection,
   updateInstrumentFromInspectorAction,
   updateMixChannelFromInspectorAction,
@@ -244,7 +236,6 @@ import {
 } from '~/store/session'
 import {
   addInstrumentAction,
-  addInstrumentEffectAction,
   addMixChannelAction,
   addPatternAction,
   addTimelineEventAction,
@@ -254,7 +245,6 @@ import {
   selectArrangement,
   selectEffectStore,
   selectGridDivision,
-  selectInstrumentForEffect,
   selectInstrumentStore,
   selectMasterMixChannel,
   selectMixer,
@@ -1067,6 +1057,11 @@ function ArrangementDebugContent() {
               onSetActiveTool={handleSetActivePatternPanelTool}
               onUpdatePatternEventDraft={handleUpdatePatternEventDraft}
             />
+            <EffectsPanel
+              dispatch={dispatch}
+              focusedBlockId={editor.focusedBlockId}
+              workspace={workspace}
+            />
             <Button size="xs" onClick={handleAddTrack}>Add Track</Button>
           </Box>
           <Stack gap="md" style={{ gridColumn: 'span 2', overflow: 'hidden' }}>
@@ -1379,72 +1374,6 @@ const WorkspaceErrors = memo(function WorkspaceErrors() {
         {workspaceErrors.map(error => (
           <Text key={error} c="red" size="xs">{error}</Text>
         ))}
-      </Stack>
-    </Paper>
-  )
-})
-
-const InstrumentEffects = memo(function InstrumentEffects({
-  instrument,
-  onAdd,
-  onClick,
-}: {
-  instrument: Instrument
-  onAdd: (kind: EffectKind) => void
-  onClick: (event: ReactMouseEvent<HTMLButtonElement>, effectId: EffectId) => void
-}) {
-  const effectStore = useWorkspace(selectEffectStore)
-  const selectedEffectIds = useEditor(selectSelectedEffectIds)
-  const effects = useMemo(
-    () => instrument.effectIds.flatMap((effectId) => {
-      const effect = effectStore.byId[effectId]
-      return effect === undefined ? [] : [effect]
-    }),
-    [effectStore, instrument.effectIds],
-  )
-
-  return (
-    <Paper withBorder radius="sm" p="sm">
-      <Stack gap="sm">
-        <Group justify="space-between">
-          <Text fw={600} size="xs">Effects</Text>
-          <Badge color="gray" variant="light">{effects.length}</Badge>
-        </Group>
-        <Group gap={6}>
-          {EFFECT_KINDS.map(kind => (
-            <Button
-              key={kind}
-              size="compact-xs"
-              variant="light"
-              onClick={() => onAdd(kind)}
-            >
-              {`Add ${EFFECT_KIND_LABELS[kind]}`}
-            </Button>
-          ))}
-        </Group>
-        {effects.length === 0
-          ? <Text c="dimmed" size="xs">No effects on this instrument.</Text>
-          : effects.map(effect => (
-              <Button
-                key={effect.id}
-                aria-pressed={selectedEffectIds.includes(effect.id)}
-                fullWidth
-                justify="space-between"
-                size="xs"
-                variant={selectedEffectIds.includes(effect.id) ? 'filled' : 'light'}
-                onClick={event => onClick(event, effect.id)}
-              >
-                <Text inherit truncate>{effect.name}</Text>
-                <Group gap={4} wrap="nowrap">
-                  {effect.enabled === false && (
-                    <Badge color="yellow" size="xs" variant="light">Bypassed</Badge>
-                  )}
-                  <Badge color="gray" size="xs" variant="filled">
-                    {EFFECT_KIND_LABELS[effect.kind]}
-                  </Badge>
-                </Group>
-              </Button>
-            ))}
       </Stack>
     </Paper>
   )
@@ -2686,14 +2615,7 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
 
   const patterns = useMemo(() => selectPatterns(workspace), [workspace])
   const selectedBlock = useMemo(() => selectFirstSelectedBlock(editor, workspace), [editor, workspace])
-  const selectedEffect = useMemo(() => selectFirstSelectedEffect(editor, workspace), [editor, workspace])
-  const selectedInstrument = useMemo(
-    () => selectFirstSelectedInstrument(editor, workspace)
-      ?? (selectedEffect === undefined
-        ? undefined
-        : selectInstrumentForEffect(workspace, selectedEffect.id)),
-    [editor, selectedEffect, workspace],
-  )
+  const selectedInstrument = useMemo(() => selectFirstSelectedInstrument(editor, workspace), [editor, workspace])
   const selectedMixChannel = useMemo(() => selectFirstSelectedMixChannel(editor, workspace), [editor, workspace])
   const selectedPattern = useMemo(() => selectFirstSelectedPattern(editor, workspace), [editor, workspace])
   const selectedPatternEvent = useMemo(() => selectFirstSelectedPatternEvent(editor, workspace), [editor, workspace])
@@ -2705,7 +2627,6 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
     setDraft(currentDraft => updateInspectorDraftFromSelection(
       currentDraft,
       selectedTrack,
-      selectedEffect,
       selectedInstrument,
       selectedMixChannel,
       selectedBlock,
@@ -2716,7 +2637,6 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
     ))
   }, [
     selectedBlock,
-    selectedEffect,
     selectedInstrument,
     selectedMixChannel,
     selectedPattern,
@@ -2737,37 +2657,6 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
       dispatch(updateInstrumentFromInspectorAction({ draft, instrument: selectedInstrument }))
     }
   }, [dispatch, draft, selectedInstrument])
-
-  const updateSelectedEffect = useCallback(() => {
-    if (selectedEffect !== undefined) {
-      dispatch(updateEffectFromInspectorAction({ draft, effect: selectedEffect }))
-    }
-  }, [dispatch, draft, selectedEffect])
-
-  const addSelectedInstrumentEffect = useCallback((kind: EffectKind) => {
-    if (selectedInstrument === undefined) {
-      return
-    }
-
-    const id = createDraftEntityId(`effect_${kind}`, workspace.effects.allIds)
-
-    dispatch(addInstrumentEffectAction(
-      selectedInstrument.id,
-      createEffect({
-        id,
-        kind,
-        name: `${EFFECT_KIND_LABELS[kind]} ${selectedInstrument.effectIds.length + 1}`,
-      }),
-    ))
-  }, [dispatch, selectedInstrument, workspace.effects.allIds])
-
-  const selectSelectedInstrumentEffect = useCallback((
-    event: ReactMouseEvent<HTMLButtonElement>,
-    effectId: EffectId,
-  ) => {
-    event.stopPropagation()
-    dispatch(selectEffectAction(effectId, event.shiftKey))
-  }, [dispatch])
 
   const updateSelectedMixChannel = useCallback(() => {
     if (selectedMixChannel !== undefined) {
@@ -2814,7 +2703,6 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
       draft={draft}
       patterns={patterns}
       selectedBlock={selectedBlock}
-      selectedEffect={selectedEffect}
       selectedInstrument={selectedInstrument}
       selectedMixChannel={selectedMixChannel}
       selectedPattern={selectedPattern}
@@ -2825,10 +2713,7 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
       selection={editor.selection}
       setDraft={setDraft}
       workspace={workspace}
-      onAddInstrumentEffect={addSelectedInstrumentEffect}
-      onSelectInstrumentEffect={selectSelectedInstrumentEffect}
       onUpdateBlock={updateSelectedBlock}
-      onUpdateEffect={updateSelectedEffect}
       onUpdateInstrument={updateSelectedInstrument}
       onUpdateMixChannel={updateSelectedMixChannel}
       onUpdatePattern={updateSelectedPattern}
@@ -2840,218 +2725,9 @@ const InspectorPanelContainer = memo(function InspectorPanelContainer() {
   )
 })
 
-type EffectNumberDraftProperty = Exclude<keyof EffectDraft, 'effectEnabled' | 'effectName'>
-
-const EffectInspector = memo(function EffectInspector({
-  draft,
-  effect,
-  onUpdate,
-  setDraft,
-}: {
-  draft: InspectorDraft
-  effect: Effect
-  onUpdate: () => void
-  setDraft: (updater: (draft: InspectorDraft) => InspectorDraft) => void
-}) {
-  const updateNumberDraft = (
-    property: EffectNumberDraftProperty,
-    value: string | number,
-  ) => {
-    setDraft(currentDraft => ({
-      ...currentDraft,
-      [property]: parseNumber(value.toString(), currentDraft[property]),
-    }))
-  }
-
-  return (
-    <Stack gap="sm">
-      <Text fw={700} size="sm">Effect</Text>
-      <InspectorDataList
-        items={[
-          ['ID', effect.id],
-          ['Kind', EFFECT_KIND_LABELS[effect.kind]],
-        ]}
-      />
-      <TextInput
-        label="Name"
-        size="xs"
-        value={draft.effectName}
-        onChange={(event) => {
-          const { value } = event.currentTarget
-          setDraft(currentDraft => ({ ...currentDraft, effectName: value }))
-        }}
-      />
-      <Switch
-        checked={draft.effectEnabled}
-        label="Enabled"
-        size="xs"
-        onChange={(event) => {
-          const { checked } = event.currentTarget
-          setDraft(currentDraft => ({ ...currentDraft, effectEnabled: checked }))
-        }}
-      />
-      {effect.kind === 'eq' && (
-        <SimpleGrid cols={2} spacing="sm">
-          <NumberInput
-            label="Low frequency (Hz)"
-            min={10}
-            size="xs"
-            value={draft.effectEqLowFrequencyHz}
-            onChange={value => updateNumberDraft('effectEqLowFrequencyHz', value)}
-          />
-          <NumberInput
-            label="Low gain (dB)"
-            size="xs"
-            value={draft.effectEqLowGainDb}
-            onChange={value => updateNumberDraft('effectEqLowGainDb', value)}
-          />
-          <NumberInput
-            label="Mid frequency (Hz)"
-            min={10}
-            size="xs"
-            value={draft.effectEqMidFrequencyHz}
-            onChange={value => updateNumberDraft('effectEqMidFrequencyHz', value)}
-          />
-          <NumberInput
-            label="Mid gain (dB)"
-            size="xs"
-            value={draft.effectEqMidGainDb}
-            onChange={value => updateNumberDraft('effectEqMidGainDb', value)}
-          />
-          <NumberInput
-            decimalScale={2}
-            label="Mid Q"
-            min={0}
-            size="xs"
-            value={draft.effectEqMidQ}
-            onChange={value => updateNumberDraft('effectEqMidQ', value)}
-          />
-          <NumberInput
-            label="High frequency (Hz)"
-            min={10}
-            size="xs"
-            value={draft.effectEqHighFrequencyHz}
-            onChange={value => updateNumberDraft('effectEqHighFrequencyHz', value)}
-          />
-          <NumberInput
-            label="High gain (dB)"
-            size="xs"
-            value={draft.effectEqHighGainDb}
-            onChange={value => updateNumberDraft('effectEqHighGainDb', value)}
-          />
-        </SimpleGrid>
-      )}
-      {effect.kind === 'compressor' && (
-        <SimpleGrid cols={2} spacing="sm">
-          <NumberInput
-            label="Threshold (dB)"
-            size="xs"
-            value={draft.effectCompressorThresholdDb}
-            onChange={value => updateNumberDraft('effectCompressorThresholdDb', value)}
-          />
-          <NumberInput
-            label="Knee (dB)"
-            min={0}
-            size="xs"
-            value={draft.effectCompressorKneeDb}
-            onChange={value => updateNumberDraft('effectCompressorKneeDb', value)}
-          />
-          <NumberInput
-            decimalScale={2}
-            label="Ratio"
-            min={1}
-            size="xs"
-            value={draft.effectCompressorRatio}
-            onChange={value => updateNumberDraft('effectCompressorRatio', value)}
-          />
-          <NumberInput
-            decimalScale={3}
-            label="Attack (seconds)"
-            min={0}
-            size="xs"
-            value={draft.effectCompressorAttackSeconds}
-            onChange={value => updateNumberDraft('effectCompressorAttackSeconds', value)}
-          />
-          <NumberInput
-            decimalScale={3}
-            label="Release (seconds)"
-            min={0}
-            size="xs"
-            value={draft.effectCompressorReleaseSeconds}
-            onChange={value => updateNumberDraft('effectCompressorReleaseSeconds', value)}
-          />
-        </SimpleGrid>
-      )}
-      {effect.kind === 'delay' && (
-        <SimpleGrid cols={2} spacing="sm">
-          <NumberInput
-            decimalScale={3}
-            label="Delay (seconds)"
-            min={0}
-            size="xs"
-            value={draft.effectDelayDelaySeconds}
-            onChange={value => updateNumberDraft('effectDelayDelaySeconds', value)}
-          />
-          <NumberInput
-            decimalScale={2}
-            label="Feedback"
-            max={1}
-            min={0}
-            size="xs"
-            value={draft.effectDelayFeedback}
-            onChange={value => updateNumberDraft('effectDelayFeedback', value)}
-          />
-          <NumberInput
-            decimalScale={2}
-            label="Wet"
-            max={1}
-            min={0}
-            size="xs"
-            value={draft.effectDelayWet}
-            onChange={value => updateNumberDraft('effectDelayWet', value)}
-          />
-        </SimpleGrid>
-      )}
-      {effect.kind === 'reverb' && (
-        <SimpleGrid cols={2} spacing="sm">
-          <NumberInput
-            decimalScale={2}
-            label="Decay (seconds)"
-            min={0}
-            size="xs"
-            value={draft.effectReverbDecaySeconds}
-            onChange={value => updateNumberDraft('effectReverbDecaySeconds', value)}
-          />
-          <NumberInput
-            decimalScale={3}
-            label="Pre-delay (seconds)"
-            min={0}
-            size="xs"
-            value={draft.effectReverbPreDelaySeconds}
-            onChange={value => updateNumberDraft('effectReverbPreDelaySeconds', value)}
-          />
-          <NumberInput
-            decimalScale={2}
-            label="Wet"
-            max={1}
-            min={0}
-            size="xs"
-            value={draft.effectReverbWet}
-            onChange={value => updateNumberDraft('effectReverbWet', value)}
-          />
-        </SimpleGrid>
-      )}
-      <Button size="xs" onClick={onUpdate}>Apply Effect</Button>
-    </Stack>
-  )
-})
-
 const InspectorPanel = memo(function InspectorPanel({
   draft,
-  onAddInstrumentEffect,
-  onSelectInstrumentEffect,
   onUpdateBlock,
-  onUpdateEffect,
   onUpdateInstrument,
   onUpdateMixChannel,
   onUpdatePattern,
@@ -3061,7 +2737,6 @@ const InspectorPanel = memo(function InspectorPanel({
   onUpdateTrack,
   patterns,
   selectedBlock,
-  selectedEffect,
   selectedInstrument,
   selectedMixChannel,
   selectedPattern,
@@ -3074,13 +2749,7 @@ const InspectorPanel = memo(function InspectorPanel({
   workspace,
 }: {
   draft: InspectorDraft
-  onAddInstrumentEffect: (kind: EffectKind) => void
-  onSelectInstrumentEffect: (
-    event: ReactMouseEvent<HTMLButtonElement>,
-    effectId: EffectId,
-  ) => void
   onUpdateBlock: () => void
-  onUpdateEffect: () => void
   onUpdateInstrument: () => void
   onUpdateMixChannel: () => void
   onUpdatePattern: () => void
@@ -3090,7 +2759,6 @@ const InspectorPanel = memo(function InspectorPanel({
   onUpdateTrack: () => void
   patterns: ReturnType<typeof selectPatterns>
   selectedBlock?: Block
-  selectedEffect?: Effect
   selectedInstrument?: Instrument
   selectedMixChannel?: MixChannel
   selectedPattern?: Pattern
@@ -3459,22 +3127,8 @@ const InspectorPanel = memo(function InspectorPanel({
                 </Stack>
               </Paper>
             )}
-            <InstrumentEffects
-              instrument={selectedInstrument}
-              onAdd={onAddInstrumentEffect}
-              onClick={onSelectInstrumentEffect}
-            />
             <Button size="xs" onClick={onUpdateInstrument}>Apply Instrument</Button>
           </Stack>
-        )}
-
-        {selectedEffect !== undefined && (
-          <EffectInspector
-            draft={draft}
-            effect={selectedEffect}
-            setDraft={setDraft}
-            onUpdate={onUpdateEffect}
-          />
         )}
 
         {selectedMixChannel !== undefined && (

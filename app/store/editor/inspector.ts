@@ -5,7 +5,6 @@ import {
   createDefaultChordPlayback,
   createDefaultChordVoicing,
   DEFAULT_TRACK_COLOR,
-  type Effect,
   type Instrument,
   isKeyEvent,
   isLoopEvent,
@@ -26,26 +25,6 @@ export function createInspectorDraft(): InspectorDraft {
     blockName: '',
     blockPatternId: '',
     blockPlaybackMode: 'loop',
-    effectCompressorAttackSeconds: 0.003,
-    effectCompressorKneeDb: 30,
-    effectCompressorRatio: 12,
-    effectCompressorReleaseSeconds: 0.25,
-    effectCompressorThresholdDb: -24,
-    effectDelayDelaySeconds: 0.25,
-    effectDelayFeedback: 0.35,
-    effectDelayWet: 0.25,
-    effectEnabled: true,
-    effectEqHighFrequencyHz: 8000,
-    effectEqHighGainDb: 0,
-    effectEqLowFrequencyHz: 200,
-    effectEqLowGainDb: 0,
-    effectEqMidFrequencyHz: 1000,
-    effectEqMidGainDb: 0,
-    effectEqMidQ: 1,
-    effectName: '',
-    effectReverbDecaySeconds: 1.5,
-    effectReverbPreDelaySeconds: 0.02,
-    effectReverbWet: 0.25,
     instrumentName: '',
     keyMode: 'major',
     keyTick: 0,
@@ -86,7 +65,6 @@ export function createInspectorDraft(): InspectorDraft {
 export function updateInspectorDraftFromSelection(
   currentDraft: InspectorDraft,
   selectedTrack?: Track,
-  selectedEffect?: Effect,
   selectedInstrument?: Instrument,
   selectedMixChannel?: MixChannel,
   selectedBlock?: Block,
@@ -96,8 +74,7 @@ export function updateInspectorDraftFromSelection(
   selectionTimelineEvent?: TimelineEvent,
 ): InspectorDraft {
   const withTrack = updateInspectorDraftFromTrack(currentDraft, selectedTrack)
-  const withEffect = updateInspectorDraftFromEffect(withTrack, selectedEffect)
-  const withInstrument = updateInspectorDraftFromInstrument(withEffect, selectedInstrument)
+  const withInstrument = updateInspectorDraftFromInstrument(withTrack, selectedInstrument)
   const withMixChannel = updateInspectorDraftFromMixChannel(withInstrument, selectedMixChannel)
   const withBlock = updateInspectorDraftFromBlock(withMixChannel, selectedBlock)
   const withPattern = updateInspectorDraftFromPattern(withBlock, selectedPattern)
@@ -105,58 +82,6 @@ export function updateInspectorDraftFromSelection(
   const withSection = updateInspectorDraftFromSection(withPatternEvent, selectedSection)
 
   return updateInspectorDraftFromTimelineEvent(withSection, selectionTimelineEvent)
-}
-
-export function updateInspectorDraftFromEffect(
-  currentDraft: InspectorDraft,
-  selectedEffect?: Effect,
-): InspectorDraft {
-  if (selectedEffect === undefined) {
-    return currentDraft
-  }
-
-  const nextDraft = {
-    ...currentDraft,
-    effectEnabled: selectedEffect.enabled ?? true,
-    effectName: selectedEffect.name,
-  }
-
-  switch (selectedEffect.kind) {
-    case 'eq':
-      return {
-        ...nextDraft,
-        effectEqHighFrequencyHz: selectedEffect.highFrequencyHz,
-        effectEqHighGainDb: selectedEffect.highGainDb,
-        effectEqLowFrequencyHz: selectedEffect.lowFrequencyHz,
-        effectEqLowGainDb: selectedEffect.lowGainDb,
-        effectEqMidFrequencyHz: selectedEffect.midFrequencyHz,
-        effectEqMidGainDb: selectedEffect.midGainDb,
-        effectEqMidQ: selectedEffect.midQ,
-      }
-    case 'compressor':
-      return {
-        ...nextDraft,
-        effectCompressorAttackSeconds: selectedEffect.attackSeconds,
-        effectCompressorKneeDb: selectedEffect.kneeDb,
-        effectCompressorRatio: selectedEffect.ratio,
-        effectCompressorReleaseSeconds: selectedEffect.releaseSeconds,
-        effectCompressorThresholdDb: selectedEffect.thresholdDb,
-      }
-    case 'delay':
-      return {
-        ...nextDraft,
-        effectDelayDelaySeconds: selectedEffect.delaySeconds,
-        effectDelayFeedback: selectedEffect.feedback,
-        effectDelayWet: selectedEffect.wet,
-      }
-    case 'reverb':
-      return {
-        ...nextDraft,
-        effectReverbDecaySeconds: selectedEffect.decaySeconds,
-        effectReverbPreDelaySeconds: selectedEffect.preDelaySeconds,
-        effectReverbWet: selectedEffect.wet,
-      }
-  }
 }
 
 export function updateInspectorDraftFromInstrument(
