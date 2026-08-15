@@ -13,7 +13,6 @@ import {
 import { type MetaArgs } from 'react-router'
 import {
   Cancel01Icon,
-  Copy01Icon,
   CursorIcon,
   Delete01Icon,
   EraserIcon,
@@ -41,6 +40,7 @@ import {
   Badge,
   Box,
   Button,
+  Card,
   ColorInput,
   ColorSwatch,
   Divider,
@@ -334,6 +334,19 @@ const CHORD_PLAYBACK_RECIPE_OPTIONS = CHORD_PLAYBACK_RECIPE_GROUPS.map(group => 
     label: CHORD_PLAYBACK_RECIPES[value].name,
     value,
   })),
+}))
+const GRID_DIVISION_LABELS: Record<GridDivision, string> = {
+  bar: 'Bar',
+  beat: 'Beat',
+  halfNote: '1/2',
+  quarterNote: '1/4',
+  eighthNote: '1/8',
+  sixteenthNote: '1/16',
+  thirtySecondNote: '1/32',
+}
+const GRID_DIVISION_OPTIONS = GRID_DIVISIONS.map(value => ({
+  label: GRID_DIVISION_LABELS[value],
+  value,
 }))
 
 const TOOLBAR_SECTION_KEYS: ActiveTool[] = ['draw', 'tempo', 'meter', 'key']
@@ -879,21 +892,24 @@ function ArrangementDebugContent() {
             <CommandHistoryBadge />
           </Group>
         </Group>
-        <Toolbar
-          playbackEngine={playbackEngine}
-          onCloseFocus={handleBlockCloseFocus}
-          onDeleteSelected={deleteSelection}
-          onDuplicate={duplicateSelection}
-          onPlay={handlePlayPause}
-          onRedo={redo}
-          onUndo={undo}
-          onSetGrid={updateGridDivision}
-          onSetTool={handleSetTool}
-          onZoomIn={handleToolbarZoomIn}
-          onZoomOut={handleToolbarZoomOut}
-        />
         <SimpleGrid cols={{ base: 2, lg: 8 }} spacing="md">
           <Box p={0} style={{ gridColumn: 'span 6', overflow: 'hidden' }}>
+            <Group align="stretch" gap="xs" mb="md" wrap="nowrap">
+              <TransportCard
+                playbackEngine={playbackEngine}
+                onPlay={handlePlayPause}
+                onSetGrid={updateGridDivision}
+              />
+              <Toolbar
+                onCloseFocus={handleBlockCloseFocus}
+                onDeleteSelected={deleteSelection}
+                onRedo={redo}
+                onUndo={undo}
+                onSetTool={handleSetTool}
+                onZoomIn={handleToolbarZoomIn}
+                onZoomOut={handleToolbarZoomOut}
+              />
+            </Group>
             <Paper
               withBorder
               p={0}
@@ -1046,26 +1062,49 @@ function ArrangementDebugContent() {
   )
 }
 
-const Toolbar = memo(function Toolbar({
+const TransportCard = memo(function TransportCard({
   playbackEngine,
+  onPlay,
+  onSetGrid,
+}: {
+  playbackEngine: PlaybackEngine
+  onPlay: () => void
+  onSetGrid: (grid: GridDivision) => void
+}) {
+  const grid = useWorkspace(selectGridDivision)
+
+  return (
+    <Card withBorder radius="sm" p="xs" style={{ flexShrink: 0 }}>
+      <Group justify="space-between" gap="xs">
+        <PlaybackControls playbackEngine={playbackEngine} onPlay={onPlay} />
+        <Select
+          allowDeselect={false}
+          aria-label="Grid division"
+          data={GRID_DIVISION_OPTIONS}
+          leftSection={<HugeiconsIcon icon={GridIcon} size={16} />}
+          size="xs"
+          title="Grid division"
+          value={grid}
+          w={92}
+          onChange={value => onSetGrid((value ?? grid) as GridDivision)}
+        />
+      </Group>
+    </Card>
+  )
+})
+
+const Toolbar = memo(function Toolbar({
   onCloseFocus,
   onDeleteSelected,
-  onDuplicate,
-  onPlay,
   onRedo,
-  onSetGrid,
   onSetTool,
   onUndo,
   onZoomIn,
   onZoomOut,
 }: {
-  playbackEngine: PlaybackEngine
   onCloseFocus: () => void
   onDeleteSelected: () => void
-  onDuplicate: () => void
-  onPlay: () => void
   onRedo: () => void
-  onSetGrid: (grid: GridDivision) => void
   onSetTool: (tool: ActiveTool) => void
   onUndo: () => void
   onZoomIn: () => void
@@ -1075,12 +1114,10 @@ const Toolbar = memo(function Toolbar({
   const canRedoCommandHistory = useCommandHistory(selectCanRedoCommandHistory)
   const canUndoCommandHistory = useCommandHistory(selectCanUndoCommandHistory)
   const focusedBlockId = useEditor(selectFocusedBlockId)
-  const grid = useWorkspace(selectGridDivision)
 
   return (
-    <Paper withBorder radius="sm" p="xs">
+    <Paper withBorder radius="sm" p="xs" style={{ flex: 1, minWidth: 0 }}>
       <Group justify="space-between" gap="xs">
-        <PlaybackControls playbackEngine={playbackEngine} onPlay={onPlay} />
         <Group gap={4}>
           {TOOLBAR_SECTION_LEFT.map(item => (
             <Tooltip key={item.tool} label={item.label}>
@@ -1122,11 +1159,6 @@ const Toolbar = memo(function Toolbar({
               <HugeiconsIcon icon={Redo03Icon} size={18} />
             </ActionIcon>
           </Tooltip>
-          <Tooltip label="Duplicate">
-            <ActionIcon aria-label="Duplicate" size="lg" variant="light" onClick={onDuplicate}>
-              <HugeiconsIcon icon={Copy01Icon} size={18} />
-            </ActionIcon>
-          </Tooltip>
           <Tooltip label="Zoom out">
             <ActionIcon aria-label="Zoom out" size="lg" variant="light" onClick={onZoomOut}>
               <HugeiconsIcon icon={ZoomOutAreaIcon} size={18} />
@@ -1149,16 +1181,6 @@ const Toolbar = memo(function Toolbar({
               </ActionIcon>
             </Tooltip>
           )}
-          <Select
-            allowDeselect={false}
-            aria-label="Grid"
-            data={GRID_DIVISIONS.map(value => ({ label: value, value }))}
-            leftSection={<HugeiconsIcon icon={GridIcon} size={16} />}
-            size="xs"
-            value={grid}
-            w={170}
-            onChange={value => onSetGrid((value ?? grid) as GridDivision)}
-          />
         </Group>
       </Group>
     </Paper>
