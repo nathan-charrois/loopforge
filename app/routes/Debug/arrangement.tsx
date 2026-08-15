@@ -3602,7 +3602,7 @@ const InspectorPanel = memo(function InspectorPanel({
                 <TextInput
                   label="Value"
                   size="xs"
-                  value={draft.patternEventValue}
+                  value={`${draft.patternEventValue}`}
                   onChange={(event) => {
                     const { value } = event.currentTarget
                     setDraft(currentDraft => ({ ...currentDraft, patternEventValue: value }))

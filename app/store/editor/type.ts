@@ -10,7 +10,14 @@ import type { DrumPiece, InstrumentId } from '~/domain/instrument'
 import type { SynthEnvelope, SynthOscillator } from '~/domain/instrument/synth'
 import type { MixChannelId } from '~/domain/mixer'
 import type { MidiNote, Tick } from '~/domain/musicPrimitives'
-import type { DrumHitEvent, NoteEvent, PatternEventId, PatternEventKind } from '~/domain/patternEvents'
+import type {
+  AutomationEvent,
+  AutomationValue,
+  DrumHitEvent,
+  NoteEvent,
+  PatternEventId,
+  PatternEventKind,
+} from '~/domain/patternEvents'
 import type { PatternId, PatternKind } from '~/domain/patterns'
 import type { ChordPlayback } from '~/domain/playback'
 import type { LoopEvent, TimelineEvent, TimelineEventId, TimeSignatureDenominator } from '~/domain/timeline'
@@ -97,6 +104,17 @@ export type DragState
   }
   | {
     currentTick: Tick
+    kind: 'drawAutomationPatternEvent'
+    parameter: string
+    patternId: PatternId
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+    value: AutomationValue
+  }
+  | {
+    currentTick: Tick
     kind: 'drawDrumPatternEvent'
     patternId: PatternId
     piece: DrumPiece
@@ -110,6 +128,17 @@ export type DragState
     kind: 'drawNotePatternEvent'
     patternId: PatternId
     pitch: MidiNote
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startTick: Tick
+  }
+  | {
+    currentParameter: string
+    currentTick: Tick
+    event: AutomationEvent
+    kind: 'moveAutomationPatternEvent'
+    patternId: PatternId
     pointerId: number
     startClientX: number
     startClientY: number
@@ -252,7 +281,7 @@ export type PatternEventDraft = {
   patternEventPitch: MidiNote
   patternEventPlayback: ChordPlayback
   patternEventTimeTick: number
-  patternEventValue: string
+  patternEventValue: AutomationValue
   patternEventVelocity: number
   patternEventVoicing: ChordVoicing
 }

@@ -48,6 +48,7 @@ export const WORKSPACE_COMMAND_KINDS = [
   'updatePattern',
   'addPatternEvent',
   'deletePatternEvent',
+  'moveAutomationPatternEvent',
   'moveDrumPatternEvent',
   'moveNotePatternEvent',
   'resizeNotePatternEvent',

@@ -2,6 +2,7 @@ import { createWorkspace } from '../factory'
 import type { Workspace } from '../type'
 import {
   type BlockPlaybackMode,
+  createAutomationEvent,
   createBlock,
   createChordEvent,
   createChordSymbol,
@@ -40,6 +41,7 @@ type PatternDetails = {
 }
 
 type ChordSeed = Omit<Parameters<typeof createChordEvent>[0], 'id'>
+type AutomationSeed = Omit<Parameters<typeof createAutomationEvent>[0], 'id'>
 type DrumSeed = Omit<Parameters<typeof createDrumHitEvent>[0], 'id'>
 type NoteSeed = Omit<Parameters<typeof createNoteEvent>[0], 'id'>
 
@@ -65,8 +67,11 @@ const BAR_START_TICKS = [
   PPQ * 26,
 ] as const
 
+const TOTAL_TICKS = PPQ * 31
+
 export function eightfoldParallax(): Workspace {
   const harmonyTrack = createTrack({
+    accepts: ['chord', 'automation'],
     color: '#7950f2',
     id: 'eightfold_track_harmony',
     instrumentId: 'eightfold_instrument_harmony',
@@ -74,6 +79,7 @@ export function eightfoldParallax(): Workspace {
     role: 'chords',
   })
   const bassTrack = createTrack({
+    accepts: ['note', 'automation'],
     color: '#20c997',
     id: 'eightfold_track_bass',
     instrumentId: 'eightfold_instrument_bass',
@@ -81,6 +87,7 @@ export function eightfoldParallax(): Workspace {
     role: 'bass',
   })
   const leadTrack = createTrack({
+    accepts: ['note', 'automation'],
     color: '#f06595',
     id: 'eightfold_track_lead',
     instrumentId: 'eightfold_instrument_lead',
@@ -423,6 +430,66 @@ export function eightfoldParallax(): Workspace {
       lengthTicks: PPQ * 2,
       name: 'Falling Shards',
     }),
+
+    createAutomationPattern({
+      events: [
+        automation(0, 'filterCutoff', 0.32),
+        automation(PPQ * 2, 'filterCutoff', 0.56),
+        automation(PPQ * 6, 'filterCutoff', 0.74),
+        automation(bar(3), 'filterCutoff', 0.48),
+        automation(bar(4) + (PPQ * 3), 'filterCutoff', 0.82),
+        automation(bar(5), 'filterCutoff', 0.2),
+        automation(bar(6) + (PPQ * 2), 'filterCutoff', 0.62),
+        automation(bar(7), 'filterCutoff', 0.42),
+        automation(bar(8) + (PPQ * 4), 'filterCutoff', 0.9),
+      ],
+      id: 'eightfold_pattern_automation_harmony_filter',
+      lengthTicks: TOTAL_TICKS,
+      metadata: {
+        parameter: 'filterCutoff',
+        shape: 'Sectional steps open toward each metric transition and brighten into the final landing.',
+      },
+      name: 'Prism Aperture',
+    }),
+    createAutomationPattern({
+      events: [
+        automation(0, 'volumeDb', -7),
+        automation(PPQ * 6, 'volumeDb', -4.5),
+        automation(bar(3), 'volumeDb', -5.5),
+        automation(bar(4) + (PPQ * 5) / 2, 'volumeDb', -3),
+        automation(bar(5), 'volumeDb', -8),
+        automation(bar(6) + (PPQ * 2), 'volumeDb', -5),
+        automation(bar(7), 'volumeDb', -3.5),
+        automation(bar(8) + (PPQ * 4), 'volumeDb', -6),
+      ],
+      id: 'eightfold_pattern_automation_bass_volume',
+      lengthTicks: TOTAL_TICKS,
+      metadata: {
+        parameter: 'volumeDb',
+        shape: 'Bass weight retreats for the Phrygian mirror, then returns under the 5/4 resolution.',
+      },
+      name: 'Gravity Fader',
+    }),
+    createAutomationPattern({
+      events: [
+        automation(0, 'pan', -0.45),
+        automation(PPQ * 4, 'pan', 0.4),
+        automation(bar(3), 'pan', -0.2),
+        automation(bar(4) + PPQ, 'pan', 0.65),
+        automation(bar(5), 'pan', 0.15),
+        automation(bar(6) + (PPQ * 3), 'pan', -0.6),
+        automation(bar(7), 'pan', -0.25),
+        automation(bar(8) + (PPQ * 2), 'pan', 0.5),
+        automation(bar(8) + (PPQ * 9) / 2, 'pan', 0),
+      ],
+      id: 'eightfold_pattern_automation_lead_pan',
+      lengthTicks: TOTAL_TICKS,
+      metadata: {
+        parameter: 'pan',
+        shape: 'The signal crosses the stereo field at section turns and centers for the final answer.',
+      },
+      name: 'Signal Parallax',
+    }),
   ]
 
   const blocks = [
@@ -465,6 +532,10 @@ export function eightfoldParallax(): Workspace {
     block('percussion_78', percussionTrack, 'eightfold_pattern_percussion_78', bar(3), PPQ * 7, 'loop', 'Seven Orbit'),
     block('percussion_34', percussionTrack, 'eightfold_pattern_percussion_34', bar(5), PPQ * 6, 'loop', 'Open Orbit'),
     block('percussion_54', percussionTrack, 'eightfold_pattern_percussion_54', bar(7), PPQ * 10, 'loop', 'Wide Orbit'),
+
+    block('automation_harmony_filter', harmonyTrack, 'eightfold_pattern_automation_harmony_filter', 0, TOTAL_TICKS, 'oneShot', 'Automation · Prism Aperture'),
+    block('automation_bass_volume', bassTrack, 'eightfold_pattern_automation_bass_volume', 0, TOTAL_TICKS, 'oneShot', 'Automation · Gravity Fader'),
+    block('automation_lead_pan', leadTrack, 'eightfold_pattern_automation_lead_pan', 0, TOTAL_TICKS, 'oneShot', 'Automation · Signal Parallax'),
   ]
 
   return createWorkspace({
@@ -588,7 +659,7 @@ export function eightfoldParallax(): Workspace {
     project: createProject({
       id: 'project_eightfold_parallax',
       metadata: createProjectMetadata({
-        description: 'An eight-bar mixed-meter maximalist demo: nine Tracks, every Track role and PatternEvent kind, layered same-Track overlaps, all Block playback modes, two instrument kinds, all ten drum pieces, four oscillator waveforms, three filter types, three automation targets, and a deliberately muted alternate Block.',
+        description: 'An eight-bar mixed-meter maximalist demo: six Tracks, every Track role and PatternEvent kind, layered same-Track overlaps, all Block playback modes, two instrument kinds, all ten drum pieces, four oscillator waveforms, three filter types, three automation targets, and a deliberately muted alternate Block.',
         tags: ['3/4', '4/4', '5/4', '7/8', 'automation', 'complex', 'demo', 'mixed-meter', 'overlapping-blocks'],
       }),
       name: 'Eightfold Parallax',
@@ -663,6 +734,14 @@ function chord(
     velocity,
     voicing,
   }
+}
+
+function automation(
+  timeTick: number,
+  parameter: string,
+  value: AutomationSeed['value'],
+): AutomationSeed {
+  return { parameter, timeTick, value }
 }
 
 function drum(timeTick: number, piece: DrumSeed['piece'], velocity: number): DrumSeed {
@@ -753,6 +832,22 @@ function createChordPattern(input: PatternDetails & { events: readonly ChordSeed
     })),
     id: input.id,
     kind: 'chord',
+    lengthTicks: input.lengthTicks,
+    metadata: input.metadata,
+    name: input.name,
+  })
+}
+
+function createAutomationPattern(
+  input: PatternDetails & { events: readonly AutomationSeed[] },
+): Pattern {
+  return createPattern({
+    events: input.events.map((event, index) => createAutomationEvent({
+      ...event,
+      id: `${input.id}_event_${index + 1}`,
+    })),
+    id: input.id,
+    kind: 'automation',
     lengthTicks: input.lengthTicks,
     metadata: input.metadata,
     name: input.name,

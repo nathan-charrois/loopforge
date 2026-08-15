@@ -2,7 +2,10 @@ import { DEFAULT_MAX_PIXELS_PER_TICK, DEFAULT_MIN_PIXELS_PER_TICK, DEFAULT_PIXEL
 import { snapTimelineRange } from './snap'
 import type { ClipboardState, Editor, InspectorState, SelectionState, ViewportState } from './type'
 import {
+  type AutomationEvent,
+  type AutomationValue,
   type Block,
+  createAutomationEvent,
   createBlock,
   createDrumHitEvent,
   createNoteEvent,
@@ -232,16 +235,20 @@ export function createArrangementPatternEventDraft({
   patternId,
   startTick,
   lengthTicks,
+  parameter,
   pitch,
   piece,
+  value,
 }: {
   workspace: Workspace
   lengthTicks: DurationTicks
   patternId: PatternId
   startTick: Tick
+  parameter?: string
   pitch?: MidiNote
   piece?: DrumPiece
-}): DrumHitEvent | NoteEvent {
+  value?: AutomationValue
+}): AutomationEvent | DrumHitEvent | NoteEvent {
   const pattern = workspace.patterns.byId[patternId]
 
   if (pattern === undefined) {
@@ -252,6 +259,13 @@ export function createArrangementPatternEventDraft({
   const existingEventIds = selectPatternEventIds(workspace)
 
   switch (pattern.kind) {
+    case 'automation':
+      return createAutomationEvent({
+        id: createDraftEntityId('event_automation', existingEventIds),
+        parameter: parameter ?? 'filterCutoff',
+        timeTick,
+        value: value ?? 0.5,
+      })
     case 'note':
       const durationTicks = createPositiveDurationTicks(Math.min(
         lengthTicks,

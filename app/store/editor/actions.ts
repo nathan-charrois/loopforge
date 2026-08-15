@@ -99,6 +99,7 @@ import {
   deleteTrackAction,
   duplicateBlockAction,
   duplicateSectionAction,
+  moveAutomationPatternEventAction,
   moveBlockAction,
   moveDrumPatternEventAction,
   moveNotePatternEventAction,
@@ -340,6 +341,26 @@ export function completeDragAction(input: {
     workspace,
   } = input
 
+  if (dragState.kind === 'drawAutomationPatternEvent') {
+    const range = snapToGridMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
+    const patternEvent = createArrangementPatternEventDraft({
+      workspace,
+      lengthTicks: range.lengthTicks,
+      parameter: dragState.parameter,
+      patternId: dragState.patternId,
+      startTick: range.startTick,
+      value: dragState.value,
+    })
+
+    return [
+      addPatternEventAction(dragState.patternId, patternEvent),
+      setSelectionAction({
+        ...createSelectionState(),
+        selectedPatternEventIds: [patternEvent.id],
+      }),
+    ]
+  }
+
   if (dragState.kind === 'drawNotePatternEvent') {
     const range = snapToGridMinimumTimelineRange(workspace.timeline, dragState.startTick, endTick)
     const patternEvent = createArrangementPatternEventDraft({
@@ -456,6 +477,20 @@ export function completeDragAction(input: {
           dragState.currentRow,
         ), 'Select range')]
       : [createSetSelectionCommand(createSelectionState(), 'Clear selection')]
+  }
+
+  if (dragState.kind === 'moveAutomationPatternEvent') {
+    const timeTick = Math.max(0, dragState.event.timeTick + endTick - dragState.startTick)
+
+    return dragState.currentParameter === dragState.event.parameter
+      && timeTick === dragState.event.timeTick
+      ? []
+      : [moveAutomationPatternEventAction(
+          dragState.patternId,
+          dragState.event.id,
+          timeTick,
+          dragState.currentParameter,
+        )]
   }
 
   if (dragState.kind === 'moveNotePatternEvent') {
@@ -795,7 +830,22 @@ export function updatePatternEventFromDraftAction(input: {
     })
   }
 
-  if (patternEvent.kind === 'automation' || draft.patternEventVelocity === undefined) {
+  if (patternEvent.kind === 'automation') {
+    if (
+      draft.patternEventParameter === undefined
+      && draft.patternEventValue === undefined
+    ) {
+      return
+    }
+
+    return updatePatternEventAction(patternId, {
+      ...patternEvent,
+      parameter: draft.patternEventParameter ?? patternEvent.parameter,
+      value: draft.patternEventValue ?? patternEvent.value,
+    })
+  }
+
+  if (draft.patternEventVelocity === undefined) {
     return
   }
 

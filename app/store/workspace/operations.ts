@@ -699,6 +699,33 @@ export function deletePatternEvents(
   return eventIds.reduce(deletePatternEvent, workspace)
 }
 
+export function moveAutomationPatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  parameter: string,
+): Workspace {
+  const { event, pattern } = requirePatternEvent(workspace, patternId, eventId)
+
+  if (pattern.kind !== 'automation' || event.kind !== 'automation') {
+    throw new Error(`Pattern event ${eventId} is not an automation event.`)
+  }
+
+  const maxTimeTick = Math.max(0, pattern.lengthTicks - 1)
+  const nextTimeTick = Math.min(maxTimeTick, Math.max(0, Math.round(timeTick)))
+
+  if (event.parameter === parameter && event.timeTick === nextTimeTick) {
+    return workspace
+  }
+
+  return updatePatternEvent(workspace, patternId, {
+    ...event,
+    parameter,
+    timeTick: nextTimeTick,
+  })
+}
+
 export function moveNotePatternEvent(
   workspace: Workspace,
   patternId: PatternId,

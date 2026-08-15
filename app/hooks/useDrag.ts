@@ -6,6 +6,8 @@ import {
 } from 'react'
 
 import {
+  type AutomationEvent,
+  type AutomationValue,
   type Block,
   type BlockId,
   DRUM_PIECES,
@@ -54,6 +56,18 @@ type DragIntent
     kind: 'drawNotePatternEvent'
     patternId: PatternId
     pitch: MidiNote
+  }
+  | {
+    kind: 'drawAutomationPatternEvent'
+    parameter: string
+    patternId: PatternId
+    value: AutomationValue
+  }
+  | {
+    event: AutomationEvent
+    kind: 'moveAutomationPatternEvent'
+    parameter: string
+    patternId: PatternId
   }
   | {
     event: DrumHitEvent
@@ -126,6 +140,7 @@ export function useDrag({
   pixelsPerTickRef.current = pixelsPerTick
 
   const trackRowsRef = useRef<HTMLDivElement>(null)
+  const automationParameterRowsRef = useRef<HTMLDivElement>(null)
   const drumPieceRowsRef = useRef<HTMLDivElement>(null)
   const pitchRowsRef = useRef<HTMLDivElement>(null)
 
@@ -193,6 +208,31 @@ export function useDrag({
       ?? DRUM_PIECES.kick
   }, [])
 
+  const getPointerAutomationParameter = useCallback((
+    clientY: number,
+    fallbackParameter: string,
+  ): string => {
+    if (automationParameterRowsRef.current === null) {
+      return fallbackParameter
+    }
+
+    const rect = automationParameterRowsRef.current.getBoundingClientRect()
+    const parameterRows = automationParameterRowsRef.current
+      .querySelectorAll<HTMLElement>('[data-automation-parameter]')
+
+    if (rect.height <= 0 || parameterRows.length === 0) {
+      return fallbackParameter
+    }
+
+    const y = Math.max(0, Math.min(rect.height - 1, clientY - rect.top))
+    const rowIndex = Math.min(
+      parameterRows.length - 1,
+      Math.floor(y / rect.height * parameterRows.length),
+    )
+
+    return parameterRows[rowIndex].dataset.automationParameter ?? fallbackParameter
+  }, [])
+
   const getPointerRow = useCallback((clientY: number): number => {
     if (trackRowsRef.current === null || workspace.tracks.allIds.length === 0) {
       return 0
@@ -224,6 +264,17 @@ export function useDrag({
     event.currentTarget.setPointerCapture(event.pointerId)
 
     switch (intent.kind) {
+      case 'drawAutomationPatternEvent':
+        setDragState({
+          ...pointer,
+          currentTick: getInitialGridDrawEndTick(workspace.timeline, tick),
+          kind: intent.kind,
+          parameter: intent.parameter,
+          patternId: intent.patternId,
+          startTick: tick,
+          value: intent.value,
+        })
+        return
       case 'drawBlock':
         setDragState({
           ...pointer,
@@ -266,6 +317,17 @@ export function useDrag({
           kind: intent.kind,
           patternId: intent.patternId,
           pitch: intent.pitch,
+          startTick: tick,
+        })
+        return
+      case 'moveAutomationPatternEvent':
+        setDragState({
+          ...pointer,
+          currentParameter: intent.parameter,
+          currentTick: tick,
+          event: intent.event,
+          kind: intent.kind,
+          patternId: intent.patternId,
           startTick: tick,
         })
         return
@@ -405,6 +467,17 @@ export function useDrag({
         }
       }
 
+      if (current.kind === 'moveAutomationPatternEvent') {
+        return {
+          ...current,
+          currentParameter: getPointerAutomationParameter(
+            event.clientY,
+            current.currentParameter,
+          ),
+          currentTick,
+        }
+      }
+
       if (current.kind === 'moveNotePatternEvent') {
         return {
           ...current,
@@ -423,7 +496,7 @@ export function useDrag({
 
       return { ...current, currentTick }
     })
-  }, [dragState, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, onUpdateDrag])
+  }, [dragState, getPointerAutomationParameter, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, onUpdateDrag])
 
   const cancelDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     setDragState(current => current?.pointerId === event.pointerId ? undefined : current)
@@ -441,6 +514,17 @@ export function useDrag({
       completedState = {
         ...dragState,
         currentRow: getPointerRow(event.clientY),
+        currentTick: endTick,
+      }
+    }
+
+    if (dragState.kind === 'moveAutomationPatternEvent') {
+      completedState = {
+        ...dragState,
+        currentParameter: getPointerAutomationParameter(
+          event.clientY,
+          dragState.currentParameter,
+        ),
         currentTick: endTick,
       }
     }
@@ -472,9 +556,10 @@ export function useDrag({
     }))
 
     setDragState(undefined)
-  }, [dispatch, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
+  }, [dispatch, getPointerAutomationParameter, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
 
   return {
+    automationParameterRowsRef,
     cancelDrag,
     drumPieceRowsRef,
     finishDrag,

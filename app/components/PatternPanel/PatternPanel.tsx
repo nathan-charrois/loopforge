@@ -1,6 +1,7 @@
 import { memo } from 'react'
 
 import { ErrorBoundary } from '../ErrorBoundary/ErrorBoundary'
+import { AutomationPatternPanel } from './AutomationPatternPanel'
 import { ChordPanel } from './ChordPatternPanel'
 import { DrumPatternPanel } from './DrumPatternPanel'
 import { NotePatternPanel } from './NotePatternPanel'
@@ -53,7 +54,15 @@ export const PatternPanel = memo(function PatternPanel(props: Props) {
 
   switch (pattern.kind) {
     case 'automation':
-      return null
+      return (
+        <ErrorBoundary>
+          <AutomationPatternPanel
+            focusedBlock={focusedBlock}
+            pattern={pattern}
+            {...props}
+          />
+        </ErrorBoundary>
+      )
     case 'chord':
       return (
         <ErrorBoundary>

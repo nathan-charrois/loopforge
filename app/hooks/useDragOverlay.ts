@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 
 import {
+  type AutomationEvent,
+  type AutomationValue,
   type Block,
   type DrumHitEvent,
   type DrumPiece,
@@ -81,9 +83,11 @@ export function usePatternEventOverlay(
 ) {
   return useMemo(() => ({
     drawRange: buildPatternEventDrawRange(drag, pattern),
+    parameter: buildPatternEventParameter(drag, pattern),
     patternEventPlaceholder: buildPatternEventPlaceholder(drag, pattern),
     piece: buildPatternEventPiece(drag, pattern),
     pitch: buildPatternEventPitch(drag, pattern),
+    value: buildPatternEventValue(drag, pattern),
   }), [drag, pattern])
 }
 
@@ -188,7 +192,18 @@ function buildSectionPlaceholders(
 function buildPatternEventPlaceholder(
   drag: DragState | undefined,
   pattern: Pattern,
-): DrumHitEvent | NoteEvent | undefined {
+): AutomationEvent | DrumHitEvent | NoteEvent | undefined {
+  if (drag?.kind === 'moveAutomationPatternEvent' && drag.patternId === pattern.id) {
+    return {
+      ...drag.event,
+      parameter: drag.currentParameter,
+      timeTick: Math.min(
+        pattern.lengthTicks - 1,
+        Math.max(0, drag.event.timeTick + getDeltaTicks(drag)),
+      ),
+    }
+  }
+
   if (drag?.kind === 'moveNotePatternEvent' && drag.patternId === pattern.id) {
     const maxTimeTick = Math.max(0, pattern.lengthTicks - drag.event.durationTicks)
 
@@ -244,13 +259,26 @@ function buildPatternEventDrawRange(
   drag: DragState | undefined,
   pattern: Pattern,
 ): TickRange | undefined {
-  const isDrawKind = drag?.kind === 'drawDrumPatternEvent' || drag?.kind === 'drawNotePatternEvent'
+  const isDrawKind = drag?.kind === 'drawAutomationPatternEvent'
+    || drag?.kind === 'drawDrumPatternEvent'
+    || drag?.kind === 'drawNotePatternEvent'
 
   if (isDrawKind && drag.patternId === pattern.id) {
     return getTickRange(drag)
   }
 
   return undefined
+}
+
+function buildPatternEventParameter(
+  drag: DragState | undefined,
+  pattern: Pattern,
+): string | undefined {
+  if (drag?.kind !== 'drawAutomationPatternEvent' || drag.patternId !== pattern.id) {
+    return undefined
+  }
+
+  return drag.parameter
 }
 
 function buildPatternEventPiece(
@@ -273,6 +301,17 @@ function buildPatternEventPitch(
   }
 
   return drag.pitch
+}
+
+function buildPatternEventValue(
+  drag: DragState | undefined,
+  pattern: Pattern,
+): AutomationValue | undefined {
+  if (drag?.kind !== 'drawAutomationPatternEvent' || drag.patternId !== pattern.id) {
+    return undefined
+  }
+
+  return drag.value
 }
 
 function buildTimelineEventPlaceholder(

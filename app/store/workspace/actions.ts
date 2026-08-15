@@ -18,6 +18,7 @@ import {
   createDuplicateBlockCommand,
   createDuplicateSectionCommand,
   createDuplicateTrackCommand,
+  createMoveAutomationPatternEventCommand,
   createMoveBlockCommand,
   createMoveDrumPatternEventCommand,
   createMoveNotePatternEventCommand,
@@ -208,6 +209,20 @@ export function addPatternEventAction(patternId: PatternId, event: PatternEvent)
 
 export function deletePatternEventAction(patternEventIds: PatternEventId[]): WorkspaceCommand {
   return createDeletePatternEventCommand(patternEventIds)
+}
+
+export function moveAutomationPatternEventAction(
+  patternId: PatternId,
+  patternEventId: PatternEventId,
+  timeTick: Tick,
+  parameter: string,
+): WorkspaceCommand {
+  return createMoveAutomationPatternEventCommand(
+    patternId,
+    patternEventId,
+    timeTick,
+    parameter,
+  )
 }
 
 export function moveNotePatternEventAction(

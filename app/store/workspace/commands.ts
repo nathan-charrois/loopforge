@@ -14,6 +14,7 @@ import {
   duplicateBlocks,
   duplicateSections,
   duplicateTrack,
+  moveAutomationPatternEvent,
   moveBlock,
   moveDrumPatternEvent,
   moveNotePatternEvent,
@@ -230,6 +231,19 @@ export function applyWorkspaceCommand(
     }
     case 'deletePatternEvent':
       return deletePatternEvents(workspace, getPayloadStringArray(payload, 'eventIds'))
+    case 'moveAutomationPatternEvent': {
+      const eventId = getPayloadString(payload, 'eventId')
+      const parameter = getPayloadString(payload, 'parameter')
+      const patternId = getPayloadString(payload, 'patternId')
+      const timeTick = getPayloadNumber(payload, 'timeTick')
+
+      return eventId === undefined
+        || parameter === undefined
+        || patternId === undefined
+        || timeTick === undefined
+        ? workspace
+        : moveAutomationPatternEvent(workspace, patternId, eventId, timeTick, parameter)
+    }
     case 'moveDrumPatternEvent': {
       const eventId = getPayloadString(payload, 'eventId')
       const patternId = getPayloadString(payload, 'patternId')
@@ -490,6 +504,20 @@ export function createDeletePatternEventCommand(eventIds: readonly PatternEventI
     `Delete ${eventIds.length} pattern event${eventIds.length === 1 ? '' : 's'}`,
     { eventIds: [...eventIds] },
   )
+}
+
+export function createMoveAutomationPatternEventCommand(
+  patternId: PatternId,
+  eventId: PatternEventId,
+  timeTick: Tick,
+  parameter: string,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('moveAutomationPatternEvent', 'Move automation event', {
+    eventId,
+    parameter,
+    patternId,
+    timeTick,
+  })
 }
 
 export function createMoveNotePatternEventCommand(
