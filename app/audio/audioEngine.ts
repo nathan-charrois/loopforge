@@ -1,4 +1,8 @@
-import { MixerGraph } from './mixerGraph'
+import {
+  INITIAL_MIXER_METER_SNAPSHOT,
+  MixerGraph,
+  type MixerMeterSnapshot,
+} from './mixerGraph'
 import {
   decibelsToGain,
   type DrumInstrument,
@@ -39,13 +43,18 @@ export const INITIAL_AUDIO_ENGINE_SNAPSHOT: AudioEngineSnapshot = {
 }
 
 export class AudioEngine {
-  private activeVoices = new Map<OscillatorNode, () => void>()
   private context: AudioContext | undefined
-  private disposed = false
-  private listeners = new Set<() => void>()
   private mixerGraph: MixerGraph | undefined
-  private snapshot = INITIAL_AUDIO_ENGINE_SNAPSHOT
   private workspace: Workspace | undefined
+
+  private disposed = false
+
+  private activeVoices = new Map<OscillatorNode, () => void>()
+  private listeners = new Set<() => void>()
+  private mixerMeterListeners = new Set<() => void>()
+  private unsubscribeMixerMeters: (() => void) | undefined
+
+  private snapshot = INITIAL_AUDIO_ENGINE_SNAPSHOT
 
   public getSnapshot = (): AudioEngineSnapshot => this.snapshot
 
@@ -54,6 +63,23 @@ export class AudioEngine {
 
     return () => {
       this.listeners.delete(listener)
+    }
+  }
+
+  public getMixerMeterSnapshot = (): MixerMeterSnapshot =>
+    this.mixerGraph?.getMeterSnapshot() ?? INITIAL_MIXER_METER_SNAPSHOT
+
+  public subscribeMixerMeters = (listener: () => void): (() => void) => {
+    this.mixerMeterListeners.add(listener)
+    this.connectMixerMeterSubscription()
+
+    return () => {
+      this.mixerMeterListeners.delete(listener)
+
+      if (this.mixerMeterListeners.size === 0) {
+        this.unsubscribeMixerMeters?.()
+        this.unsubscribeMixerMeters = undefined
+      }
     }
   }
 
@@ -75,6 +101,7 @@ export class AudioEngine {
         this.mixerGraph.loadWorkspace(this.workspace)
       }
 
+      this.connectMixerMeterSubscription()
       this.updateSnapshot()
     }
 
@@ -187,6 +214,8 @@ export class AudioEngine {
 
     this.disposed = true
     this.stopAll()
+    this.unsubscribeMixerMeters?.()
+    this.unsubscribeMixerMeters = undefined
     this.mixerGraph?.dispose()
 
     const context = this.context
@@ -204,10 +233,27 @@ export class AudioEngine {
       state: 'closed',
     })
     this.listeners.clear()
+    this.mixerMeterListeners.clear()
   }
 
   private handleContextStateChange = (): void => {
     this.updateSnapshot()
+  }
+
+  private connectMixerMeterSubscription(): void {
+    if (
+      this.mixerGraph === undefined
+      || this.mixerMeterListeners.size === 0
+      || this.unsubscribeMixerMeters !== undefined
+    ) {
+      return
+    }
+
+    this.unsubscribeMixerMeters = this.mixerGraph.subscribeMeters(() => {
+      for (const listener of this.mixerMeterListeners) {
+        listener()
+      }
+    })
   }
 
   private scheduleInstrumentNoteVoice(

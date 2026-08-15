@@ -1,15 +1,34 @@
-import { decibelsToGain, type MixChannel } from '~/domain'
+import {
+  decibelsToGain,
+  type MixChannel,
+  type MixChannelId,
+} from '~/domain'
 import type { Workspace } from '~/store/workspace'
 
 type MixChannelGraph = {
+  input: GainNode
   filter: BiquadFilterNode
   gain: GainNode
   panner: StereoPannerNode
+  meter: AnalyserNode
 }
 
+export type MixerMeterSnapshot = Readonly<Record<MixChannelId, number>>
+
+export const INITIAL_MIXER_METER_SNAPSHOT: MixerMeterSnapshot = Object.freeze({})
+
+const METER_FFT_SIZE = 256
+const METER_RELEASE_SECONDS = 0.02
+
 export class MixerGraph {
-  private channelGraphs = new Map<string, MixChannelGraph>()
+  private activeMixChannelIds: MixChannelId[] = []
+  private channelGraphs = new Map<MixChannelId, MixChannelGraph>()
   private masterGain: GainNode | undefined
+  private meterAnimationFrameId: number | undefined
+  private meterListeners = new Set<() => void>()
+  private meterRenderedAt: number | undefined
+  private meterSnapshot = INITIAL_MIXER_METER_SNAPSHOT
+  private readonly meterTimeDomainData = new Float32Array(METER_FFT_SIZE)
 
   public constructor(
     private readonly context: AudioContext,
@@ -24,19 +43,19 @@ export class MixerGraph {
       .map(channelId => workspace.mixer.channels.byId[channelId])
       .filter(channel => channel !== undefined)
 
+    this.activeMixChannelIds = mixChannels.map(channel => channel.id)
+
     for (const channel of mixChannels) {
       const graph = this.getChannelGraph(channel.id)
       const audible = this.getChannelAudible(mixChannels, channel)
 
       graph.gain.gain.value = audible ? decibelsToGain(channel.volumeDb) : 0
       graph.panner.pan.value = channel.pan
-
-      this.channelGraphs.set(channel.id, graph)
     }
   }
 
   public getChannelInput(mixChannelId: string): GainNode | undefined {
-    return this.channelGraphs.get(mixChannelId)?.gain
+    return this.channelGraphs.get(mixChannelId)?.input
   }
 
   public getChannelGraph(mixChannelId: string) {
@@ -47,8 +66,29 @@ export class MixerGraph {
     }
 
     const masterGain = this.masterGain ?? this.createMasterGain()
+    const graph = this.createChannelGraph(masterGain)
 
-    return this.createChannelGraph(masterGain)
+    this.channelGraphs.set(mixChannelId, graph)
+
+    return graph
+  }
+
+  public getMeterSnapshot = (): MixerMeterSnapshot => this.meterSnapshot
+
+  public subscribeMeters = (listener: () => void): (() => void) => {
+    this.meterListeners.add(listener)
+
+    if (this.meterListeners.size === 1) {
+      this.startMeterRendering()
+    }
+
+    return () => {
+      this.meterListeners.delete(listener)
+
+      if (this.meterListeners.size === 0) {
+        this.stopMeterRendering()
+      }
+    }
   }
 
   public getChannelAudible(mixChannels: MixChannel[], channel: MixChannel) {
@@ -100,7 +140,10 @@ export class MixerGraph {
   }
 
   public dispose(): void {
+    this.stopMeterRendering()
     this.disconnect()
+    this.meterSnapshot = INITIAL_MIXER_METER_SNAPSHOT
+    this.meterListeners.clear()
   }
 
   private createMasterGain(): GainNode {
@@ -115,29 +158,101 @@ export class MixerGraph {
   private createChannelGraph(
     masterGain: GainNode,
   ): MixChannelGraph {
+    const input = this.context.createGain()
     const gain = this.context.createGain()
     const filter = this.context.createBiquadFilter()
     const panner = this.context.createStereoPanner()
+    const meter = this.context.createAnalyser()
 
     filter.type = 'lowpass'
     filter.frequency.value = this.context.sampleRate / 2
+    meter.fftSize = METER_FFT_SIZE
 
-    gain.connect(filter)
-    filter.connect(panner)
-    panner.connect(masterGain)
+    input.connect(filter)
+    filter.connect(gain)
+    gain.connect(panner)
+    panner.connect(meter)
+    meter.connect(masterGain)
 
     return {
+      input,
       filter,
       gain,
       panner,
+      meter,
     }
+  }
+
+  private renderMeters = (frameTime: number): void => {
+    this.meterAnimationFrameId = undefined
+
+    const nextSnapshot: Record<MixChannelId, number> = {}
+    const elapsedSeconds = this.meterRenderedAt === undefined
+      ? Number.POSITIVE_INFINITY
+      : Math.max(0, (frameTime - this.meterRenderedAt) / 1000)
+
+    const releaseMultiplier = Math.exp(
+      -elapsedSeconds / METER_RELEASE_SECONDS,
+    )
+
+    this.meterRenderedAt = frameTime
+
+    for (const mixChannelId of this.activeMixChannelIds) {
+      const graph = this.channelGraphs.get(mixChannelId)
+
+      if (graph === undefined) {
+        continue
+      }
+
+      graph.meter.getFloatTimeDomainData(this.meterTimeDomainData)
+
+      let peak = 0
+
+      for (const sample of this.meterTimeDomainData) {
+        peak = Math.max(peak, Math.abs(sample))
+      }
+
+      const previousPeak = this.meterSnapshot[mixChannelId] ?? 0
+
+      nextSnapshot[mixChannelId] = Math.max(
+        peak,
+        previousPeak * releaseMultiplier,
+      )
+    }
+
+    this.meterSnapshot = nextSnapshot
+
+    for (const listener of this.meterListeners) {
+      listener()
+    }
+
+    if (this.meterListeners.size > 0) {
+      this.meterAnimationFrameId = requestAnimationFrame(this.renderMeters)
+    }
+  }
+
+  private startMeterRendering(): void {
+    if (this.meterAnimationFrameId === undefined) {
+      this.meterAnimationFrameId = requestAnimationFrame(this.renderMeters)
+    }
+  }
+
+  private stopMeterRendering(): void {
+    if (this.meterAnimationFrameId !== undefined) {
+      cancelAnimationFrame(this.meterAnimationFrameId)
+    }
+
+    this.meterAnimationFrameId = undefined
+    this.meterRenderedAt = undefined
   }
 
   private disconnect(): void {
     for (const graph of this.channelGraphs.values()) {
+      graph.input.disconnect()
       graph.gain.disconnect()
       graph.filter.disconnect()
       graph.panner.disconnect()
+      graph.meter.disconnect()
     }
 
     this.channelGraphs.clear()

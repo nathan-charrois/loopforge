@@ -91,6 +91,7 @@ import {
   type DrumPiece,
   formatTickAsBars,
   formatTickRangeAsBars,
+  gainToDecibels,
   getBlockEndTick,
   getLoopEvent,
   getLoopEventEndTick,
@@ -113,6 +114,7 @@ import {
   type MixChannel,
   type MixChannelId,
   MODES,
+  normalizeDecibels,
   type Pattern,
   PATTERN_EVENT_KINDS,
   PATTERN_KINDS,
@@ -149,6 +151,7 @@ import {
   useTrackLaneOverlay,
 } from '~/hooks/useDragOverlay'
 import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
+import { useMetering } from '~/hooks/useMetering'
 import { useSessionProject } from '~/hooks/useSessionProject'
 import {
   useTransportLoopEnabled,
@@ -277,6 +280,7 @@ const HANDLE_WIDTH = 10
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
+const MIN_METER_DB = -60
 const MAX_SYNTH_ENVELOPE_VALUE = 3
 
 type TimelineZoomStyle = CSSProperties & {
@@ -1640,31 +1644,82 @@ const TimelineMixChannelColumn = memo(function TimelineMixChannelColumn({
             onMouseEnter={() => onSetHoveredMixChannel(mixChannel.id)}
             onMouseLeave={() => onSetHoveredMixChannel(undefined)}
           >
-            <Group gap={4} wrap="nowrap">
-              <ActionIcon
-                aria-label={`Mute ${track.name}`}
-                aria-pressed={mixChannel.muted}
-                color={mixChannel.muted ? 'red' : 'gray'}
-                size="sm"
-                variant={mixChannel.muted ? 'filled' : 'light'}
-                onClick={event => onClickMute(event, mixChannel)}
-              >
-                <Text size="xs">M</Text>
-              </ActionIcon>
-              <ActionIcon
-                aria-label={`Solo ${track.name}`}
-                aria-pressed={mixChannel.soloed}
-                color={mixChannel.soloed ? 'green' : 'gray'}
-                size="sm"
-                variant={mixChannel.soloed ? 'filled' : 'light'}
-                onClick={event => onClickSolo(event, mixChannel)}
-              >
-                <Text size="xs">S</Text>
-              </ActionIcon>
-            </Group>
+            <Stack gap={3}>
+              <Group gap={4} wrap="nowrap">
+                <ActionIcon
+                  aria-label={`Mute ${track.name}`}
+                  aria-pressed={mixChannel.muted}
+                  color={mixChannel.muted ? 'red' : 'gray'}
+                  size="sm"
+                  variant={mixChannel.muted ? 'filled' : 'light'}
+                  onClick={event => onClickMute(event, mixChannel)}
+                >
+                  <Text size="xs">M</Text>
+                </ActionIcon>
+                <ActionIcon
+                  aria-label={`Solo ${track.name}`}
+                  aria-pressed={mixChannel.soloed}
+                  color={mixChannel.soloed ? 'green' : 'gray'}
+                  size="sm"
+                  variant={mixChannel.soloed ? 'filled' : 'light'}
+                  onClick={event => onClickSolo(event, mixChannel)}
+                >
+                  <Text size="xs">S</Text>
+                </ActionIcon>
+              </Group>
+              <MixChannelMeter
+                label={`${track.name} level`}
+                mixChannelId={mixChannel.id}
+              />
+            </Stack>
           </StaticTimelineLabel>
         )
       })}
+    </Box>
+  )
+})
+
+const MixChannelMeter = memo(function MixChannelMeter({
+  label,
+  mixChannelId,
+}: {
+  label: string
+  mixChannelId: MixChannelId
+}) {
+  const level = useMetering(mixChannelId)
+  const levelDb = Math.max(MIN_METER_DB, gainToDecibels(level))
+
+  const normalizedDb = normalizeDecibels(levelDb, MIN_METER_DB, 0)
+  const color = levelDb > -3
+    ? 'var(--mantine-color-red-6)'
+    : levelDb > -12
+      ? 'var(--mantine-color-yellow-6)'
+      : 'var(--mantine-color-green-6)'
+
+  return (
+    <Box
+      aria-label={label}
+      aria-valuemax={0}
+      aria-valuemin={MIN_METER_DB}
+      aria-valuenow={Math.round(levelDb)}
+      role="meter"
+      style={{
+        background: 'var(--mantine-color-gray-3)',
+        borderRadius: 2,
+        height: 3,
+        overflow: 'hidden',
+        width: '100%',
+      }}
+    >
+      <Box
+        style={{
+          background: color,
+          height: '100%',
+          transform: `scaleX(${normalizedDb})`,
+          transformOrigin: 'left',
+          transition: 'none',
+        }}
+      />
     </Box>
   )
 })
