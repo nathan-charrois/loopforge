@@ -10,16 +10,21 @@ export function createEffect(input: {
     case 'eq':
       return {
         enabled: input.enabled ?? true,
-        highFrequencyHz: 8000,
-        highGainDb: 0,
+        highShelfFrequencyHz: 8000,
+        highShelfGainDb: 0,
+        highShelfQ: 0.1,
         id: input.id,
         kind: 'eq',
-        lowFrequencyHz: 200,
-        lowGainDb: 0,
-        midFrequencyHz: 1000,
-        midGainDb: 0,
-        midQ: 1,
+        lowShelfFrequencyHz: 100,
+        lowShelfGainDb: 0,
+        lowShelfQ: 0.1,
         name: input.name,
+        param1FrequencyHz: 700,
+        param1GainDb: 0,
+        param1Q: 0.1,
+        param2FrequencyHz: 2500,
+        param2GainDb: 0,
+        param2Q: 0.1,
       }
     case 'compressor':
       return {

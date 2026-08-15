@@ -34,13 +34,12 @@ import {
   EFFECT_KINDS,
   type EffectKind,
   type Instrument,
+  type InstrumentId,
 } from '~/domain'
 import type { Dispatch } from '~/store/session'
 import {
   addInstrumentEffectAction,
   deleteEffectAction,
-  selectBlock,
-  selectPatternForBlock,
   updateEffectAction,
   updateInstrumentAction,
   type Workspace,
@@ -53,15 +52,15 @@ type ReverbEffect = Extract<Effect, { kind: 'reverb' }>
 
 type Props = {
   dispatch: Dispatch
-  focusedBlockId?: string
   workspace: Workspace
+  selectedInstrumentId?: InstrumentId
 }
 
 const ANGLE_MAX = 359
-const EQ_GRAPH_HEIGHT = 180
-const EQ_GRAPH_WIDTH = 720
-const EQ_MAX_DB = 18
-const EQ_MIN_DB = -18
+const EQ_GRAPH_HEIGHT = 280
+const EQ_GRAPH_WIDTH = 960
+const EQ_MAX_DB = 20
+const EQ_MIN_DB = -20
 const EQ_SAMPLE_RATE = 48000
 const MAX_FREQUENCY_HZ = 20000
 const MIN_FREQUENCY_HZ = 20
@@ -73,32 +72,46 @@ const EFFECT_KIND_LABELS: Record<EffectKind, string> = {
   reverb: 'Reverb',
 }
 
-const EQ_FREQUENCY_MARKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
-const EQ_GAIN_MARKS = [-12, -6, 0, 6, 12]
+const EQ_CHART_HZ_MARKS = [
+  20,
+  50,
+  100,
+  200,
+  500,
+  1000,
+  2000,
+  5000,
+  10000,
+  20000,
+]
+
+const EQ_CHART_GAIN_MARKS = [
+  -20,
+  -10,
+  0,
+  10,
+  20,
+]
+
+const EQ_FREQUENCY_KNOB_MARKS = createLogarithmicMarks(20, 20000, 20)
+const EQ_LOW_SHELF_FREQUENCY_KNOB_MARKS = createLogarithmicMarks(20, 1000, 20)
+const EQ_HIGH_SHELF_FREQUENCY_KNOB_MARKS = createLogarithmicMarks(1000, 20000, 20)
+const EQ_Q_KNOB_MARKS = createLogarithmicMarks(0.1, 12, 20)
+const EQ_GAIN_KNOB_MARKS = Array.from(
+  { length: 21 },
+  (_, index) => (index * 2) - 20,
+)
 
 export const EffectsPanel = memo(function EffectsPanel({
   dispatch,
-  focusedBlockId,
   workspace,
+  selectedInstrumentId,
 }: Props) {
-  if (focusedBlockId === undefined) {
+  if (selectedInstrumentId === undefined) {
     return null
   }
 
-  const focusedBlock = selectBlock(workspace, focusedBlockId)
-  if (focusedBlock === undefined) {
-    return null
-  }
-
-  const pattern = selectPatternForBlock(workspace, focusedBlock)
-  if (pattern === undefined || pattern.kind === 'automation') {
-    return null
-  }
-
-  const track = workspace.tracks.byId[focusedBlock.trackId]
-  const instrument = track === undefined
-    ? undefined
-    : workspace.instruments.byId[track.instrumentId]
+  const instrument = workspace.instruments.byId[selectedInstrumentId]
 
   if (instrument === undefined) {
     return null
@@ -191,17 +204,19 @@ const EffectsPanelContent = memo(function EffectsPanelContent({
 
         {effects.length === 0
           ? <Text c="dimmed" size="sm">No effects in this chain.</Text>
-          : effects.map((effect, effectIndex) => (
-              <EffectCard
-                key={effect.id}
-                effect={effect}
-                effectIndex={effectIndex}
-                effectCount={effects.length}
-                onMove={moveEffect}
-                onRemove={removeEffect}
-                onUpdate={updateEffect}
-              />
-            ))}
+          : null}
+
+        {effects.map((effect, effectIndex) => (
+          <EffectCard
+            key={effect.id}
+            effect={effect}
+            effectIndex={effectIndex}
+            effectCount={effects.length}
+            onMove={moveEffect}
+            onRemove={removeEffect}
+            onUpdate={updateEffect}
+          />
+        ))}
       </Stack>
     </Paper>
   )
@@ -348,72 +363,118 @@ const EqControls = memo(function EqControls({
   return (
     <Stack gap="md">
       <EqResponseGraph effect={effect} />
-      <SimpleGrid cols={{ base: 2, sm: 4, md: 7 }} spacing="md">
-        <EffectKnob
-          label="Low Hz"
-          max={1000}
-          min={20}
-          scale="log"
-          unit="Hz"
-          value={effect.lowFrequencyHz}
-          onChange={lowFrequencyHz => onUpdate({ ...effect, lowFrequencyHz })}
+      <SimpleGrid cols={{ base: 2 }} spacing="md">
+        <EqBandControls
+          frequencyHz={effect.lowShelfFrequencyHz}
+          frequencyMarks={EQ_LOW_SHELF_FREQUENCY_KNOB_MARKS}
+          frequencyMax={1000}
+          gainDb={effect.lowShelfGainDb}
+          label="Low Shelf"
+          q={effect.lowShelfQ}
+          onFrequencyChange={lowShelfFrequencyHz => onUpdate({ ...effect, lowShelfFrequencyHz })}
+          onGainChange={lowShelfGainDb => onUpdate({ ...effect, lowShelfGainDb })}
+          onQChange={lowShelfQ => onUpdate({ ...effect, lowShelfQ })}
         />
-        <EffectKnob
-          label="Low Gain"
-          max={12}
-          min={-12}
-          precision={1}
-          unit="dB"
-          value={effect.lowGainDb}
-          onChange={lowGainDb => onUpdate({ ...effect, lowGainDb })}
+        <EqBandControls
+          frequencyHz={effect.param1FrequencyHz}
+          frequencyMarks={EQ_FREQUENCY_KNOB_MARKS}
+          frequencyMax={20000}
+          gainDb={effect.param1GainDb}
+          label="Param 1"
+          q={effect.param1Q}
+          onFrequencyChange={param1FrequencyHz => onUpdate({ ...effect, param1FrequencyHz })}
+          onGainChange={param1GainDb => onUpdate({ ...effect, param1GainDb })}
+          onQChange={param1Q => onUpdate({ ...effect, param1Q })}
         />
-        <EffectKnob
-          label="Mid Hz"
-          max={12000}
-          min={80}
-          scale="log"
-          unit="Hz"
-          value={effect.midFrequencyHz}
-          onChange={midFrequencyHz => onUpdate({ ...effect, midFrequencyHz })}
+        <EqBandControls
+          frequencyHz={effect.param2FrequencyHz}
+          frequencyMarks={EQ_FREQUENCY_KNOB_MARKS}
+          frequencyMax={20000}
+          gainDb={effect.param2GainDb}
+          label="Param 2"
+          q={effect.param2Q}
+          onFrequencyChange={param2FrequencyHz => onUpdate({ ...effect, param2FrequencyHz })}
+          onGainChange={param2GainDb => onUpdate({ ...effect, param2GainDb })}
+          onQChange={param2Q => onUpdate({ ...effect, param2Q })}
         />
-        <EffectKnob
-          label="Mid Gain"
-          max={12}
-          min={-12}
-          precision={1}
-          unit="dB"
-          value={effect.midGainDb}
-          onChange={midGainDb => onUpdate({ ...effect, midGainDb })}
-        />
-        <EffectKnob
-          label="Mid Q"
-          max={12}
-          min={0.1}
-          precision={2}
-          scale="log"
-          value={effect.midQ}
-          onChange={midQ => onUpdate({ ...effect, midQ })}
-        />
-        <EffectKnob
-          label="High Hz"
-          max={20000}
-          min={1000}
-          scale="log"
-          unit="Hz"
-          value={effect.highFrequencyHz}
-          onChange={highFrequencyHz => onUpdate({ ...effect, highFrequencyHz })}
-        />
-        <EffectKnob
-          label="High Gain"
-          max={12}
-          min={-12}
-          precision={1}
-          unit="dB"
-          value={effect.highGainDb}
-          onChange={highGainDb => onUpdate({ ...effect, highGainDb })}
+        <EqBandControls
+          frequencyHz={effect.highShelfFrequencyHz}
+          frequencyMarks={EQ_HIGH_SHELF_FREQUENCY_KNOB_MARKS}
+          frequencyMax={20000}
+          frequencyMin={1000}
+          gainDb={effect.highShelfGainDb}
+          label="High Shelf"
+          q={effect.highShelfQ}
+          onFrequencyChange={highShelfFrequencyHz => onUpdate({ ...effect, highShelfFrequencyHz })}
+          onGainChange={highShelfGainDb => onUpdate({ ...effect, highShelfGainDb })}
+          onQChange={highShelfQ => onUpdate({ ...effect, highShelfQ })}
         />
       </SimpleGrid>
     </Stack>
+  )
+})
+
+const EqBandControls = memo(function EqBandControls({
+  frequencyHz,
+  frequencyMarks,
+  frequencyMax,
+  frequencyMin = 20,
+  gainDb,
+  label,
+  onFrequencyChange,
+  onGainChange,
+  onQChange,
+  q,
+}: {
+  frequencyHz: number
+  frequencyMarks: number[]
+  frequencyMax: number
+  frequencyMin?: number
+  gainDb: number
+  label: string
+  onFrequencyChange: (frequencyHz: number) => void
+  onGainChange: (gainDb: number) => void
+  onQChange: (q: number) => void
+  q: number
+}) {
+  return (
+    <Paper withBorder p="sm" radius="sm">
+      <Stack gap="sm">
+        <Text fw={600} size="sm" ta="center">{label}</Text>
+        <SimpleGrid cols={3} spacing="xs">
+          <EffectKnob
+            label="Hz"
+            marks={frequencyMarks}
+            max={frequencyMax}
+            min={frequencyMin}
+            scale="log"
+            unit="Hz"
+            value={frequencyHz}
+            onChange={onFrequencyChange}
+          />
+          <EffectKnob
+            label="Gain"
+            marks={EQ_GAIN_KNOB_MARKS}
+            max={20}
+            min={-20}
+            precision={1}
+            unit="dB"
+            value={gainDb}
+            onChange={onGainChange}
+          />
+          <EffectKnob
+            label="Q"
+            marks={EQ_Q_KNOB_MARKS}
+            max={12}
+            min={0.1}
+            precision={2}
+            scale="log"
+            value={q}
+            onChange={onQChange}
+          />
+        </SimpleGrid>
+      </Stack>
+    </Paper>
   )
 })
 
@@ -428,6 +489,7 @@ const CompressorControls = memo(function CompressorControls({
     <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="md">
       <EffectKnob
         label="Threshold"
+        marks={[-100, -80, -60, -50, -40, -35, -30, -25, -20, -15, -10, -5, 0]}
         max={0}
         min={-100}
         precision={1}
@@ -437,6 +499,7 @@ const CompressorControls = memo(function CompressorControls({
       />
       <EffectKnob
         label="Knee"
+        marks={[0, 5, 10, 15, 20, 25, 30, 35, 40]}
         max={40}
         min={0}
         precision={1}
@@ -446,6 +509,7 @@ const CompressorControls = memo(function CompressorControls({
       />
       <EffectKnob
         label="Ratio"
+        marks={[1, 1.5, 2, 3, 4, 6, 8, 10, 12, 16, 20]}
         max={20}
         min={1}
         precision={1}
@@ -455,6 +519,7 @@ const CompressorControls = memo(function CompressorControls({
       />
       <EffectKnob
         label="Attack"
+        marks={[0.001, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1]}
         max={1}
         min={0.001}
         precision={3}
@@ -465,6 +530,7 @@ const CompressorControls = memo(function CompressorControls({
       />
       <EffectKnob
         label="Release"
+        marks={[0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 0.75, 1]}
         max={1}
         min={0.01}
         precision={3}
@@ -488,6 +554,7 @@ const DelayControls = memo(function DelayControls({
     <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
       <EffectKnob
         label="Time"
+        marks={[0.01, 0.02, 0.05, 0.1, 0.125, 0.2, 0.25, 0.375, 0.5, 0.75, 1, 1.5, 2, 3, 5]}
         max={5}
         min={0.01}
         precision={3}
@@ -498,6 +565,7 @@ const DelayControls = memo(function DelayControls({
       />
       <EffectKnob
         label="Feedback"
+        marks={[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]}
         max={0.95}
         min={0}
         precision={2}
@@ -506,6 +574,7 @@ const DelayControls = memo(function DelayControls({
       />
       <EffectKnob
         label="Wet"
+        marks={[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]}
         max={1}
         min={0}
         precision={2}
@@ -527,6 +596,7 @@ const ReverbControls = memo(function ReverbControls({
     <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
       <EffectKnob
         label="Decay"
+        marks={[0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12]}
         max={12}
         min={0.1}
         precision={2}
@@ -537,6 +607,7 @@ const ReverbControls = memo(function ReverbControls({
       />
       <EffectKnob
         label="Pre-delay"
+        marks={[0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1, 0.15, 0.2, 0.25]}
         max={0.25}
         min={0}
         precision={3}
@@ -546,6 +617,7 @@ const ReverbControls = memo(function ReverbControls({
       />
       <EffectKnob
         label="Wet"
+        marks={[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]}
         max={1}
         min={0}
         precision={2}
@@ -558,6 +630,7 @@ const ReverbControls = memo(function ReverbControls({
 
 const EffectKnob = memo(function EffectKnob({
   label,
+  marks,
   max,
   min,
   onChange,
@@ -567,6 +640,7 @@ const EffectKnob = memo(function EffectKnob({
   value,
 }: {
   label: string
+  marks: number[]
   max: number
   min: number
   onChange: (value: number) => void
@@ -579,6 +653,9 @@ const EffectKnob = memo(function EffectKnob({
   const angleToValue = scale === 'log' ? angleToLogarithmicValue : angleToLinearValue
   const externalAngle = valueToAngle(value, min, max)
   const [angle, setAngle] = useState(externalAngle)
+  const angleMarks = useMemo(() => marks.map(mark => ({
+    value: valueToAngle(mark, min, max),
+  })), [marks, max, min, valueToAngle])
 
   useEffect(() => setAngle(externalAngle), [externalAngle])
 
@@ -597,6 +674,7 @@ const EffectKnob = memo(function EffectKnob({
       <AngleSlider
         aria-label={label}
         formatLabel={formatValue}
+        marks={angleMarks}
         size={78}
         step={1}
         value={angle}
@@ -620,34 +698,34 @@ const EqResponseGraph = memo(function EqResponseGraph({ effect }: { effect: EqEf
         component="svg"
         aria-label="EQ frequency response"
         role="img"
-        viewBox={`0 0 ${EQ_GRAPH_WIDTH} ${EQ_GRAPH_HEIGHT}`}
+        viewBox={`0 -20 ${EQ_GRAPH_WIDTH} ${EQ_GRAPH_HEIGHT + 50}`}
         style={{
-          background: 'var(--mantine-color-dark-8)',
+          background: 'transparent',
           borderRadius: 'var(--mantine-radius-sm)',
           display: 'block',
-          height: 180,
+          height: EQ_GRAPH_HEIGHT,
           width: '100%',
         }}
       >
-        {EQ_GAIN_MARKS.map(gainDb => (
+        {EQ_CHART_GAIN_MARKS.map(gainDb => (
           <g key={gainDb}>
             <line
-              stroke={gainDb === 0 ? 'var(--mantine-color-gray-5)' : 'var(--mantine-color-dark-5)'}
+              stroke={gainDb === 0 ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-gray-2)'}
               strokeWidth={gainDb === 0 ? 1.5 : 1}
               x1={0}
               x2={EQ_GRAPH_WIDTH}
               y1={eqGainToY(gainDb)}
               y2={eqGainToY(gainDb)}
             />
-            <text fill="var(--mantine-color-gray-6)" fontSize={10} x={6} y={eqGainToY(gainDb) - 4}>
+            <text fill="var(--mantine-color-gray-6)" fontSize={10} x={-40} y={eqGainToY(gainDb) + 3}>
               {`${gainDb > 0 ? '+' : ''}${gainDb} dB`}
             </text>
           </g>
         ))}
-        {EQ_FREQUENCY_MARKS.map(frequencyHz => (
+        {EQ_CHART_HZ_MARKS.map(frequencyHz => (
           <g key={frequencyHz}>
             <line
-              stroke="var(--mantine-color-dark-5)"
+              stroke="var(--mantine-color-gray-2)"
               x1={eqFrequencyToX(frequencyHz)}
               x2={eqFrequencyToX(frequencyHz)}
               y1={0}
@@ -658,7 +736,7 @@ const EqResponseGraph = memo(function EqResponseGraph({ effect }: { effect: EqEf
               fontSize={10}
               textAnchor="middle"
               x={eqFrequencyToX(frequencyHz)}
-              y={EQ_GRAPH_HEIGHT - 6}
+              y={EQ_GRAPH_HEIGHT + 20}
             >
               {formatFrequency(frequencyHz)}
             </text>
@@ -672,9 +750,10 @@ const EqResponseGraph = memo(function EqResponseGraph({ effect }: { effect: EqEf
           strokeLinejoin="round"
           strokeWidth={3}
         />
-        <EqBandMarker color="cyan" effect={effect} frequencyHz={effect.lowFrequencyHz} label="Low" />
-        <EqBandMarker color="violet" effect={effect} frequencyHz={effect.midFrequencyHz} label="Mid" />
-        <EqBandMarker color="orange" effect={effect} frequencyHz={effect.highFrequencyHz} label="High" />
+        <EqBandMarker color="cyan" effect={effect} frequencyHz={effect.lowShelfFrequencyHz} label="Low Shelf" />
+        <EqBandMarker color="violet" effect={effect} frequencyHz={effect.param1FrequencyHz} label="Param 1" />
+        <EqBandMarker color="grape" effect={effect} frequencyHz={effect.param2FrequencyHz} label="Param 2" />
+        <EqBandMarker color="orange" effect={effect} frequencyHz={effect.highShelfFrequencyHz} label="High Shelf" />
       </Box>
     </Box>
   )
@@ -723,9 +802,20 @@ function createEqResponsePath(effect: EqEffect): string {
 
 function getEqResponseDb(effect: EqEffect, frequencyHz: number): number {
   const coefficients = [
-    createShelfCoefficients('low', effect.lowFrequencyHz, effect.lowGainDb),
-    createPeakingCoefficients(effect.midFrequencyHz, effect.midGainDb, effect.midQ),
-    createShelfCoefficients('high', effect.highFrequencyHz, effect.highGainDb),
+    createShelfCoefficients(
+      'low',
+      effect.lowShelfFrequencyHz,
+      effect.lowShelfGainDb,
+      effect.lowShelfQ,
+    ),
+    createPeakingCoefficients(effect.param1FrequencyHz, effect.param1GainDb, effect.param1Q),
+    createPeakingCoefficients(effect.param2FrequencyHz, effect.param2GainDb, effect.param2Q),
+    createShelfCoefficients(
+      'high',
+      effect.highShelfFrequencyHz,
+      effect.highShelfGainDb,
+      effect.highShelfQ,
+    ),
   ]
 
   return coefficients.reduce((sum, current) => (
@@ -765,11 +855,12 @@ function createShelfCoefficients(
   shelf: 'high' | 'low',
   frequencyHz: number,
   gainDb: number,
+  q: number,
 ): BiquadCoefficients {
   const omega = 2 * Math.PI * clamp(frequencyHz, MIN_FREQUENCY_HZ, EQ_SAMPLE_RATE / 2) / EQ_SAMPLE_RATE
   const amplitude = 10 ** (gainDb / 40)
   const cosine = Math.cos(omega)
-  const alpha = Math.sin(omega) / Math.sqrt(2)
+  const alpha = Math.sin(omega) / (2 * Math.max(0.0001, q))
   const twoRootAmplitudeAlpha = 2 * Math.sqrt(amplitude) * alpha
   const amplitudePlusOne = amplitude + 1
   const amplitudeMinusOne = amplitude - 1
@@ -862,6 +953,12 @@ function logarithmicValueToAngle(value: number, min: number, max: number): numbe
     / Math.log(max / min)
     * ANGLE_MAX,
   )
+}
+
+function createLogarithmicMarks(min: number, max: number, count: number): number[] {
+  return Array.from({ length: count }, (_, index) => (
+    min * ((max / min) ** (index / (count - 1)))
+  ))
 }
 
 function angleToLogarithmicValue(

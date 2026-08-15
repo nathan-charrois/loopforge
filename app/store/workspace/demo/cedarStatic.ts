@@ -6,6 +6,7 @@ import {
   createDrumHitEvents,
   createDrumInstrument,
   createDrumPieceSound,
+  createEffect,
   createKeyEvent,
   createMeterEvent,
   createMixChannel,
@@ -23,6 +24,8 @@ import {
   createTrack,
   type DrumHitEvent,
   type DrumPiece,
+  type Effect,
+  type EqEffect,
   type Instrument,
   type MidiNote,
   type NoteEvent,
@@ -104,6 +107,70 @@ export function cedarStatic(): Workspace {
     role: 'drums',
   })
   const tracks = [chordsTrack, voiceTrack, bassTrack, drumsTrack]
+  const chordsEq = createCedarEq({
+    highShelfFrequencyHz: 10000,
+    highShelfGainDb: -2,
+    highShelfQ: 0.7,
+    id: 'cedar_static_eq_chords',
+    lowShelfFrequencyHz: 120,
+    lowShelfGainDb: 2,
+    lowShelfQ: 0.7,
+    name: 'Felt & Cedar EQ',
+    param1FrequencyHz: 315,
+    param1GainDb: 6,
+    param1Q: 0.3,
+    param2FrequencyHz: 2500,
+    param2GainDb: -3.5,
+    param2Q: 0.7,
+  })
+  const voiceEq = createCedarEq({
+    highShelfFrequencyHz: 10000,
+    highShelfGainDb: 2,
+    highShelfQ: 0.7,
+    id: 'cedar_static_eq_voice',
+    lowShelfFrequencyHz: 160,
+    lowShelfGainDb: -10,
+    lowShelfQ: 0.7,
+    name: 'Weathered Throat EQ',
+    param1FrequencyHz: 400,
+    param1GainDb: -3,
+    param1Q: 1.4,
+    param2FrequencyHz: 3150,
+    param2GainDb: 4,
+    param2Q: 1,
+  })
+  const bassEq = createCedarEq({
+    highShelfFrequencyHz: 4000,
+    highShelfGainDb: -10,
+    highShelfQ: 0.7,
+    id: 'cedar_static_eq_bass',
+    lowShelfFrequencyHz: 80,
+    lowShelfGainDb: 3,
+    lowShelfQ: 0.7,
+    name: 'Roots Under Snow EQ',
+    param1FrequencyHz: 250,
+    param1GainDb: -4,
+    param1Q: 1,
+    param2FrequencyHz: 800,
+    param2GainDb: 2,
+    param2Q: 0.7,
+  })
+  const drumsEq = createCedarEq({
+    highShelfFrequencyHz: 10000,
+    highShelfGainDb: -4,
+    highShelfQ: 0.7,
+    id: 'cedar_static_eq_drums',
+    lowShelfFrequencyHz: 80,
+    lowShelfGainDb: 6,
+    lowShelfQ: 1,
+    name: 'Cabin Floor EQ',
+    param1FrequencyHz: 200,
+    param1GainDb: -3,
+    param1Q: 1,
+    param2FrequencyHz: 1500,
+    param2GainDb: 3,
+    param2Q: 1.6,
+  })
   const voicings: readonly VoicingGesture[] = [
     // Emaj9(add6): a wide E/B shell holds a close G#–B–C#–F# glow above it.
     {
@@ -308,6 +375,12 @@ export function cedarStatic(): Workspace {
         }),
       ],
     },
+    effects: createEntityStore<Effect>([
+      chordsEq,
+      voiceEq,
+      bassEq,
+      drumsEq,
+    ]),
     instruments: createEntityStore<Instrument>([
       createThorInstrument({
         envelope: {
@@ -316,6 +389,7 @@ export function cedarStatic(): Workspace {
           release: 2.4,
           sustain: 0.5,
         },
+        effectIds: [chordsEq.id],
         filter: {
           cutoffHz: 2100,
           resonance: 2.2,
@@ -338,6 +412,7 @@ export function cedarStatic(): Workspace {
           release: 2.8,
           sustain: 0.58,
         },
+        effectIds: [voiceEq.id],
         filter: {
           cutoffHz: 1750,
           resonance: 3.1,
@@ -359,6 +434,7 @@ export function cedarStatic(): Workspace {
           release: 0.8,
           sustain: 0.68,
         },
+        effectIds: [bassEq.id],
         filter: {
           cutoffHz: 720,
           resonance: 1.8,
@@ -373,6 +449,7 @@ export function cedarStatic(): Workspace {
         soundId: 'bass.default',
       }),
       createDrumInstrument({
+        effectIds: [drumsEq.id],
         id: 'cedar_static_drums',
         name: 'Cabin Floor Kit',
         pieces: {
@@ -411,8 +488,8 @@ export function cedarStatic(): Workspace {
     ]),
     mixer: createMixer({
       channels: createEntityStore([
-        createMixChannel({ id: chordsTrack.mixChannelId, pan: -0.14, volumeDb: -2 }),
-        createMixChannel({ id: voiceTrack.mixChannelId, pan: 0.18, volumeDb: -9 }),
+        createMixChannel({ id: chordsTrack.mixChannelId, pan: -0.14, volumeDb: -6 }),
+        createMixChannel({ id: voiceTrack.mixChannelId, pan: 0.18, volumeDb: -8 }),
         createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: 0 }),
         createMixChannel({ id: drumsTrack.mixChannelId, pan: 0.08, volumeDb: 0 }),
       ]),
@@ -499,6 +576,19 @@ export function cedarStatic(): Workspace {
     }),
     tracks: createEntityStore(tracks),
   })
+}
+
+function createCedarEq(
+  input: Omit<EqEffect, 'enabled' | 'kind'>,
+): EqEffect {
+  return {
+    ...createEffect({
+      id: input.id,
+      kind: 'eq',
+      name: input.name,
+    }) as EqEffect,
+    ...input,
+  }
 }
 
 function createVoicingEvents(voicings: readonly VoicingGesture[]): NoteEvent[] {

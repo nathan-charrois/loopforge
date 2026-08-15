@@ -40,34 +40,42 @@ function createEqEffectGraph(
 ): EffectGraph {
   const input = context.createGain()
   const output = context.createGain()
-  const low = context.createBiquadFilter()
-  const mid = context.createBiquadFilter()
-  const high = context.createBiquadFilter()
+  const lowShelf = context.createBiquadFilter()
+  const param1 = context.createBiquadFilter()
+  const param2 = context.createBiquadFilter()
+  const highShelf = context.createBiquadFilter()
 
-  low.type = 'lowshelf'
-  mid.type = 'peaking'
-  high.type = 'highshelf'
+  lowShelf.type = 'lowshelf'
+  param1.type = 'peaking'
+  param2.type = 'peaking'
+  highShelf.type = 'highshelf'
 
-  low.connect(mid)
-  mid.connect(high)
-  high.connect(output)
+  lowShelf.connect(param1)
+  param1.connect(param2)
+  param2.connect(highShelf)
+  highShelf.connect(output)
 
   return createRoutableEffectGraph({
-    connectEnabled: () => input.connect(low),
+    connectEnabled: () => input.connect(lowShelf),
     effect,
     input,
-    nodes: [low, mid, high],
+    nodes: [lowShelf, param1, param2, highShelf],
     output,
     updateParameters: (nextEffect) => {
       const maximumFrequency = context.sampleRate / 2
 
-      setAudioParam(context, low.frequency, clamp(nextEffect.lowFrequencyHz, 10, maximumFrequency))
-      setAudioParam(context, low.gain, clamp(nextEffect.lowGainDb, -40, 40))
-      setAudioParam(context, mid.frequency, clamp(nextEffect.midFrequencyHz, 10, maximumFrequency))
-      setAudioParam(context, mid.gain, clamp(nextEffect.midGainDb, -40, 40))
-      setAudioParam(context, mid.Q, clamp(nextEffect.midQ, 0.0001, 1000))
-      setAudioParam(context, high.frequency, clamp(nextEffect.highFrequencyHz, 10, maximumFrequency))
-      setAudioParam(context, high.gain, clamp(nextEffect.highGainDb, -40, 40))
+      setAudioParam(context, lowShelf.frequency, clamp(nextEffect.lowShelfFrequencyHz, 10, maximumFrequency))
+      setAudioParam(context, lowShelf.gain, clamp(nextEffect.lowShelfGainDb, -40, 40))
+      setAudioParam(context, lowShelf.Q, clamp(nextEffect.lowShelfQ, 0.0001, 1000))
+      setAudioParam(context, param1.frequency, clamp(nextEffect.param1FrequencyHz, 10, maximumFrequency))
+      setAudioParam(context, param1.gain, clamp(nextEffect.param1GainDb, -40, 40))
+      setAudioParam(context, param1.Q, clamp(nextEffect.param1Q, 0.0001, 1000))
+      setAudioParam(context, param2.frequency, clamp(nextEffect.param2FrequencyHz, 10, maximumFrequency))
+      setAudioParam(context, param2.gain, clamp(nextEffect.param2GainDb, -40, 40))
+      setAudioParam(context, param2.Q, clamp(nextEffect.param2Q, 0.0001, 1000))
+      setAudioParam(context, highShelf.frequency, clamp(nextEffect.highShelfFrequencyHz, 10, maximumFrequency))
+      setAudioParam(context, highShelf.gain, clamp(nextEffect.highShelfGainDb, -40, 40))
+      setAudioParam(context, highShelf.Q, clamp(nextEffect.highShelfQ, 0.0001, 1000))
     },
   })
 }

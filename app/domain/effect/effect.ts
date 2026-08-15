@@ -20,13 +20,18 @@ export type EqEffect = {
   kind: 'eq'
   id: EffectId
   name: string
-  lowFrequencyHz: number
-  lowGainDb: number
-  midFrequencyHz: number
-  midGainDb: number
-  midQ: number
-  highFrequencyHz: number
-  highGainDb: number
+  lowShelfFrequencyHz: number
+  lowShelfGainDb: number
+  lowShelfQ: number
+  param1FrequencyHz: number
+  param1GainDb: number
+  param1Q: number
+  param2FrequencyHz: number
+  param2GainDb: number
+  param2Q: number
+  highShelfFrequencyHz: number
+  highShelfGainDb: number
+  highShelfQ: number
 }
 
 export type CompressorEffect = {
