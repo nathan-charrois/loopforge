@@ -1,6 +1,7 @@
 import {
   createCopySelectionCommand,
   createSelectBlockCommand,
+  createSelectEffectCommand,
   createSelectInstrumentCommand,
   createSelectMixChannelCommand,
   createSelectPatternCommand,
@@ -55,6 +56,8 @@ import {
   createPattern,
   createSeedPatternEvents,
   createTempoEvent,
+  type Effect,
+  type EffectId,
   getKeyAtTick,
   getLoopEventEndTick,
   getMeterAtTick,
@@ -90,6 +93,7 @@ import {
   addSectionAction,
   addTimelineEventAction,
   deleteBlockAction,
+  deleteEffectAction,
   deleteInstrumentAction,
   deleteMixChannelAction,
   deletePatternAction,
@@ -113,6 +117,7 @@ import {
   splitBlockAction,
   splitSectionAction,
   updateBlockAction,
+  updateEffectAction,
   updateInstrumentAction,
   updateMixChannelAction,
   updatePatternAction,
@@ -128,6 +133,13 @@ export function selectBlockAction(
   additive = false,
 ): EditorCommand {
   return createSelectBlockCommand(blockId, additive)
+}
+
+export function selectEffectAction(
+  effectId: EffectId,
+  additive = false,
+): EditorCommand {
+  return createSelectEffectCommand(effectId, additive)
 }
 
 export function selectInstrumentAction(
@@ -232,6 +244,10 @@ export function deleteSelectionAction(selection: SelectionState): readonly Comma
 
   if (selection.selectedInstrumentIds.length > 0) {
     commands.push(deleteInstrumentAction(selection.selectedInstrumentIds))
+  }
+
+  if (selection.selectedEffectIds.length > 0) {
+    commands.push(deleteEffectAction(selection.selectedEffectIds))
   }
 
   if (selection.selectedMixChannelIds.length > 0) {
@@ -709,6 +725,55 @@ export function updateInstrumentFromInspectorAction(input: {
         name: input.draft.instrumentName.trim() || input.instrument.name,
       })
     }
+  }
+}
+
+export function updateEffectFromInspectorAction(input: {
+  draft: InspectorDraft
+  effect: Effect
+}): Command {
+  const { draft, effect } = input
+  const name = draft.effectName.trim() || effect.name
+
+  switch (effect.kind) {
+    case 'eq':
+      return updateEffectAction({
+        ...effect,
+        highFrequencyHz: draft.effectEqHighFrequencyHz,
+        highGainDb: draft.effectEqHighGainDb,
+        lowFrequencyHz: draft.effectEqLowFrequencyHz,
+        lowGainDb: draft.effectEqLowGainDb,
+        midFrequencyHz: draft.effectEqMidFrequencyHz,
+        midGainDb: draft.effectEqMidGainDb,
+        midQ: draft.effectEqMidQ,
+        name,
+      })
+    case 'compressor':
+      return updateEffectAction({
+        ...effect,
+        attackSeconds: draft.effectCompressorAttackSeconds,
+        kneeDb: draft.effectCompressorKneeDb,
+        name,
+        ratio: draft.effectCompressorRatio,
+        releaseSeconds: draft.effectCompressorReleaseSeconds,
+        thresholdDb: draft.effectCompressorThresholdDb,
+      })
+    case 'delay':
+      return updateEffectAction({
+        ...effect,
+        delaySeconds: draft.effectDelayDelaySeconds,
+        feedback: draft.effectDelayFeedback,
+        name,
+        wet: draft.effectDelayWet,
+      })
+    case 'reverb':
+      return updateEffectAction({
+        ...effect,
+        decaySeconds: draft.effectReverbDecaySeconds,
+        name,
+        preDelaySeconds: draft.effectReverbPreDelaySeconds,
+        wet: draft.effectReverbWet,
+      })
   }
 }
 

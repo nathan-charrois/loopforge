@@ -1,3 +1,4 @@
+import type { EffectId } from '../effect'
 import type { DrumPiece } from './constants'
 import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
 
@@ -12,6 +13,7 @@ export type ThorInstrument = {
   kind: 'thor'
   id: InstrumentId
   name: string
+  effectIds: EffectId[]
   soundId: InstrumentSoundId
   oscillators: SynthOscillator[]
   filter: SynthFilter
@@ -22,6 +24,7 @@ export type DrumInstrument = {
   kind: 'drum'
   id: InstrumentId
   name: string
+  effectIds: EffectId[]
   pieces: Partial<DrumPieces>
 }
 

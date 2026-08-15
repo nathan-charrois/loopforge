@@ -5,6 +5,7 @@ import type {
   Section,
   SectionId,
 } from '~/domain/arrangement'
+import type { EffectId } from '~/domain/effect'
 import type { ChordSymbol, Key } from '~/domain/harmony'
 import type { DrumPiece, InstrumentId } from '~/domain/instrument'
 import type { SynthEnvelope, SynthOscillator } from '~/domain/instrument/synth'
@@ -44,11 +45,12 @@ export const ACTIVE_PATTERN_PANEL_TOOLS = [
 ] as const
 export type ActivePatternPanelTool = typeof ACTIVE_PATTERN_PANEL_TOOLS[number]
 
-export const INSPECTOR_PANELS = ['project', 'track', 'instrument', 'block', 'pattern', 'event'] as const
+export const INSPECTOR_PANELS = ['project', 'track', 'instrument', 'effect', 'block', 'pattern', 'event'] as const
 export type InspectorPanel = typeof INSPECTOR_PANELS[number]
 
 export type SelectionState = {
   selectedBlockIds: BlockId[]
+  selectedEffectIds: EffectId[]
   selectedInstrumentIds: InstrumentId[]
   selectedMixChannelIds: MixChannelId[]
   selectedPatternIds: PatternId[]
@@ -292,7 +294,29 @@ export type InstrumentDraft = {
   instrumentSynthOscillators?: SynthOscillator[]
 }
 
-export type InspectorDraft = BlockDraft & InstrumentDraft & PatternEventDraft & TimelineEventDraft & {
+export type EffectDraft = {
+  effectName: string
+  effectEqHighFrequencyHz: number
+  effectEqHighGainDb: number
+  effectEqLowFrequencyHz: number
+  effectEqLowGainDb: number
+  effectEqMidFrequencyHz: number
+  effectEqMidGainDb: number
+  effectEqMidQ: number
+  effectCompressorAttackSeconds: number
+  effectCompressorKneeDb: number
+  effectCompressorRatio: number
+  effectCompressorReleaseSeconds: number
+  effectCompressorThresholdDb: number
+  effectDelayDelaySeconds: number
+  effectDelayFeedback: number
+  effectDelayWet: number
+  effectReverbDecaySeconds: number
+  effectReverbPreDelaySeconds: number
+  effectReverbWet: number
+}
+
+export type InspectorDraft = BlockDraft & EffectDraft & InstrumentDraft & PatternEventDraft & TimelineEventDraft & {
   mixChannelMuted: boolean
   mixChannelPan: number
   mixChannelSoloed: boolean

@@ -1,6 +1,7 @@
 import type { EntityStore } from '../type'
 import type {
   Arrangement,
+  Effect,
   Instrument,
   Mixer,
   Pattern,
@@ -17,6 +18,7 @@ export type Workspace = {
   tracks: EntityStore<Track>
   patterns: EntityStore<Pattern>
   instruments: EntityStore<Instrument>
+  effects: EntityStore<Effect>
 }
 
 export const isWorkspace = (

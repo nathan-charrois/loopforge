@@ -19,6 +19,7 @@ import { addBlock, addPattern } from './operations'
 import { selectTracks } from './selector'
 import type { Workspace } from './type'
 import { type Block, createArrangement, createBlock, createSection } from '~/domain/arrangement'
+import type { Effect } from '~/domain/effect'
 import { createChordSymbol, createDefaultKey } from '~/domain/harmony'
 import {
   type Instrument,
@@ -62,6 +63,7 @@ const workspaceDemos: Record<string, () => Workspace> = {
 export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
   const tracks = normalizeEntityStore(input.tracks, createEntityStore<Track>())
   const instruments = normalizeEntityStore(input.instruments, createEmptyEntityStore<Instrument>())
+  const effects = normalizeEntityStore(input.effects, createEmptyEntityStore<Effect>())
   const patterns = normalizeEntityStore(input.patterns, createEmptyEntityStore<Pattern>())
 
   return {
@@ -72,6 +74,7 @@ export function createWorkspace(input: Partial<Workspace> = {}): Workspace {
     patterns,
     tracks,
     instruments,
+    effects,
   }
 }
 

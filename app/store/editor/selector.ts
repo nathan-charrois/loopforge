@@ -1,5 +1,6 @@
 import {
   selectBlock,
+  selectEffect,
   selectInstrument,
   selectMixChannel,
   selectPattern,
@@ -11,7 +12,7 @@ import {
   type Workspace,
 } from '../workspace'
 import type { Editor, SelectionState } from './type'
-import type { Block, Instrument, MixChannel, Pattern, PatternEvent, Section, TimelineEvent, Track } from '~/domain'
+import type { Block, Effect, Instrument, MixChannel, Pattern, PatternEvent, Section, TimelineEvent, Track } from '~/domain'
 
 export function selectEditor(editor: Editor): Editor {
   return editor
@@ -27,6 +28,10 @@ export function selectFocusedBlockId(editor: Editor): Editor['focusedBlockId'] {
 
 export function selectSelectedBlockIds(editor: Editor): SelectionState['selectedBlockIds'] {
   return editor.selection.selectedBlockIds
+}
+
+export function selectSelectedEffectIds(editor: Editor): SelectionState['selectedEffectIds'] {
+  return editor.selection.selectedEffectIds
 }
 
 export function selectSelectedInstrumentIds(editor: Editor): SelectionState['selectedInstrumentIds'] {
@@ -60,6 +65,14 @@ export function selectSelectedTrackIds(editor: Editor): SelectionState['selected
 export function selectFirstSelectedBlock(editor: Editor, workspace: Workspace): Block | undefined {
   if (editor.selection.selectedBlockIds.length === 1) {
     return selectBlock(workspace, editor.selection.selectedBlockIds[0])
+  }
+
+  return undefined
+}
+
+export function selectFirstSelectedEffect(editor: Editor, workspace: Workspace): Effect | undefined {
+  if (editor.selection.selectedEffectIds.length === 1) {
+    return selectEffect(workspace, editor.selection.selectedEffectIds[0])
   }
 
   return undefined
@@ -136,6 +149,7 @@ export function selectFirstSelectedTrack(editor: Editor, workspace: Workspace): 
 
 export function hasAnySelection(selection: SelectionState): boolean {
   return selection.selectedBlockIds.length > 0
+    || selection.selectedEffectIds.length > 0
     || selection.selectedInstrumentIds.length > 0
     || selection.selectedMixChannelIds.length > 0
     || selection.selectedPatternIds.length > 0

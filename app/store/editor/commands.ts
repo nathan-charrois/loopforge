@@ -1,6 +1,7 @@
 import {
   copySelection,
   selectBlock,
+  selectEffect,
   selectInstrument,
   selectMixChannel,
   selectPattern,
@@ -24,7 +25,7 @@ import type {
   InspectorState,
   SelectionState,
 } from './type'
-import type { BlockId, InstrumentId, MixChannelId, PatternEventId, PatternId, SectionId, TimelineEventId, TrackId } from '~/domain'
+import type { BlockId, EffectId, InstrumentId, MixChannelId, PatternEventId, PatternId, SectionId, TimelineEventId, TrackId } from '~/domain'
 import type {
   CommandPayload,
   EditorCommand,
@@ -48,6 +49,12 @@ export function applyEditorCommand(
       return blockId === undefined
         ? editor
         : selectBlock(editor, blockId, getPayloadBoolean(payload, 'additive') ?? false)
+    }
+    case 'selectEffect': {
+      const effectId = getPayloadString(payload, 'effectId')
+      return effectId === undefined
+        ? editor
+        : selectEffect(editor, effectId, getPayloadBoolean(payload, 'additive') ?? false)
     }
     case 'selectInstrument': {
       const instrumentId = getPayloadString(payload, 'instrumentId')
@@ -132,6 +139,10 @@ export function createCopySelectionCommand(): EditorCommand {
 
 export function createSelectBlockCommand(blockId: BlockId, additive: boolean): EditorCommand {
   return createEditorCommandRecord('selectBlock', 'Select block', { additive, blockId })
+}
+
+export function createSelectEffectCommand(effectId: EffectId, additive: boolean): EditorCommand {
+  return createEditorCommandRecord('selectEffect', 'Select effect', { additive, effectId })
 }
 
 export function createSelectInstrumentCommand(instrumentId: InstrumentId, additive: boolean): EditorCommand {

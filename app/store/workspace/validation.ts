@@ -17,6 +17,7 @@ export function validateWorkspace(workspace: Workspace): string[] {
   errors.push(...validateEntityStore('track', workspace.tracks))
   errors.push(...validateEntityStore('pattern', workspace.patterns))
   errors.push(...validateEntityStore('instruments', workspace.instruments))
+  errors.push(...validateEntityStore('effects', workspace.effects))
 
   for (const trackId of workspace.tracks.allIds) {
     const track = selectTrack(workspace, trackId)

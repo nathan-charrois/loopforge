@@ -1,6 +1,7 @@
 import { addEntity, removeEntity, updateEntity } from '../type'
 import {
   selectBlock,
+  selectEffect,
   selectInstrument,
   selectMixChannel,
   selectPattern,
@@ -19,6 +20,8 @@ import {
   createInstrument,
   createMixChannel,
   type DrumPiece,
+  type Effect,
+  type EffectId,
   getTimelineEventField,
   type GridDivision,
   type Instrument,
@@ -145,6 +148,50 @@ export function addInstrument(workspace: Workspace, instrument: Instrument): Wor
   }
 }
 
+export function updateEffect(workspace: Workspace, effect: Effect): Workspace {
+  requireEffect(workspace, effect.id)
+
+  return {
+    ...workspace,
+    effects: updateEntity(workspace.effects, effect),
+    project: touchProject(workspace.project),
+  }
+}
+
+export function addEffect(workspace: Workspace, effect: Effect): Workspace {
+  if (workspace.effects.byId[effect.id] !== undefined) {
+    throw new Error(`Effect ${effect.id} already exists.`)
+  }
+
+  return {
+    ...workspace,
+    effects: addEntity(workspace.effects, effect),
+    project: touchProject(workspace.project),
+  }
+}
+
+export function addInstrumentEffect(
+  workspace: Workspace,
+  instrumentId: InstrumentId,
+  effect: Effect,
+): Workspace {
+  const instrument = requireInstrument(workspace, instrumentId)
+
+  if (workspace.effects.byId[effect.id] !== undefined) {
+    throw new Error(`Effect ${effect.id} already exists.`)
+  }
+
+  return {
+    ...workspace,
+    effects: addEntity(workspace.effects, effect),
+    instruments: updateEntity(workspace.instruments, {
+      ...instrument,
+      effectIds: [...instrument.effectIds, effect.id],
+    }),
+    project: touchProject(workspace.project),
+  }
+}
+
 export function addMixChannel(workspace: Workspace, mixChannel: MixChannel): Workspace {
   if (workspace.mixer.channels.byId[mixChannel.id] !== undefined) {
     throw new Error(`Mix channel ${mixChannel.id} already exists.`)
@@ -227,6 +274,27 @@ export function removeInstruments(
   return {
     ...workspace,
     instruments: instrumentIds.reduce(removeEntity, workspace.instruments),
+    project: touchProject(workspace.project),
+  }
+}
+
+export function removeEffects(
+  workspace: Workspace,
+  effectIds: readonly EffectId[],
+): Workspace {
+  const removedEffectIds = new Set(effectIds)
+
+  return {
+    ...workspace,
+    effects: effectIds.reduce(removeEntity, workspace.effects),
+    instruments: workspace.instruments.allIds.reduce((instruments, instrumentId) => {
+      const instrument = instruments.byId[instrumentId]
+      const nextEffectIds = instrument.effectIds.filter(effectId => !removedEffectIds.has(effectId))
+
+      return nextEffectIds.length === instrument.effectIds.length
+        ? instruments
+        : updateEntity(instruments, { ...instrument, effectIds: nextEffectIds })
+    }, workspace.instruments),
     project: touchProject(workspace.project),
   }
 }
@@ -953,6 +1021,16 @@ function requireInstrument(workspace: Workspace, instrumentId: InstrumentId): In
   }
 
   return instrument
+}
+
+function requireEffect(workspace: Workspace, effectId: EffectId): Effect {
+  const effect = selectEffect(workspace, effectId)
+
+  if (effect === undefined) {
+    throw new Error(`Effect ${effectId} does not exist.`)
+  }
+
+  return effect
 }
 
 function requireMixChannel(workspace: Workspace, mixChannelId: MixChannelId): MixChannel {

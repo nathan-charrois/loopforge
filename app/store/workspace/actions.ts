@@ -1,6 +1,8 @@
 import {
   createAddBlockCommand,
+  createAddEffectCommand,
   createAddInstrumentCommand,
+  createAddInstrumentEffectCommand,
   createAddMixChannelCommand,
   createAddPatternCommand,
   createAddPatternEventCommand,
@@ -8,6 +10,7 @@ import {
   createAddTimelineEventCommand,
   createAddTrackCommand,
   createDeleteBlockCommand,
+  createDeleteEffectCommand,
   createDeleteInstrumentCommand,
   createDeleteMixChannelCommand,
   createDeletePatternCommand,
@@ -31,6 +34,7 @@ import {
   createSplitBlockCommand,
   createSplitSectionCommand,
   createUpdateBlockCommand,
+  createUpdateEffectCommand,
   createUpdateInstrumentCommand,
   createUpdateMixChannelCommand,
   createUpdateMixerCommand,
@@ -44,6 +48,8 @@ import type {
   Block,
   BlockId,
   DrumPiece,
+  Effect,
+  EffectId,
   GridDivision,
   Instrument,
   InstrumentId,
@@ -169,6 +175,25 @@ export function addInstrumentAction(instrument: Instrument): WorkspaceCommand {
 
 export function updateInstrumentAction(instrument: Instrument): WorkspaceCommand {
   return createUpdateInstrumentCommand(instrument)
+}
+
+export function deleteEffectAction(effectIds: readonly EffectId[]): WorkspaceCommand {
+  return createDeleteEffectCommand(effectIds)
+}
+
+export function addEffectAction(effect: Effect): WorkspaceCommand {
+  return createAddEffectCommand(effect)
+}
+
+export function addInstrumentEffectAction(
+  instrumentId: InstrumentId,
+  effect: Effect,
+): WorkspaceCommand {
+  return createAddInstrumentEffectCommand(instrumentId, effect)
+}
+
+export function updateEffectAction(effect: Effect): WorkspaceCommand {
+  return createUpdateEffectCommand(effect)
 }
 
 export function reorderTrackAction(trackIds: readonly TrackId[]): WorkspaceCommand {

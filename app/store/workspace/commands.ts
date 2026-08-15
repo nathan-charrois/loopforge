@@ -1,6 +1,8 @@
 import {
   addBlock,
+  addEffect,
   addInstrument,
+  addInstrumentEffect,
   addMixChannel,
   addPattern,
   addPatternEvent,
@@ -19,6 +21,7 @@ import {
   moveDrumPatternEvent,
   moveNotePatternEvent,
   moveSection,
+  removeEffects,
   removeInstruments,
   removeMixChannels,
   removePattern,
@@ -31,6 +34,7 @@ import {
   splitBlock,
   splitSection,
   updateBlock,
+  updateEffect,
   updateInstrument,
   updateMixChannel,
   updateMixer,
@@ -47,6 +51,8 @@ import {
   createInstrument,
   createMixChannel,
   type DrumPiece,
+  type Effect,
+  type EffectId,
   type GridDivision,
   type Instrument,
   type InstrumentId,
@@ -193,6 +199,23 @@ export function applyWorkspaceCommand(
     case 'updateInstrument': {
       const instrument = getPayloadObject<Instrument>(payload, 'instrument')
       return instrument === undefined ? workspace : updateInstrument(workspace, instrument)
+    }
+    case 'addEffect': {
+      const effect = getPayloadObject<Effect>(payload, 'effect')
+      return effect === undefined ? workspace : addEffect(workspace, effect)
+    }
+    case 'addInstrumentEffect': {
+      const effect = getPayloadObject<Effect>(payload, 'effect')
+      const instrumentId = getPayloadString(payload, 'instrumentId')
+      return effect === undefined || instrumentId === undefined
+        ? workspace
+        : addInstrumentEffect(workspace, instrumentId, effect)
+    }
+    case 'deleteEffect':
+      return removeEffects(workspace, getPayloadStringArray(payload, 'effectIds'))
+    case 'updateEffect': {
+      const effect = getPayloadObject<Effect>(payload, 'effect')
+      return effect === undefined ? workspace : updateEffect(workspace, effect)
     }
     case 'reorderTrack':
       return reorderTracks(workspace, getPayloadStringArray(payload, 'trackIds'))
@@ -443,6 +466,31 @@ export function createAddInstrumentCommand(instrument: Instrument): WorkspaceCom
 
 export function createUpdateInstrumentCommand(instrument: Instrument): WorkspaceCommand {
   return createWorkspaceCommandRecord('updateInstrument', `Update instrument ${instrument.name}`, { instrument: toJsonValue(instrument) })
+}
+
+export function createDeleteEffectCommand(
+  effectIds: readonly EffectId[],
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('deleteEffect', `Delete ${effectIds.length} effect${effectIds.length === 1 ? '' : 's'}`, { effectIds: [...effectIds] })
+}
+
+export function createAddEffectCommand(effect: Effect): WorkspaceCommand {
+  return createWorkspaceCommandRecord('addEffect', `Add effect ${effect.name}`, { effect: toJsonValue(effect) })
+}
+
+export function createAddInstrumentEffectCommand(
+  instrumentId: InstrumentId,
+  effect: Effect,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord(
+    'addInstrumentEffect',
+    `Add effect ${effect.name} to instrument`,
+    { effect: toJsonValue(effect), instrumentId },
+  )
+}
+
+export function createUpdateEffectCommand(effect: Effect): WorkspaceCommand {
+  return createWorkspaceCommandRecord('updateEffect', `Update effect ${effect.name}`, { effect: toJsonValue(effect) })
 }
 
 export function createReorderTrackCommand(trackIds: readonly TrackId[]): WorkspaceCommand {

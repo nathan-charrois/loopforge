@@ -39,6 +39,10 @@ export const WORKSPACE_COMMAND_KINDS = [
   'addInstrument',
   'deleteInstrument',
   'updateInstrument',
+  'addEffect',
+  'addInstrumentEffect',
+  'deleteEffect',
+  'updateEffect',
   'addMixChannel',
   'deleteMixChannel',
   'updateMixChannel',
@@ -62,6 +66,7 @@ export const WORKSPACE_COMMAND_KINDS = [
 export const EDITOR_COMMAND_KINDS = [
   'copySelection',
   'selectBlock',
+  'selectEffect',
   'selectInstrument',
   'selectMixChannel',
   'selectPattern',

@@ -1,3 +1,4 @@
+import type { EffectId } from '../effect'
 import { type Track } from '../tracks'
 import type {
   DrumInstrument,
@@ -49,12 +50,14 @@ export function createThorInstrument(input: {
   id: InstrumentId
   name: string
   soundId: InstrumentSoundId
+  effectIds?: EffectId[]
   oscilators?: SynthOscillator[]
   filter?: SynthFilter
   envelope?: SynthEnvelope
 }): ThorInstrument {
   return {
     ...input,
+    effectIds: input.effectIds ?? [],
     kind: 'thor',
     oscillators: input.oscilators ?? [createSynthOscillator()],
     filter: input.filter ?? {
@@ -74,10 +77,12 @@ export function createThorInstrument(input: {
 export function createDrumInstrument(input: {
   id: InstrumentId
   name: string
+  effectIds?: EffectId[]
   pieces?: Partial<DrumPieces>
 }): DrumInstrument {
   return {
     id: input.id,
+    effectIds: input.effectIds ?? [],
     kind: 'drum',
     name: input.name,
     pieces: input.pieces ?? {},

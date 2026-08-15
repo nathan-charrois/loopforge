@@ -1,6 +1,8 @@
 import type { Workspace } from './type'
 import {
   type Arrangement,
+  type Effect,
+  type EffectId,
   type Instrument,
   type InstrumentId,
   type MasterMixChannel,
@@ -46,6 +48,10 @@ export function selectInstrumentStore(workspace: Workspace): EntityStore<Instrum
   return workspace.instruments
 }
 
+export function selectEffectStore(workspace: Workspace): EntityStore<Effect> {
+  return workspace.effects
+}
+
 export function selectPatternStore(workspace: Workspace): EntityStore<Pattern> {
   return workspace.patterns
 }
@@ -88,6 +94,24 @@ export function selectInstrument(
   instrumentId: InstrumentId,
 ): Instrument | undefined {
   return workspace.instruments.byId[instrumentId]
+}
+
+export function selectEffect(
+  workspace: Workspace,
+  effectId: EffectId,
+): Effect | undefined {
+  return workspace.effects.byId[effectId]
+}
+
+export function selectInstrumentForEffect(
+  workspace: Workspace,
+  effectId: EffectId,
+): Instrument | undefined {
+  const instrumentId = workspace.instruments.allIds.find(currentInstrumentId => (
+    workspace.instruments.byId[currentInstrumentId].effectIds.includes(effectId)
+  ))
+
+  return instrumentId === undefined ? undefined : workspace.instruments.byId[instrumentId]
 }
 
 export function selectTracks(workspace: Workspace): Track[] {

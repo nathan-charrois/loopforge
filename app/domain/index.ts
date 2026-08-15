@@ -1,4 +1,5 @@
 export * from './arrangement'
+export * from './effect'
 export * from './harmony'
 export * from './instrument'
 export * from './mixer'
