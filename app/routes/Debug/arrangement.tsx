@@ -151,7 +151,7 @@ import {
   useTrackLaneOverlay,
 } from '~/hooks/useDragOverlay'
 import { useKeyboardShortcuts } from '~/hooks/useKeyboardShortcuts'
-import { useMetering } from '~/hooks/useMetering'
+import { useMeterLevel, useMeterPeak } from '~/hooks/useMetering'
 import { useSessionProject } from '~/hooks/useSessionProject'
 import {
   useTransportLoopEnabled,
@@ -1686,10 +1686,13 @@ const MixChannelMeter = memo(function MixChannelMeter({
   label: string
   mixChannelId: MixChannelId
 }) {
-  const level = useMetering(mixChannelId)
+  const level = useMeterLevel(mixChannelId)
+  const peak = useMeterPeak(mixChannelId)
   const levelDb = Math.max(MIN_METER_DB, gainToDecibels(level))
+  const peakDb = Math.max(MIN_METER_DB, gainToDecibels(peak))
 
   const normalizedDb = normalizeDecibels(levelDb, MIN_METER_DB, 0)
+  const normalizedPeakDb = normalizeDecibels(peakDb, MIN_METER_DB, 0)
   const color = levelDb > -3
     ? 'var(--mantine-color-red-6)'
     : levelDb > -12
@@ -1698,6 +1701,7 @@ const MixChannelMeter = memo(function MixChannelMeter({
 
   return (
     <Box
+      mt="xs"
       aria-label={label}
       aria-valuemax={0}
       aria-valuemin={MIN_METER_DB}
@@ -1705,9 +1709,10 @@ const MixChannelMeter = memo(function MixChannelMeter({
       role="meter"
       style={{
         background: 'var(--mantine-color-gray-3)',
-        borderRadius: 2,
-        height: 3,
+        borderRadius: 3,
+        height: 5,
         overflow: 'hidden',
+        position: 'relative',
         width: '100%',
       }}
     >
@@ -1718,6 +1723,20 @@ const MixChannelMeter = memo(function MixChannelMeter({
           transform: `scaleX(${normalizedDb})`,
           transformOrigin: 'left',
           transition: 'none',
+        }}
+      />
+      <Box
+        aria-hidden="true"
+        style={{
+          borderLeft: '1px solid var(--mantine-color-dark-6)',
+          bottom: 0,
+          left: 0,
+          opacity: peak > 0 ? 1 : 0,
+          position: 'absolute',
+          top: 0,
+          transform: `translateX(calc(${normalizedPeakDb * 100}% - 1px))`,
+          transition: 'none',
+          width: '100%',
         }}
       />
     </Box>

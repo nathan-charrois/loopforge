@@ -13,11 +13,23 @@ type MixChannelGraph = {
   meter: AnalyserNode
 }
 
-export type MixerMeterSnapshot = Readonly<Record<MixChannelId, number>>
+export type MixerMeterReading = Readonly<{
+  level: number
+  peak: number
+}>
+
+export type MixerMeterSnapshot = Readonly<Record<MixChannelId, MixerMeterReading>>
+
+export const INITIAL_MIXER_METER_READING: MixerMeterReading = Object.freeze({
+  level: 0,
+  peak: 0,
+})
 
 export const INITIAL_MIXER_METER_SNAPSHOT: MixerMeterSnapshot = Object.freeze({})
 
 const METER_FFT_SIZE = 256
+const METER_PEAK_DECAY_DB_PER_SECOND = 18
+const METER_PEAK_HOLD_SECONDS = 0.6
 const METER_RELEASE_SECONDS = 0.02
 
 export class MixerGraph {
@@ -26,6 +38,7 @@ export class MixerGraph {
   private masterGain: GainNode | undefined
   private meterAnimationFrameId: number | undefined
   private meterListeners = new Set<() => void>()
+  private meterPeakHeldAt = new Map<MixChannelId, number>()
   private meterRenderedAt: number | undefined
   private meterSnapshot = INITIAL_MIXER_METER_SNAPSHOT
   private readonly meterTimeDomainData = new Float32Array(METER_FFT_SIZE)
@@ -142,6 +155,7 @@ export class MixerGraph {
   public dispose(): void {
     this.stopMeterRendering()
     this.disconnect()
+    this.meterPeakHeldAt.clear()
     this.meterSnapshot = INITIAL_MIXER_METER_SNAPSHOT
     this.meterListeners.clear()
   }
@@ -186,7 +200,7 @@ export class MixerGraph {
   private renderMeters = (frameTime: number): void => {
     this.meterAnimationFrameId = undefined
 
-    const nextSnapshot: Record<MixChannelId, number> = {}
+    const nextSnapshot: Record<MixChannelId, MixerMeterReading> = {}
     const elapsedSeconds = this.meterRenderedAt === undefined
       ? Number.POSITIVE_INFINITY
       : Math.max(0, (frameTime - this.meterRenderedAt) / 1000)
@@ -206,18 +220,44 @@ export class MixerGraph {
 
       graph.meter.getFloatTimeDomainData(this.meterTimeDomainData)
 
-      let peak = 0
+      let sampledPeak = 0
 
       for (const sample of this.meterTimeDomainData) {
-        peak = Math.max(peak, Math.abs(sample))
+        sampledPeak = Math.max(sampledPeak, Math.abs(sample))
       }
 
-      const previousPeak = this.meterSnapshot[mixChannelId] ?? 0
+      const previousReading = this.meterSnapshot[mixChannelId]
+        ?? INITIAL_MIXER_METER_READING
 
-      nextSnapshot[mixChannelId] = Math.max(
-        peak,
-        previousPeak * releaseMultiplier,
+      const level = Math.max(
+        sampledPeak,
+        previousReading.level * releaseMultiplier,
       )
+
+      let peak = previousReading.peak
+      let peakHeldAt = this.meterPeakHeldAt.get(mixChannelId) ?? frameTime
+
+      if (sampledPeak > peak) {
+        peak = sampledPeak
+        peakHeldAt = frameTime
+      }
+      else if ((frameTime - peakHeldAt) / 1000 >= METER_PEAK_HOLD_SECONDS) {
+        const decayedPeak = peak * decibelsToGain(
+          -METER_PEAK_DECAY_DB_PER_SECOND * elapsedSeconds,
+        )
+
+        if (sampledPeak >= decayedPeak) {
+          peak = sampledPeak
+          peakHeldAt = frameTime
+        }
+        else {
+          peak = decayedPeak
+        }
+      }
+
+      this.meterPeakHeldAt.set(mixChannelId, peakHeldAt)
+
+      nextSnapshot[mixChannelId] = { level, peak }
     }
 
     this.meterSnapshot = nextSnapshot
