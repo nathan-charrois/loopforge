@@ -30,8 +30,6 @@ export const ACTIVE_TOOLS = [
   'draw',
   'erase',
   'split',
-  'resize',
-  'move',
   'tempo',
   'meter',
   'key',

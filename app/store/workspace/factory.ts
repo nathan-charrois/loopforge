@@ -241,7 +241,7 @@ export function createLargeSketchWorkspace(sourceWorkspace: Workspace): Workspac
 }
 
 export function createInitialWorkspace(): Workspace {
-  return createDemoWorkspace('eightfoldParallax')
+  return createDemoWorkspace('prismCurrent')
 }
 
 export function createDemoWorkspace(demo: string): Workspace {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-type KeyboardShortcutTool = 'select' | 'erase' | 'split' | 'resize' | 'move' | 'draw'
+type KeyboardShortcutTool = 'select' | 'erase' | 'split' | 'draw'
 
 type KeyboardShortcutHandlers = {
   onCopy?: () => void
@@ -111,18 +111,6 @@ export function useKeyboardShortcuts({
       if (key === 's' && onSetTool !== undefined) {
         event.preventDefault()
         onSetTool('split')
-        return
-      }
-
-      if (key === 'r' && onSetTool !== undefined) {
-        event.preventDefault()
-        onSetTool('resize')
-        return
-      }
-
-      if (key === 'm' && onSetTool !== undefined) {
-        event.preventDefault()
-        onSetTool('move')
         return
       }
 

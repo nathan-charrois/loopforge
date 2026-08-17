@@ -19,13 +19,11 @@ import {
   GridIcon,
   Key01Icon,
   MagnetIcon,
-  MoveIcon,
   PauseIcon,
   PencilEdit01Icon,
   PlayIcon,
   Redo03Icon,
   RepeatIcon,
-  Resize01Icon,
   ScissorIcon,
   StopIcon,
   TimeSetting01Icon,
@@ -279,7 +277,7 @@ const BLOCK_TOP = 14
 const BLOCK_HEIGHT = 42
 const TIMELINE_MARKER_TOP = 25
 const LOOP_LANE_HEIGHT = 39
-const HANDLE_WIDTH = 10
+const HANDLE_WIDTH = 12
 const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
@@ -585,9 +583,12 @@ function ArrangementDebugContent() {
       return
     }
 
-    dispatch(selectBlockAction(block.id, event.shiftKey))
+    dispatch([
+      selectBlockAction(block.id, event.shiftKey),
+      setFocusedBlockIdAction(block.id),
+    ])
 
-    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
+    if (editor.activeTool === 'select') {
       startDrag(event, {
         blockIds: editor.selection.selectedBlockIds.includes(block.id)
           ? editor.selection.selectedBlockIds
@@ -604,7 +605,10 @@ function ArrangementDebugContent() {
     edge: 'left' | 'right',
   ) => {
     event.stopPropagation()
-    dispatch(selectBlockAction(block.id, event.shiftKey))
+    dispatch([
+      selectBlockAction(block.id, event.shiftKey),
+      setFocusedBlockIdAction(block.id),
+    ])
     startDrag(event, { block, edge, kind: 'resizeBlock' })
   }, [dispatch, startDrag])
 
@@ -626,7 +630,7 @@ function ArrangementDebugContent() {
 
     dispatch(selectSectionAction(section.id, event.shiftKey))
 
-    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
+    if (editor.activeTool === 'select') {
       startDrag(event, { kind: 'moveSection', section })
     }
   }, [dispatch, editor.activeTool, getPointerTick, startDrag])
@@ -653,7 +657,7 @@ function ArrangementDebugContent() {
 
     dispatch(selectTimelineEventAction(timelineEvent.id, event.shiftKey))
 
-    if (editor.activeTool === 'select' || editor.activeTool === 'move') {
+    if (editor.activeTool === 'select') {
       startDrag(event, isLoopEvent(timelineEvent)
         ? { event: timelineEvent, kind: 'moveLoop' }
         : { event: timelineEvent, kind: 'moveTimelineEvent' })
@@ -855,12 +859,6 @@ function ArrangementDebugContent() {
     dispatch(setFocusedBlockIdAction())
   }, [dispatch])
 
-  const handleBlockDoubleClick = useCallback((blockId: string) => {
-    dispatch(setFocusedBlockIdAction(
-      blockId,
-    ))
-  }, [dispatch])
-
   const handleToolbarZoomIn = useCallback(() => {
     handleZoomBy(1.25)
   }, [handleZoomBy])
@@ -1025,7 +1023,6 @@ function ArrangementDebugContent() {
                       drag={dragState}
                       hoveredBlockId={hoveredBlockId}
                       trackId={trackId}
-                      onBlockDoubleClick={handleBlockDoubleClick}
                       onBlockPointerDown={handleBlockPointerDown}
                       onBlockResizePointerDown={handleBlockResizePointerDown}
                       onCreatePattern={handleCreateBlockPattern}
@@ -1983,9 +1980,7 @@ const LoopLane = memo(function LoopLane({
           onMouseEnter={() => onSetHoveredLoop(visibleLoop.id)}
           onMouseLeave={() => onSetHoveredLoop(undefined)}
           onPointerDown={event => onLoopPointerDown(event, visibleLoop)}
-          onResizePointerDown={loopPlaceholder === undefined
-            ? (event, edge) => onResizePointerDown(event, visibleLoop, edge)
-            : undefined}
+          onResizePointerDown={(event, edge) => onResizePointerDown(event, visibleLoop, edge)}
         />
       )}
       {drawRange !== undefined && (
@@ -2167,6 +2162,7 @@ const SectionLane = memo(function SectionLane({
   pixelsPerTick: number
   timelineWidth: number
 }) {
+  const activeTool = useEditor(selectActiveTool)
   const arrangement = useWorkspace(selectArrangement)
   const focusedBlockId = useEditor(selectFocusedBlockId)
   const selectedSectionIds = useEditor(selectSelectedSectionIds)
@@ -2209,12 +2205,12 @@ const SectionLane = memo(function SectionLane({
             border: '1px solid var(--mantine-color-gray-4)',
             borderRadius: 4,
             boxShadow: hoveredSectionId === section.id ? HOVER_BOX_SHADOWS.entity : undefined,
-            cursor: 'grab',
+            cursor: activeTool === 'split' ? 'col-resize' : 'pointer',
             display: 'flex',
             height: 28,
             left: getTimelineTickCssPosition(section.startTick),
             outline: selectedSectionIds.includes(section.id) ? SELECTED_STYLES.outline : undefined,
-            overflow: 'hidden',
+            overflow: 'visible',
             paddingInline: 7,
             position: 'absolute',
             top: 8,
@@ -2222,9 +2218,13 @@ const SectionLane = memo(function SectionLane({
             userSelect: 'none',
           }}
         >
+          {activeTool === 'select' && (
           <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
+          )}
           <Text fw={700} size="xs" truncate>{section.name}</Text>
+          {activeTool === 'select' && (
           <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, section, 'right')} />
+          )}
         </Box>
       ))}
       {drawRange !== undefined && (
@@ -2259,7 +2259,6 @@ const SectionLane = memo(function SectionLane({
 const TrackLane = memo(function TrackLane({
   drag,
   hoveredBlockId,
-  onBlockDoubleClick,
   onBlockPointerDown,
   onBlockResizePointerDown,
   onCreatePattern,
@@ -2272,7 +2271,6 @@ const TrackLane = memo(function TrackLane({
 }: {
   drag?: DragState
   hoveredBlockId?: string
-  onBlockDoubleClick: (blockId: string) => void
   onBlockPointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block) => void
   onBlockResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>, block: Block, edge: 'left' | 'right') => void
   onCreatePattern: (block: Block) => void
@@ -2338,7 +2336,6 @@ const TrackLane = memo(function TrackLane({
           patternStore={patternStore}
           timeline={timeline}
           zIndex={zIndex}
-          onDoubleClick={onBlockDoubleClick}
           onCreatePattern={onCreatePattern}
           onPointerDown={onBlockPointerDown}
           onPatternClick={onPatternClick}
@@ -2380,7 +2377,6 @@ const BlockView = memo(function BlockView({
   block,
   focusedBlockId,
   hovered,
-  onDoubleClick,
   onCreatePattern,
   onPatternClick,
   onPatternEventClick,
@@ -2398,7 +2394,6 @@ const BlockView = memo(function BlockView({
   block: Block
   focusedBlockId?: string
   hovered: boolean
-  onDoubleClick: (blockId: string) => void
   onCreatePattern: (block: Block) => void
   onPatternClick: (event: ReactMouseEvent<HTMLButtonElement>, patternId: PatternId) => void
   onPatternEventClick: (event: ReactMouseEvent<HTMLButtonElement>, patternEventId: PatternEventId) => void
@@ -2413,6 +2408,7 @@ const BlockView = memo(function BlockView({
   top: number
   zIndex: number
 }) {
+const activeTool = useEditor(selectActiveTool)
   const isFocused = focusedBlockId === block.id
   const dimmedByFocus = focusedBlockId !== undefined && !isFocused
 
@@ -2420,10 +2416,6 @@ const BlockView = memo(function BlockView({
 
   return (
     <Box
-      onDoubleClick={(event) => {
-        event.stopPropagation()
-        onDoubleClick(block.id)
-      }}
       onMouseEnter={() => onSetHoveredBlock(block.id)}
       onMouseLeave={() => onSetHoveredBlock(undefined)}
       onPointerDown={event => onPointerDown(event, block)}
@@ -2434,21 +2426,23 @@ const BlockView = memo(function BlockView({
         borderRadius: 5,
         boxShadow: isFocused ? '0 0 0 2px var(--mantine-color-yellow-5)' : hovered ? HOVER_BOX_SHADOWS.entity : undefined,
         color: 'white',
-        cursor: 'grab',
-        height: isFocused ? TIMELINE_TRACK_LANE_HEIGHT : BLOCK_HEIGHT,
+        cursor: activeTool === 'split' ? 'col-resize' : 'pointer',
+        height: BLOCK_HEIGHT,
         left: getTimelineTickCssPosition(block.startTick),
         opacity: dimmedByFocus ? 0.22 : block.muted ? 0.58 : 0.96,
         outline: selected ? SELECTED_STYLES.outline : undefined,
-        overflow: 'hidden',
+        overflow: 'visible',
         padding: '5px 8px',
         position: 'absolute',
-        top: isFocused ? 0 : top,
+        top,
         width: getTimelineTickCssWidth(block.lengthTicks, MIN_BLOCK_WIDTH),
         zIndex: isFocused ? 7 : zIndex,
         userSelect: 'none',
       }}
     >
+      {activeTool === 'select' && (
       <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, block, 'left')} />
+      )}
       <Group justify="space-between" gap={6} wrap="nowrap">
         <Box style={{ minWidth: 0 }}>
           <Text fw={800} size="xs" truncate>{block.name}</Text>
@@ -2457,7 +2451,9 @@ const BlockView = memo(function BlockView({
           {block.playbackMode}
         </Badge>
       </Group>
+      {activeTool === 'select' && (
       <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, block, 'right')} />
+      )}
       {focusedBlockId === block.id && (
         <FocusedBlockOverlay
           block={block}
@@ -4145,9 +4141,9 @@ function ResizeHandle({
       style={{
         bottom: 0,
         cursor: 'ew-resize',
-        left: edge === 'left' ? 0 : undefined,
+        left: edge === 'left' ? -2 : undefined,
         position: 'absolute',
-        right: edge === 'right' ? 0 : undefined,
+        right: edge === 'right' ? -2 : undefined,
         top: 0,
         width: HANDLE_WIDTH,
       }}
@@ -4311,10 +4307,6 @@ function getToolIcon(tool: ActiveTool) {
       return Key01Icon
     case 'meter':
       return MagnetIcon
-    case 'move':
-      return MoveIcon
-    case 'resize':
-      return Resize01Icon
     case 'select':
       return CursorIcon
     case 'split':
@@ -4463,10 +4455,6 @@ function getToolLabel(tool: ActiveTool): string {
       return 'Key'
     case 'meter':
       return 'Meter'
-    case 'move':
-      return 'Move'
-    case 'resize':
-      return 'Resize'
     case 'select':
       return 'Select'
     case 'split':
