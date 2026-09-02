@@ -47,36 +47,51 @@ export function createSynthOscillator(
   }
 }
 
+export function createSynthEnvelope(
+  input: Partial<SynthEnvelope> = {},
+): SynthEnvelope {
+  return {
+    attack: input.attack ?? 0,
+    decay: input.decay ?? 0,
+    sustain: input.sustain ?? 0,
+    release: input.release ?? 0,
+  }
+}
+
+export function createSynthFilter(
+  input: Partial<SynthFilter> = {},
+): SynthFilter {
+  return {
+    type: input.type ?? 'lowpass',
+    cutoffHz: input.cutoffHz ?? 2000,
+    resonance: input.resonance ?? 10,
+  }
+}
+
 export function createThorInstrument(input: {
   id: InstrumentId
+  soundId?: InstrumentSoundId
   name: string
-  soundId: InstrumentSoundId
   effectIds?: EffectId[]
-  oscilators?: SynthOscillator[]
+  oscillators?: SynthOscillator[]
   filter?: SynthFilter
   envelope?: SynthEnvelope
 }): ThorInstrument {
   return {
     ...input,
+    id: input.id,
+    soundId: input.soundId ?? 'default',
     effectIds: input.effectIds ?? [],
     kind: 'thor',
-    oscillators: input.oscilators ?? [createSynthOscillator()],
-    filter: input.filter ?? {
-      type: 'lowpass',
-      cutoffHz: 2000,
-      resonance: 10,
-    },
-    envelope: input.envelope ?? {
-      attack: 0,
-      decay: 0,
-      sustain: 0,
-      release: 0,
-    },
+    oscillators: input.oscillators ?? [createSynthOscillator()],
+    filter: createSynthFilter(input.filter),
+    envelope: createSynthEnvelope(input.envelope),
   }
 }
 
 export function createSubtractorInstrument(input: {
   id: InstrumentId
+  soundId?: InstrumentSoundId
   name: string
   effectIds?: EffectId[]
   oscillators?: [SynthOscillator, SynthOscillator]
@@ -101,9 +116,10 @@ export function createSubtractorInstrument(input: {
     },
     glideSeconds: Math.max(0, input.glideSeconds ?? 0),
     id: input.id,
+    soundId: input.soundId ?? 'default',
     kind: 'subtractor',
     mono: input.mono ?? false,
-    name: input.name,
+    name: input.name.trim(),
     oscillatorMix: Math.max(0, Math.min(1, input.oscillatorMix ?? 0.5)),
     oscillators: input.oscillators ?? [
       createSynthOscillator({ waveform: 'sawtooth' }),

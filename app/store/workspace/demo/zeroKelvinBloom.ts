@@ -266,7 +266,7 @@ export function zeroKelvinBloom(): Workspace {
         },
         id: 'zero_kelvin_harmony',
         name: 'Cryoglass Electric Piano',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.58, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -6, level: 0.22, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 7, level: 0.14, octave: 1, waveform: 'sine' }),

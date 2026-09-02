@@ -279,7 +279,7 @@ export function sunroomOrbit(): Workspace {
         },
         id: 'sunroom_orbit_guitar',
         name: 'Sunbleached Six-String',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -7, level: 0.5, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: 6, level: 0.24, waveform: 'sawtooth' }),
           createSynthOscillator({ detuneCents: -3, level: 0.18, octave: 1, waveform: 'sine' }),
@@ -301,7 +301,7 @@ export function sunroomOrbit(): Workspace {
         },
         id: 'sunroom_orbit_lead',
         name: 'Windowlight Guitar',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -5, level: 0.52, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 8, level: 0.3, waveform: 'triangle' }),
           createSynthOscillator({ level: 0.18, octave: 1, waveform: 'sine' }),
@@ -322,7 +322,7 @@ export function sunroomOrbit(): Workspace {
         },
         id: 'sunroom_orbit_bass',
         name: 'Warm Tape Bass',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.7, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: -4, level: 0.22, waveform: 'triangle' }),
           createSynthOscillator({ level: 0.08, octave: -1, waveform: 'sine' }),

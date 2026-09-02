@@ -307,7 +307,7 @@ export function marbleVerdict(): Workspace {
         },
         id: 'marble_verdict_piano',
         name: 'Ivory Gavel',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.62, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -4, level: 0.24, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 5, level: 0.14, octave: 1, waveform: 'sine' }),
@@ -328,7 +328,7 @@ export function marbleVerdict(): Workspace {
         },
         id: 'marble_verdict_strings',
         name: 'Proxy Strings',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.54, waveform: 'sawtooth' }),
           createSynthOscillator({ detuneCents: -7, level: 0.28, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: 6, level: 0.18, octave: 1, waveform: 'sine' }),
@@ -349,7 +349,7 @@ export function marbleVerdict(): Workspace {
         },
         id: 'marble_verdict_bass',
         name: 'Majority Bass',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.76, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: -5, level: 0.24, waveform: 'triangle' }),
         ],

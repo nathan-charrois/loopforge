@@ -55,7 +55,10 @@ import {
   createNoteEvent,
   createPattern,
   createSeedPatternEvents,
+  createSubtractorInstrument,
+  createSynthOscillator,
   createTempoEvent,
+  createThorInstrument,
   type EffectId,
   getKeyAtTick,
   getLoopEventEndTick,
@@ -701,56 +704,34 @@ export function updateInstrumentFromInspectorAction(input: {
   draft: InspectorDraft
   instrument: Instrument
 }): Command {
-  switch (input.instrument.kind) {
+  switch (input.draft.instrumentKind) {
     case 'subtractor': {
-      const draftOscillators = input.draft.instrumentSynthOscillators
-
-      return updateInstrumentAction({
+      return updateInstrumentAction(createSubtractorInstrument({
         ...input.instrument,
-        envelope: input.draft.instrumentSynthEnvelope
-          ? { ...input.draft.instrumentSynthEnvelope }
-          : input.instrument.envelope,
-        filter: input.draft.instrumentSubtractorFilter
-          ? { ...input.draft.instrumentSubtractorFilter }
-          : input.instrument.filter,
-        glideSeconds: Math.max(
-          0,
-          input.draft.instrumentSubtractorGlideSeconds
-          ?? input.instrument.glideSeconds,
-        ),
-        mono: input.draft.instrumentSubtractorMono ?? input.instrument.mono,
-        name: input.draft.instrumentName.trim() || input.instrument.name,
-        oscillatorMix: Math.max(
-          0,
-          Math.min(
-            1,
-            input.draft.instrumentSubtractorOscillatorMix
-            ?? input.instrument.oscillatorMix,
-          ),
-        ),
-        oscillators: draftOscillators === undefined
-          ? input.instrument.oscillators
+        envelope: input.draft.instrumentSynthEnvelope,
+        filter: input.draft.instrumentSubtractorFilter,
+        glideSeconds: input.draft.instrumentSubtractorGlideSeconds,
+        mono: input.draft.instrumentSubtractorMono,
+        name: input.draft.instrumentName,
+        oscillatorMix: input.draft.instrumentSubtractorOscillatorMix,
+        oscillators: input.draft.instrumentSynthOscillators
+          ? [
+              createSynthOscillator(input.draft.instrumentSynthOscillators[0]),
+              createSynthOscillator(input.draft.instrumentSynthOscillators[1]),
+            ]
           : [
-              { ...(draftOscillators[0] ?? input.instrument.oscillators[0]) },
-              { ...(draftOscillators[1] ?? input.instrument.oscillators[1]) },
+              createSynthOscillator(),
+              createSynthOscillator(),
             ],
-      })
+      }))
     }
     case 'thor':
-      return updateInstrumentAction({
+      return updateInstrumentAction(createThorInstrument({
         ...input.instrument,
-        name: input.draft.instrumentName.trim() || input.instrument.name,
-        envelope: input.draft.instrumentSynthEnvelope
-          ? {
-              ...input.draft.instrumentSynthEnvelope,
-            }
-          : input.instrument.envelope,
-        oscillators: input.draft.instrumentSynthOscillators
-          ? input.draft.instrumentSynthOscillators.map(
-              oscillator => ({ ...oscillator }),
-            )
-          : input.instrument.oscillators,
-      })
+        name: input.draft.instrumentName,
+        envelope: input.draft.instrumentSynthEnvelope,
+        oscillators: input.draft.instrumentSynthOscillators,
+      }))
     default: {
       return updateInstrumentAction({
         ...input.instrument,

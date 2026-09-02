@@ -254,7 +254,7 @@ export function fifthFloorRain(): Workspace {
         },
         id: 'fifth_floor_rain_rhodes',
         name: 'Rain-Worn Rhodes',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.64, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -5, level: 0.24, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 6, level: 0.12, octave: 1, waveform: 'sine' }),

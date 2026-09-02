@@ -422,7 +422,7 @@ export function velvetUndertow(): Workspace {
         },
         id: 'velvet_undertow_keys',
         name: 'Moonpool Electric Piano',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.56, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -7, level: 0.18, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 7, level: 0.14, octave: 1, waveform: 'sine' }),
@@ -444,7 +444,7 @@ export function velvetUndertow(): Workspace {
         },
         id: 'velvet_undertow_bass',
         name: 'Pressure Bloom Sub Bass',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.72, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: -5, level: 0.2, waveform: 'triangle' }),
           createSynthOscillator({ level: 0.08, octave: 1, waveform: 'sine' }),

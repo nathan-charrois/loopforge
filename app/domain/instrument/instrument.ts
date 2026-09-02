@@ -1,5 +1,5 @@
 import type { EffectId } from '../effect'
-import type { DrumPiece } from './constants'
+import type { DrumPiece, INSTRUMENT_KINDS } from './constants'
 import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
 
 export type InstrumentId = string
@@ -10,9 +10,12 @@ export type Instrument
     | SubtractorInstrument
     | ThorInstrument
 
+export type InstrumentKind = typeof INSTRUMENT_KINDS[number]
+
 export type SubtractorInstrument = {
   kind: 'subtractor'
   id: InstrumentId
+  soundId: InstrumentSoundId
   name: string
   effectIds: EffectId[]
   oscillators: [
@@ -29,9 +32,9 @@ export type SubtractorInstrument = {
 export type ThorInstrument = {
   kind: 'thor'
   id: InstrumentId
+  soundId: InstrumentSoundId
   name: string
   effectIds: EffectId[]
-  soundId: InstrumentSoundId
   oscillators: SynthOscillator[]
   filter: SynthFilter
   envelope: SynthEnvelope
@@ -51,8 +54,8 @@ export type DrumPieces = Record<
 >
 
 export type DrumPieceSound = {
-  durationSeconds?: number
   soundId: InstrumentSoundId
+  durationSeconds?: number
   volumeDb: number
   pitchSemitones: number
 }

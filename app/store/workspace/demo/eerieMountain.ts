@@ -163,7 +163,7 @@ export function eerieMountain(): Workspace {
         },
         id: 'eerie_mountain_harmonium',
         name: 'Weathered Harmonium',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -7, level: 0.52, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: 5, level: 0.3, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 2, level: 0.12, octave: -1, waveform: 'sine' }),
@@ -185,7 +185,7 @@ export function eerieMountain(): Workspace {
         },
         id: 'eerie_mountain_signal',
         name: 'Signal Through the Pines',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -5, level: 0.58, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 6, level: 0.3, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -2, level: 0.12, octave: 1, waveform: 'sine' }),

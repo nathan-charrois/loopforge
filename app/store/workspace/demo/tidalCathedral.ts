@@ -285,7 +285,7 @@ export function tidalCathedral(): Workspace {
         },
         id: 'tidal_cathedral_piano',
         name: 'Turning Water Piano',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.56, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -4, level: 0.26, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 5, level: 0.18, octave: 1, waveform: 'sine' }),
@@ -306,7 +306,7 @@ export function tidalCathedral(): Workspace {
         },
         id: 'tidal_cathedral_choir',
         name: 'Breathing Vault',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.52, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: -7, level: 0.3, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: 6, level: 0.18, octave: 1, waveform: 'sine' }),
@@ -327,7 +327,7 @@ export function tidalCathedral(): Workspace {
         },
         id: 'tidal_cathedral_bass',
         name: 'Deep Current',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.72, waveform: 'sine' }),
           createSynthOscillator({ level: 0.28, waveform: 'triangle' }),
         ],
@@ -347,7 +347,7 @@ export function tidalCathedral(): Workspace {
         },
         id: 'tidal_cathedral_bell',
         name: 'High Window',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.58, waveform: 'sine' }),
           createSynthOscillator({ level: 0.28, octave: 1, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: 4, level: 0.14, octave: 2, waveform: 'sine' }),

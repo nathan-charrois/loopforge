@@ -26,6 +26,7 @@ export function createInspectorDraft(): InspectorDraft {
     blockPatternId: '',
     blockPlaybackMode: 'loop',
     instrumentName: '',
+    instrumentKind: 'thor',
     keyMode: 'major',
     keyTick: 0,
     keyTonic: 0,
@@ -95,6 +96,7 @@ export function updateInspectorDraftFromInstrument(
   const nextDraft: InspectorDraft = {
     ...currentDraft,
     instrumentName: selectedInstrument.name,
+    instrumentKind: selectedInstrument.kind,
   }
 
   if (

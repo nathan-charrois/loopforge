@@ -333,7 +333,7 @@ export function cutGlassAlibi(): Workspace {
         },
         id: 'cut_glass_harmony',
         name: 'Broken Marquee Piano',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.65, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -5, level: 0.25, octave: -1 }),
           createSynthOscillator({ detuneCents: 7, level: 0.1, octave: 1, waveform: 'square' }),
@@ -354,7 +354,7 @@ export function cutGlassAlibi(): Workspace {
         },
         id: 'cut_glass_melody',
         name: 'Wiretap Reed',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.55, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -8, level: 0.25, waveform: 'square' }),
           createSynthOscillator({ detuneCents: 9, level: 0.2, octave: 1, waveform: 'sawtooth' }),

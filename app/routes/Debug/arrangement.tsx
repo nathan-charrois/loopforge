@@ -101,6 +101,7 @@ import {
   GRID_DIVISIONS,
   type GridDivision,
   type Instrument,
+  INSTRUMENT_KINDS,
   type InstrumentId,
   isKeyEvent,
   isLoopEvent,
@@ -282,7 +283,7 @@ const ANGLE_SLIDER_MAX = 359
 const MIN_MIX_CHANNEL_VOLUME_DB = -20
 const MAX_MIX_CHANNEL_VOLUME_DB = 20
 const MIN_METER_DB = -60
-const MAX_SYNTH_ENVELOPE_VALUE = 3
+const MAX_SYNTH_ENVELOPE_VALUE = 2
 
 type TimelineZoomStyle = CSSProperties & {
   '--timeline-pixels-per-tick': string
@@ -2219,11 +2220,11 @@ const SectionLane = memo(function SectionLane({
           }}
         >
           {activeTool === 'select' && (
-          <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
+            <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, section, 'left')} />
           )}
           <Text fw={700} size="xs" truncate>{section.name}</Text>
           {activeTool === 'select' && (
-          <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, section, 'right')} />
+            <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, section, 'right')} />
           )}
         </Box>
       ))}
@@ -2408,7 +2409,7 @@ const BlockView = memo(function BlockView({
   top: number
   zIndex: number
 }) {
-const activeTool = useEditor(selectActiveTool)
+  const activeTool = useEditor(selectActiveTool)
   const isFocused = focusedBlockId === block.id
   const dimmedByFocus = focusedBlockId !== undefined && !isFocused
 
@@ -2441,7 +2442,7 @@ const activeTool = useEditor(selectActiveTool)
       }}
     >
       {activeTool === 'select' && (
-      <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, block, 'left')} />
+        <ResizeHandle edge="left" onPointerDown={event => onResizePointerDown(event, block, 'left')} />
       )}
       <Group justify="space-between" gap={6} wrap="nowrap">
         <Box style={{ minWidth: 0 }}>
@@ -2452,7 +2453,7 @@ const activeTool = useEditor(selectActiveTool)
         </Badge>
       </Group>
       {activeTool === 'select' && (
-      <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, block, 'right')} />
+        <ResizeHandle edge="right" onPointerDown={event => onResizePointerDown(event, block, 'right')} />
       )}
       {focusedBlockId === block.id && (
         <FocusedBlockOverlay
@@ -2761,13 +2762,29 @@ const InstrumentInspector = memo(function InstrumentInspector({
           setDraft(currentDraft => ({ ...currentDraft, instrumentName: value }))
         }}
       />
-      {instrument.kind === 'thor' && (
-        <ThorInstrumentControls draft={draft} setDraft={setDraft} />
+      <Select
+        allowDeselect={false}
+        data={INSTRUMENT_KINDS.map(value => ({ label: value, value }))}
+        label="Kind"
+        size="xs"
+        value={draft.instrumentKind}
+        onChange={(value) => {
+          const type = INSTRUMENT_KINDS.find(candidate => candidate === value)
+
+          if (type && value) {
+            setDraft(currentDraft => ({ ...currentDraft, instrumentKind: value }))
+          }
+        }}
+      />
+      {draft.instrumentKind === 'thor' && (
+        <ThorInstrumentControls
+          draft={draft}
+          setDraft={setDraft}
+        />
       )}
-      {instrument.kind === 'subtractor' && (
+      {draft.instrumentKind === 'subtractor' && (
         <SubtractorInstrumentControls
           draft={draft}
-          instrument={instrument}
           setDraft={setDraft}
         />
       )}
@@ -2793,18 +2810,16 @@ const ThorInstrumentControls = memo(function ThorInstrumentControls({
 
 const SubtractorInstrumentControls = memo(function SubtractorInstrumentControls({
   draft,
-  instrument,
   setDraft,
 }: {
   draft: InspectorDraft
-  instrument: Extract<Instrument, { kind: 'subtractor' }>
   setDraft: SetInspectorDraft
 }) {
   return (
     <Stack gap="md">
-      <SubtractorVoiceControls draft={draft} instrument={instrument} setDraft={setDraft} />
+      <SubtractorVoiceControls draft={draft} setDraft={setDraft} />
       <SynthOscillatorControls draft={draft} setDraft={setDraft} />
-      <SubtractorFilterControls draft={draft} instrument={instrument} setDraft={setDraft} />
+      <SubtractorFilterControls draft={draft} setDraft={setDraft} />
       <SynthEnvelopeControls draft={draft} setDraft={setDraft} />
     </Stack>
   )
@@ -2812,11 +2827,9 @@ const SubtractorInstrumentControls = memo(function SubtractorInstrumentControls(
 
 const SubtractorVoiceControls = memo(function SubtractorVoiceControls({
   draft,
-  instrument,
   setDraft,
 }: {
   draft: InspectorDraft
-  instrument: Extract<Instrument, { kind: 'subtractor' }>
   setDraft: SetInspectorDraft
 }) {
   return (
@@ -2824,7 +2837,7 @@ const SubtractorVoiceControls = memo(function SubtractorVoiceControls({
       <Stack gap="md">
         <Text fw={600} size="xs">Voice</Text>
         <Switch
-          checked={draft.instrumentSubtractorMono ?? instrument.mono}
+          checked={draft.instrumentSubtractorMono}
           label="Mono"
           size="xs"
           onChange={(event) => {
@@ -2849,7 +2862,7 @@ const SubtractorVoiceControls = memo(function SubtractorVoiceControls({
               0,
               parseNumber(
                 value.toString(),
-                currentDraft.instrumentSubtractorGlideSeconds ?? instrument.glideSeconds,
+                currentDraft.instrumentSubtractorGlideSeconds,
               ),
             ),
           }))}
@@ -3017,11 +3030,9 @@ const SynthOscillatorControls = memo(function SynthOscillatorControls({
 
 const SubtractorFilterControls = memo(function SubtractorFilterControls({
   draft,
-  instrument,
   setDraft,
 }: {
   draft: InspectorDraft
-  instrument: Extract<Instrument, { kind: 'subtractor' }>
   setDraft: SetInspectorDraft
 }) {
   const updateFilter = (
@@ -3071,7 +3082,7 @@ const SubtractorFilterControls = memo(function SubtractorFilterControls({
                 20,
                 parseNumber(
                   value.toString(),
-                  draft.instrumentSubtractorFilter?.cutoffHz ?? instrument.filter.cutoffHz,
+                  draft.instrumentSubtractorFilter?.cutoffHz,
                 ),
               ),
             )}
@@ -3089,7 +3100,7 @@ const SubtractorFilterControls = memo(function SubtractorFilterControls({
                 0,
                 parseNumber(
                   value.toString(),
-                  draft.instrumentSubtractorFilter?.resonance ?? instrument.filter.resonance,
+                  draft.instrumentSubtractorFilter?.resonance,
                 ),
               ),
             )}
@@ -3135,7 +3146,7 @@ const SynthEnvelopeControls = memo(function SynthEnvelopeControls({
     <Paper withBorder radius="sm" p="md">
       <Stack gap="md">
         <Text fw={600} size="xs">Envelope</Text>
-        <SimpleGrid cols={2} spacing="md">
+        <SimpleGrid cols={1} spacing="md">
           {SYNTH_ENVELOPE_CONTROLS.map(({ label, property }) => (
             <Stack key={property} gap={4}>
               <Group justify="space-between">
@@ -3147,7 +3158,7 @@ const SynthEnvelopeControls = memo(function SynthEnvelopeControls({
                 label={null}
                 max={MAX_SYNTH_ENVELOPE_VALUE}
                 min={0}
-                step={0.1}
+                step={0.01}
                 value={draft.instrumentSynthEnvelope?.[property]}
                 onChange={value => updateEnvelope(property, value)}
               />

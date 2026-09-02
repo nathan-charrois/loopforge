@@ -575,7 +575,7 @@ export function eightfoldParallax(): Workspace {
         filter: { cutoffHz: 2600, resonance: 2.6, type: 'lowpass' },
         id: harmonyTrack.instrumentId,
         name: 'Prismatic Poly-Synth',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.52, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -7, level: 0.24, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 7, level: 0.18, octave: 1, waveform: 'sine' }),
@@ -600,7 +600,7 @@ export function eightfoldParallax(): Workspace {
         filter: { cutoffHz: 3200, resonance: 7.4, type: 'bandpass' },
         id: leadTrack.instrumentId,
         name: 'Signal Beacon',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.46, waveform: 'square' }),
           createSynthOscillator({ detuneCents: 9, level: 0.34, waveform: 'triangle' }),
           createSynthOscillator({ level: 0.2, octave: 1, waveform: 'sine' }),
@@ -612,7 +612,7 @@ export function eightfoldParallax(): Workspace {
         filter: { cutoffHz: 4800, resonance: 5.6, type: 'highpass' },
         id: arpeggioTrack.instrumentId,
         name: 'Clockwork Pluck',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -5, level: 0.56, waveform: 'sawtooth' }),
           createSynthOscillator({ detuneCents: 5, level: 0.28, waveform: 'square' }),
           createSynthOscillator({ level: 0.16, octave: 1, waveform: 'triangle' }),

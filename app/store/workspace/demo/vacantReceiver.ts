@@ -273,7 +273,7 @@ export function vacantReceiver(): Workspace {
         },
         id: 'vacant_receiver_guitar',
         name: 'Oxide Guitar',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -9, level: 0.48, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: 7, level: 0.2, waveform: 'sawtooth' }),
           createSynthOscillator({ detuneCents: -4, level: 0.22, octave: 1, waveform: 'sine' }),
@@ -295,7 +295,7 @@ export function vacantReceiver(): Workspace {
         },
         id: 'vacant_receiver_lead',
         name: 'Hallway Harmonics',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -6, level: 0.5, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 8, level: 0.32, waveform: 'triangle' }),
           createSynthOscillator({ level: 0.18, octave: 1, waveform: 'sine' }),
@@ -316,7 +316,7 @@ export function vacantReceiver(): Workspace {
         },
         id: 'vacant_receiver_bass',
         name: 'Basement Wire',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.72, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: -5, level: 0.2, waveform: 'triangle' }),
           createSynthOscillator({ level: 0.08, octave: -1, waveform: 'sine' }),

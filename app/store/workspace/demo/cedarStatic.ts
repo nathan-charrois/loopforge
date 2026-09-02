@@ -397,7 +397,7 @@ export function cedarStatic(): Workspace {
         },
         id: 'cedar_static_chords',
         name: 'Felt & Cedar',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.58, waveform: 'triangle' }),
           createSynthOscillator({ detuneCents: -8, level: 0.22, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 7, level: 0.14, octave: 1, waveform: 'sine' }),
@@ -420,7 +420,7 @@ export function cedarStatic(): Workspace {
         },
         id: 'cedar_static_voice',
         name: 'Weathered Throat',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ detuneCents: -6, level: 0.48, waveform: 'sine' }),
           createSynthOscillator({ detuneCents: 6, level: 0.32, waveform: 'triangle' }),
           createSynthOscillator({ level: 0.2, octave: 1, waveform: 'sine' }),
@@ -442,7 +442,7 @@ export function cedarStatic(): Workspace {
         },
         id: 'cedar_static_bass',
         name: 'Roots Under Snow',
-        oscilators: [
+        oscillators: [
           createSynthOscillator({ level: 0.74, waveform: 'sine' }),
           createSynthOscillator({ level: 0.26, octave: 1, waveform: 'triangle' }),
         ],
