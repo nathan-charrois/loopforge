@@ -15,4 +15,10 @@ export type DrumPiece = typeof DRUM_PIECES[keyof typeof DRUM_PIECES]
 
 export const DEFAULT_DRUM_PIECE = DRUM_PIECES['kick']
 
-export const INSTRUMENT_KINDS = ['drum', 'thor', 'subtractor'] as const
+export const INSTRUMENT_KINDS = [
+  'drum',
+  'thor',
+  'subtractor',
+  'fm',
+  'wavetable',
+] as const

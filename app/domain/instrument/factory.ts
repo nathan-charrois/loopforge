@@ -4,13 +4,21 @@ import type {
   DrumInstrument,
   DrumPieces,
   DrumPieceSound,
+  FmInstrument,
   Instrument,
   InstrumentId,
   InstrumentSoundId,
   SubtractorInstrument,
   ThorInstrument,
+  WavetableInstrument,
 } from './instrument'
-import type { SynthEnvelope, SynthFilter, SynthOscillator } from './synth'
+import type {
+  SynthAlgorithm,
+  SynthEnvelope,
+  SynthFilter,
+  SynthOperator,
+  SynthOscillator,
+} from './synth'
 
 export function createInstrument({
   id,
@@ -125,6 +133,95 @@ export function createSubtractorInstrument(input: {
       createSynthOscillator({ waveform: 'sawtooth' }),
       createSynthOscillator({ detuneCents: 7, waveform: 'square' }),
     ],
+  }
+}
+
+export function createSynthOperator(input: {
+  envelope?: Partial<SynthEnvelope>
+  detuneCents?: number
+  feedback?: number
+  level?: number
+  ratio?: number
+} = {}): SynthOperator {
+  return {
+    detuneCents: input.detuneCents ?? 0,
+    envelope: createSynthEnvelope(input.envelope ?? {
+      attack: 0.01,
+      decay: 0.25,
+      release: 0.2,
+      sustain: 0.65,
+    }),
+    feedback: Math.max(0, input.feedback ?? 0),
+    level: Math.max(0, input.level ?? 1),
+    ratio: Math.max(0.01, input.ratio ?? 1),
+  }
+}
+
+export function createFmInstrument(input: {
+  id: InstrumentId
+  name: string
+  effectIds?: EffectId[]
+  algorithm?: SynthAlgorithm
+  operators?: SynthOperator[]
+}): FmInstrument {
+  return {
+    algorithm: input.algorithm ?? 'serial',
+    effectIds: input.effectIds ?? [],
+    id: input.id,
+    kind: 'fm',
+    name: input.name.trim(),
+    operators: (input.operators ?? [
+      createSynthOperator(),
+      createSynthOperator({
+        envelope: { attack: 0.005, decay: 0.3, release: 0.15, sustain: 0.2 },
+        level: 1.5,
+        ratio: 2,
+      }),
+      createSynthOperator({
+        envelope: { attack: 0.005, decay: 0.2, release: 0.1, sustain: 0.1 },
+        level: 0.75,
+        ratio: 3,
+      }),
+      createSynthOperator({
+        envelope: { attack: 0.005, decay: 0.15, release: 0.08, sustain: 0 },
+        level: 0.4,
+        ratio: 4,
+      }),
+    ]).map(createSynthOperator),
+  }
+}
+
+export function createWavetableInstrument(input: {
+  id: InstrumentId
+  name: string
+  effectIds?: EffectId[]
+  wavetableId?: string
+  position?: number
+  unison?: number
+  detuneCents?: number
+  filter?: SynthFilter
+  envelope?: SynthEnvelope
+}): WavetableInstrument {
+  return {
+    detuneCents: Math.max(0, input.detuneCents ?? 12),
+    effectIds: input.effectIds ?? [],
+    envelope: createSynthEnvelope(input.envelope ?? {
+      attack: 0.01,
+      decay: 0.2,
+      release: 0.2,
+      sustain: 0.7,
+    }),
+    filter: createSynthFilter(input.filter ?? {
+      cutoffHz: 4000,
+      resonance: 1,
+      type: 'lowpass',
+    }),
+    id: input.id,
+    kind: 'wavetable',
+    name: input.name.trim(),
+    position: Math.max(0, Math.min(1, input.position ?? 0)),
+    unison: Math.max(1, Math.min(8, Math.round(input.unison ?? 1))),
+    wavetableId: input.wavetableId ?? 'basic',
   }
 }
 

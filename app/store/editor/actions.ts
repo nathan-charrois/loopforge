@@ -49,6 +49,7 @@ import {
   createChordSymbol,
   createDraftEntityId,
   createDrumHitEvent,
+  createFmInstrument,
   createKeyEvent,
   createLoopEvent,
   createMeterEvent,
@@ -56,9 +57,11 @@ import {
   createPattern,
   createSeedPatternEvents,
   createSubtractorInstrument,
+  createSynthOperator,
   createSynthOscillator,
   createTempoEvent,
   createThorInstrument,
+  createWavetableInstrument,
   type EffectId,
   getKeyAtTick,
   getLoopEventEndTick,
@@ -705,6 +708,13 @@ export function updateInstrumentFromInspectorAction(input: {
   instrument: Instrument
 }): Command {
   switch (input.draft.instrumentKind) {
+    case 'fm':
+      return updateInstrumentAction(createFmInstrument({
+        ...input.instrument,
+        algorithm: input.draft.instrumentFmAlgorithm,
+        name: input.draft.instrumentName,
+        operators: input.draft.instrumentFmOperators?.map(createSynthOperator),
+      }))
     case 'subtractor': {
       return updateInstrumentAction(createSubtractorInstrument({
         ...input.instrument,
@@ -731,6 +741,17 @@ export function updateInstrumentFromInspectorAction(input: {
         name: input.draft.instrumentName,
         envelope: input.draft.instrumentSynthEnvelope,
         oscillators: input.draft.instrumentSynthOscillators,
+      }))
+    case 'wavetable':
+      return updateInstrumentAction(createWavetableInstrument({
+        ...input.instrument,
+        detuneCents: input.draft.instrumentWavetableDetuneCents,
+        envelope: input.draft.instrumentWavetableEnvelope,
+        filter: input.draft.instrumentWavetableFilter,
+        name: input.draft.instrumentName,
+        position: input.draft.instrumentWavetablePosition,
+        unison: input.draft.instrumentWavetableUnison,
+        wavetableId: input.draft.instrumentWavetableId,
       }))
     default: {
       return updateInstrumentAction({

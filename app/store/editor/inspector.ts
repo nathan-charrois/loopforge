@@ -4,6 +4,8 @@ import {
   createChordSymbol,
   createDefaultChordPlayback,
   createDefaultChordVoicing,
+  createSynthEnvelope,
+  createSynthFilter,
   DEFAULT_TRACK_COLOR,
   type Instrument,
   isKeyEvent,
@@ -25,8 +27,16 @@ export function createInspectorDraft(): InspectorDraft {
     blockName: '',
     blockPatternId: '',
     blockPlaybackMode: 'loop',
+    instrumentFmAlgorithm: 'serial',
+    instrumentFmOperators: [],
     instrumentName: '',
     instrumentKind: 'thor',
+    instrumentWavetableDetuneCents: 0,
+    instrumentWavetableEnvelope: createSynthEnvelope(),
+    instrumentWavetableFilter: createSynthFilter(),
+    instrumentWavetableId: '',
+    instrumentWavetablePosition: 0,
+    instrumentWavetableUnison: 0,
     keyMode: 'major',
     keyTick: 0,
     keyTonic: 0,
@@ -97,6 +107,29 @@ export function updateInspectorDraftFromInstrument(
     ...currentDraft,
     instrumentName: selectedInstrument.name,
     instrumentKind: selectedInstrument.kind,
+  }
+
+  if (selectedInstrument.kind === 'fm') {
+    return {
+      ...nextDraft,
+      instrumentFmAlgorithm: selectedInstrument.algorithm,
+      instrumentFmOperators: selectedInstrument.operators.map(operator => ({
+        ...operator,
+        envelope: { ...operator.envelope },
+      })),
+    }
+  }
+
+  if (selectedInstrument.kind === 'wavetable') {
+    return {
+      ...nextDraft,
+      instrumentWavetableDetuneCents: selectedInstrument.detuneCents,
+      instrumentWavetableEnvelope: { ...selectedInstrument.envelope },
+      instrumentWavetableFilter: { ...selectedInstrument.filter },
+      instrumentWavetableId: selectedInstrument.wavetableId,
+      instrumentWavetablePosition: selectedInstrument.position,
+      instrumentWavetableUnison: selectedInstrument.unison,
+    }
   }
 
   if (

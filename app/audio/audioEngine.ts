@@ -3,18 +3,21 @@ import {
   MixerGraph,
   type MixerMeterSnapshot,
 } from './mixerGraph'
+import { createWavetablePeriodicWave } from './wavetable'
 import {
   decibelsToGain,
   type DrumInstrument,
   type DrumPiece,
+  type FmInstrument,
   type Instrument,
   type InstrumentId,
   type MidiNote,
   type SubtractorInstrument,
   type ThorInstrument,
   type Velocity,
+  type WavetableInstrument,
 } from '~/domain'
-import type { SynthEnvelope } from '~/domain/instrument/synth'
+import type { SynthAlgorithm, SynthEnvelope } from '~/domain/instrument/synth'
 import type { PlaybackTrigger } from '~/playback/buildSchedule'
 import {
   selectInstrument,
@@ -274,6 +277,16 @@ export class AudioEngine {
     requestedDurationSeconds: number | undefined,
   ): void {
     switch (instrument.kind) {
+      case 'fm':
+        this.scheduleFmVoice(
+          destination,
+          instrument,
+          pitch,
+          velocity,
+          whenSeconds,
+          requestedDurationSeconds,
+        )
+        return
       case 'subtractor':
         this.scheduleSubtractorVoice(
           destination,
@@ -294,7 +307,146 @@ export class AudioEngine {
           requestedDurationSeconds,
         )
         return
+      case 'wavetable':
+        this.scheduleWavetableVoice(
+          destination,
+          instrument,
+          pitch,
+          velocity,
+          whenSeconds,
+          requestedDurationSeconds,
+        )
+        return
     }
+  }
+
+  private scheduleFmVoice(
+    destination: GainNode,
+    instrument: FmInstrument,
+    pitch: MidiNote,
+    velocity: Velocity,
+    whenSeconds: number,
+    requestedDurationSeconds: number | undefined,
+  ): void {
+    const context = this.requiredRunningContext()
+    const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
+    const routing = getFmOperatorRouting(instrument.algorithm, instrument.operators.length)
+
+    const totalCarrierLevel = routing.carrierIndices.reduce(
+      (total, operatorIndex) => (
+        total + Math.max(0, instrument.operators[operatorIndex].level)
+      ),
+      0,
+    )
+
+    if (instrument.operators.length === 0 || totalCarrierLevel === 0) {
+      return
+    }
+
+    const fundamentalFrequency = midiNoteToFrequency(pitch)
+    const masterGain = context.createGain()
+
+    const operatorNodes = instrument.operators.map((operator) => {
+      const oscillator = context.createOscillator()
+      const envelope = context.createGain()
+      const frequency = fundamentalFrequency * Math.max(0.01, operator.ratio)
+      const endSeconds = this.scheduleSynthEnvelope(
+        envelope.gain,
+        operator.envelope,
+        127,
+        whenSeconds,
+        durationSeconds,
+      )
+
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(frequency, whenSeconds)
+      oscillator.detune.setValueAtTime(operator.detuneCents, whenSeconds)
+      oscillator.connect(envelope)
+
+      return {
+        endSeconds,
+        envelope,
+        frequency,
+        oscillator,
+        routingGains: [] as GainNode[],
+      }
+    })
+
+    masterGain.gain.setValueAtTime(
+      Math.max(0, Math.min(1, velocity / 127)),
+      whenSeconds,
+    )
+    masterGain.connect(destination)
+
+    operatorNodes.forEach((operatorNode, operatorIndex) => {
+      const operator = instrument.operators[operatorIndex]
+
+      if (routing.carrierIndices.includes(operatorIndex)) {
+        const carrierGain = context.createGain()
+
+        carrierGain.gain.setValueAtTime(
+          Math.max(0, operator.level) / Math.max(1, totalCarrierLevel),
+          whenSeconds,
+        )
+        operatorNode.envelope.connect(carrierGain)
+        carrierGain.connect(masterGain)
+        operatorNode.routingGains.push(carrierGain)
+      }
+
+      const modulationTarget = routing.modulationTargets[operatorIndex]
+
+      if (modulationTarget !== undefined) {
+        const modulationGain = context.createGain()
+
+        modulationGain.gain.setValueAtTime(
+          operatorNodes[modulationTarget].frequency * Math.max(0, operator.level),
+          whenSeconds,
+        )
+        operatorNode.envelope.connect(modulationGain)
+        modulationGain.connect(operatorNodes[modulationTarget].oscillator.frequency)
+        operatorNode.routingGains.push(modulationGain)
+      }
+
+      if (operator.feedback > 0) {
+        const feedbackGain = context.createGain()
+
+        feedbackGain.gain.setValueAtTime(
+          operatorNode.frequency * operator.feedback,
+          whenSeconds,
+        )
+        operatorNode.envelope.connect(feedbackGain)
+        feedbackGain.connect(operatorNode.oscillator.frequency)
+        operatorNode.routingGains.push(feedbackGain)
+      }
+    })
+
+    let remainingOperators = operatorNodes.length
+
+    operatorNodes.forEach((operatorNode) => {
+      operatorNode.oscillator.start(whenSeconds)
+      operatorNode.oscillator.stop(operatorNode.endSeconds + 0.01)
+
+      let operatorCleanedUp = false
+
+      this.registerVoice(operatorNode.oscillator, () => {
+        if (operatorCleanedUp) {
+          return
+        }
+
+        operatorCleanedUp = true
+        operatorNode.envelope.disconnect()
+
+        for (const routingGain of operatorNode.routingGains) {
+          routingGain.disconnect()
+        }
+
+        remainingOperators -= 1
+
+        if (remainingOperators === 0) {
+          masterGain.disconnect()
+        }
+      })
+    })
   }
 
   private scheduleSubtractorVoice(
@@ -613,6 +765,84 @@ export class AudioEngine {
     }
   }
 
+  private scheduleWavetableVoice(
+    destination: GainNode,
+    instrument: WavetableInstrument,
+    pitch: MidiNote,
+    velocity: Velocity,
+    whenSeconds: number,
+    requestedDurationSeconds: number | undefined,
+  ): void {
+    const context = this.requiredRunningContext()
+    const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
+    const unison = Math.max(1, Math.min(8, Math.round(instrument.unison)))
+    const filter = context.createBiquadFilter()
+    const envelope = context.createGain()
+    const periodicWave = createWavetablePeriodicWave(
+      context,
+      instrument.wavetableId,
+      instrument.position,
+    )
+    const endSeconds = this.scheduleSynthEnvelope(
+      envelope.gain,
+      instrument.envelope,
+      velocity,
+      whenSeconds,
+      durationSeconds,
+    )
+
+    filter.type = instrument.filter.type
+    filter.frequency.setValueAtTime(
+      Math.max(20, Math.min(context.sampleRate / 2, instrument.filter.cutoffHz)),
+      whenSeconds,
+    )
+    filter.Q.setValueAtTime(
+      Math.max(0, instrument.filter.resonance),
+      whenSeconds,
+    )
+    filter.connect(envelope)
+    envelope.connect(destination)
+
+    let remainingOscillators = unison
+
+    for (let oscillatorIndex = 0; oscillatorIndex < unison; oscillatorIndex += 1) {
+      const oscillator = context.createOscillator()
+      const oscillatorGain = context.createGain()
+      const detunePosition = unison === 1
+        ? 0
+        : (oscillatorIndex / (unison - 1)) * 2 - 1
+
+      oscillator.setPeriodicWave(periodicWave)
+      oscillator.frequency.setValueAtTime(midiNoteToFrequency(pitch), whenSeconds)
+      oscillator.detune.setValueAtTime(
+        detunePosition * Math.max(0, instrument.detuneCents),
+        whenSeconds,
+      )
+      oscillatorGain.gain.setValueAtTime(1 / unison, whenSeconds)
+      oscillator.connect(oscillatorGain)
+      oscillatorGain.connect(filter)
+      oscillator.start(whenSeconds)
+      oscillator.stop(endSeconds + 0.01)
+
+      let oscillatorCleanedUp = false
+
+      this.registerVoice(oscillator, () => {
+        if (oscillatorCleanedUp) {
+          return
+        }
+
+        oscillatorCleanedUp = true
+        oscillatorGain.disconnect()
+        remainingOscillators -= 1
+
+        if (remainingOscillators === 0) {
+          filter.disconnect()
+          envelope.disconnect()
+        }
+      })
+    }
+  }
+
   private scheduleSynthEnvelope(
     gain: AudioParam,
     envelope: SynthEnvelope,
@@ -789,6 +1019,46 @@ function getAudioEngineState(
   }
 
   return 'suspended'
+}
+
+function getFmOperatorRouting(
+  algorithm: SynthAlgorithm,
+  operatorCount: number,
+): {
+  carrierIndices: number[]
+  modulationTargets: Array<number | undefined>
+} {
+  const operatorIndices = Array.from(
+    { length: operatorCount },
+    (_value, index) => index,
+  )
+
+  switch (algorithm) {
+    case 'parallel':
+      return {
+        carrierIndices: operatorIndices,
+        modulationTargets: operatorIndices.map(() => undefined),
+      }
+    case 'threeToOne':
+      return {
+        carrierIndices: operatorCount === 0 ? [] : [0],
+        modulationTargets: operatorIndices.map(index => index === 0 ? undefined : 0),
+      }
+    case 'twoStacks':
+      return {
+        carrierIndices: operatorIndices.filter(index => index % 2 === 0),
+        modulationTargets: operatorIndices.map(index => (
+          index % 2 === 0 ? undefined : index - 1
+        )),
+      }
+    case 'serial':
+      return {
+        carrierIndices: operatorCount === 0 ? [] : [0],
+        modulationTargets: operatorIndices.map(index => (
+          index === 0 ? undefined : index - 1
+        )),
+      }
+  }
 }
 
 function getDrumVoiceSettings(

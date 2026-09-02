@@ -29,3 +29,17 @@ export type SynthFilter = {
   cutoffHz: number
   resonance: number
 }
+
+export type SynthOperator = {
+  ratio: number
+  detuneCents: number
+  level: number
+  feedback: number
+  envelope: SynthEnvelope
+}
+
+export type SynthAlgorithm
+  = | 'serial'
+    | 'twoStacks'
+    | 'threeToOne'
+    | 'parallel'

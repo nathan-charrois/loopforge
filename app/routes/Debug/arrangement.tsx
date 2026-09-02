@@ -57,6 +57,7 @@ import {
   Tooltip,
 } from '@mantine/core'
 
+import { WAVETABLE_IDS } from '~/audio/wavetable'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import { AppMenu } from '~/components/AppLayout/AppMenu'
 import { EffectsPanel } from '~/components/EffectsPanel/EffectsPanel'
@@ -84,6 +85,7 @@ import {
   createDraftEntityId,
   createInstrument,
   createMixChannel,
+  createSynthOperator,
   createSynthOscillator,
   DEFAULT_TRACK_COLOR,
   DRUM_PIECES,
@@ -141,7 +143,12 @@ import {
   type TrackRole,
   VOICING_TYPES,
 } from '~/domain'
-import type { SynthFilter, SynthOscillator } from '~/domain/instrument/synth'
+import type {
+  SynthAlgorithm,
+  SynthFilter,
+  SynthOperator,
+  SynthOscillator,
+} from '~/domain/instrument/synth'
 import { useAnimationFrameThrottle } from '~/hooks/useAnimationFrameThrottle'
 import { useBlockStack } from '~/hooks/useBlockStack'
 import { useDrag } from '~/hooks/useDrag'
@@ -301,6 +308,13 @@ const SYNTH_FILTER_TYPES: SynthFilter['type'][] = [
   'lowpass',
   'highpass',
   'bandpass',
+]
+
+const SYNTH_ALGORITHMS: SynthAlgorithm[] = [
+  'serial',
+  'twoStacks',
+  'threeToOne',
+  'parallel',
 ]
 
 const HOVER_BOX_SHADOWS = {
@@ -2788,6 +2802,18 @@ const InstrumentInspector = memo(function InstrumentInspector({
           setDraft={setDraft}
         />
       )}
+      {draft.instrumentKind === 'fm' && (
+        <FmInstrumentControls
+          draft={draft}
+          setDraft={setDraft}
+        />
+      )}
+      {draft.instrumentKind === 'wavetable' && (
+        <WavetableInstrumentControls
+          draft={draft}
+          setDraft={setDraft}
+        />
+      )}
       <Button size="xs" onClick={onUpdate}>Apply Instrument</Button>
     </Stack>
   )
@@ -2821,6 +2847,301 @@ const SubtractorInstrumentControls = memo(function SubtractorInstrumentControls(
       <SynthOscillatorControls draft={draft} setDraft={setDraft} />
       <SubtractorFilterControls draft={draft} setDraft={setDraft} />
       <SynthEnvelopeControls draft={draft} setDraft={setDraft} />
+    </Stack>
+  )
+})
+
+const FmInstrumentControls = memo(function FmInstrumentControls({
+  draft,
+  setDraft,
+}: {
+  draft: InspectorDraft
+  setDraft: SetInspectorDraft
+}) {
+  const updateOperator = (
+    operatorIndex: number,
+    update: (operator: SynthOperator) => SynthOperator,
+  ) => setDraft((currentDraft) => {
+    if (currentDraft.instrumentFmOperators === undefined) {
+      return currentDraft
+    }
+
+    return {
+      ...currentDraft,
+      instrumentFmOperators: currentDraft.instrumentFmOperators.map(
+        (operator, index) => index === operatorIndex
+          ? update(operator)
+          : operator,
+      ),
+    }
+  })
+
+  const addOperator = () => setDraft(currentDraft => ({
+    ...currentDraft,
+    instrumentFmOperators: [
+      ...(currentDraft.instrumentFmOperators ?? []),
+      createSynthOperator(),
+    ],
+  }))
+
+  const removeOperator = (operatorIndex: number) => setDraft(currentDraft => ({
+    ...currentDraft,
+    instrumentFmOperators: currentDraft.instrumentFmOperators?.filter(
+      (_operator, index) => index !== operatorIndex,
+    ),
+  }))
+
+  return (
+    <Stack gap="md">
+      <Select
+        allowDeselect={false}
+        data={SYNTH_ALGORITHMS.map(value => ({ label: value, value }))}
+        label="Algorithm"
+        size="xs"
+        value={draft.instrumentFmAlgorithm}
+        onChange={(value) => {
+          const algorithm = SYNTH_ALGORITHMS.find(candidate => candidate === value)
+
+          if (algorithm !== undefined) {
+            setDraft(currentDraft => ({
+              ...currentDraft,
+              instrumentFmAlgorithm: algorithm,
+            }))
+          }
+        }}
+      />
+      {draft.instrumentFmOperators?.map((operator, operatorIndex) => (
+        <Paper key={operatorIndex} withBorder radius="sm" p="md">
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Text fw={600} size="xs">{`Operator ${operatorIndex + 1}`}</Text>
+              <ActionIcon
+                aria-label={`Remove operator ${operatorIndex + 1}`}
+                color="red"
+                size="sm"
+                variant="light"
+                onClick={() => removeOperator(operatorIndex)}
+              >
+                <HugeiconsIcon icon={Delete01Icon} size={14} />
+              </ActionIcon>
+            </Group>
+            <SimpleGrid cols={2} spacing="sm">
+              <NumberInput
+                decimalScale={3}
+                label="Ratio"
+                min={0.01}
+                size="xs"
+                step={0.01}
+                value={operator.ratio}
+                onChange={value => updateOperator(operatorIndex, currentOperator => ({
+                  ...currentOperator,
+                  ratio: Math.max(
+                    0.01,
+                    parseNumber(value.toString(), currentOperator.ratio),
+                  ),
+                }))}
+              />
+              <NumberInput
+                label="Detune (cents)"
+                size="xs"
+                value={operator.detuneCents}
+                onChange={value => updateOperator(operatorIndex, currentOperator => ({
+                  ...currentOperator,
+                  detuneCents: parseNumber(value.toString(), currentOperator.detuneCents),
+                }))}
+              />
+              <NumberInput
+                decimalScale={2}
+                label="Level"
+                min={0}
+                size="xs"
+                step={0.05}
+                value={operator.level}
+                onChange={value => updateOperator(operatorIndex, currentOperator => ({
+                  ...currentOperator,
+                  level: Math.max(
+                    0,
+                    parseNumber(value.toString(), currentOperator.level),
+                  ),
+                }))}
+              />
+              <NumberInput
+                decimalScale={2}
+                label="Feedback"
+                min={0}
+                size="xs"
+                step={0.05}
+                value={operator.feedback}
+                onChange={value => updateOperator(operatorIndex, currentOperator => ({
+                  ...currentOperator,
+                  feedback: Math.max(
+                    0,
+                    parseNumber(value.toString(), currentOperator.feedback),
+                  ),
+                }))}
+              />
+            </SimpleGrid>
+            <SynthEnvelopeFields
+              draft={{
+                ...draft,
+                instrumentSynthEnvelope: operator.envelope,
+              }}
+              label="Operator envelope"
+              onChange={(property, value) => updateOperator(
+                operatorIndex,
+                currentOperator => ({
+                  ...currentOperator,
+                  envelope: {
+                    ...currentOperator.envelope,
+                    [property]: value,
+                  },
+                }),
+              )}
+            />
+          </Stack>
+        </Paper>
+      ))}
+      <Button size="xs" variant="light" onClick={addOperator}>Add operator</Button>
+    </Stack>
+  )
+})
+
+const WavetableInstrumentControls = memo(function WavetableInstrumentControls({
+  draft,
+  setDraft,
+}: {
+  draft: InspectorDraft
+  setDraft: SetInspectorDraft
+}) {
+  const updateFilter = (
+    property: keyof SynthFilter,
+    value: number | SynthFilter['type'],
+  ) => setDraft((currentDraft) => {
+    if (currentDraft.instrumentWavetableFilter === undefined) {
+      return currentDraft
+    }
+
+    return {
+      ...currentDraft,
+      instrumentWavetableFilter: {
+        ...currentDraft.instrumentWavetableFilter,
+        [property]: value,
+      },
+    }
+  })
+
+  const updateEnvelope = (
+    property: keyof NonNullable<InspectorDraft['instrumentWavetableEnvelope']>,
+    value: number,
+  ) => setDraft((currentDraft) => {
+    if (currentDraft.instrumentWavetableEnvelope === undefined) {
+      return currentDraft
+    }
+
+    return {
+      ...currentDraft,
+      instrumentWavetableEnvelope: {
+        ...currentDraft.instrumentWavetableEnvelope,
+        [property]: value,
+      },
+    }
+  })
+
+  return (
+    <Stack gap="md">
+      <Paper withBorder radius="sm" p="md">
+        <Stack gap="md">
+          <Text fw={600} size="xs">Wavetable oscillator</Text>
+          <Select
+            allowDeselect={false}
+            data={WAVETABLE_IDS.map(value => ({ label: value, value }))}
+            label="Wavetable"
+            size="xs"
+            value={draft.instrumentWavetableId}
+            onChange={(value) => {
+              const wavetableId = WAVETABLE_IDS.find(candidate => candidate === value)
+
+              if (wavetableId !== undefined) {
+                setDraft(currentDraft => ({
+                  ...currentDraft,
+                  instrumentWavetableId: wavetableId,
+                }))
+              }
+            }}
+          />
+          <Stack gap={4}>
+            <Group justify="space-between">
+              <Text size="xs">Position</Text>
+              <Text c="dimmed" size="xs">
+                {draft.instrumentWavetablePosition?.toFixed(2)}
+              </Text>
+            </Group>
+            <Slider
+              aria-label="Wavetable position"
+              label={null}
+              max={1}
+              min={0}
+              step={0.01}
+              value={draft.instrumentWavetablePosition}
+              onChange={value => setDraft(currentDraft => ({
+                ...currentDraft,
+                instrumentWavetablePosition: value,
+              }))}
+            />
+          </Stack>
+          <SimpleGrid cols={2} spacing="sm">
+            <NumberInput
+              allowDecimal={false}
+              label="Unison voices"
+              max={8}
+              min={1}
+              size="xs"
+              value={draft.instrumentWavetableUnison}
+              onChange={value => setDraft(currentDraft => ({
+                ...currentDraft,
+                instrumentWavetableUnison: Math.max(
+                  1,
+                  Math.min(
+                    8,
+                    Math.round(parseNumber(
+                      value.toString(),
+                      currentDraft.instrumentWavetableUnison,
+                    )),
+                  ),
+                ),
+              }))}
+            />
+            <NumberInput
+              decimalScale={2}
+              label="Detune spread (cents)"
+              min={0}
+              size="xs"
+              value={draft.instrumentWavetableDetuneCents}
+              onChange={value => setDraft(currentDraft => ({
+                ...currentDraft,
+                instrumentWavetableDetuneCents: Math.max(
+                  0,
+                  parseNumber(
+                    value.toString(),
+                    currentDraft.instrumentWavetableDetuneCents,
+                  ),
+                ),
+              }))}
+            />
+          </SimpleGrid>
+        </Stack>
+      </Paper>
+      <SynthFilterFields
+        filter={draft.instrumentWavetableFilter}
+        onChange={updateFilter}
+      />
+      <SynthEnvelopeFields
+        draft={{
+          ...draft,
+          instrumentSynthEnvelope: draft.instrumentWavetableEnvelope,
+        }}
+        onChange={updateEnvelope}
+      />
     </Stack>
   )
 })
@@ -3053,6 +3374,24 @@ const SubtractorFilterControls = memo(function SubtractorFilterControls({
   })
 
   return (
+    <SynthFilterFields
+      filter={draft.instrumentSubtractorFilter}
+      onChange={updateFilter}
+    />
+  )
+})
+
+const SynthFilterFields = memo(function SynthFilterFields({
+  filter,
+  onChange,
+}: {
+  filter: SynthFilter | undefined
+  onChange: (
+    property: keyof SynthFilter,
+    value: number | SynthFilter['type'],
+  ) => void
+}) {
+  return (
     <Paper withBorder radius="sm" p="md">
       <Stack gap="md">
         <Text fw={600} size="xs">Filter</Text>
@@ -3061,12 +3400,12 @@ const SubtractorFilterControls = memo(function SubtractorFilterControls({
           data={SYNTH_FILTER_TYPES.map(value => ({ label: value, value }))}
           label="Type"
           size="xs"
-          value={draft.instrumentSubtractorFilter?.type}
+          value={filter?.type}
           onChange={(value) => {
             const type = SYNTH_FILTER_TYPES.find(candidate => candidate === value)
 
             if (type !== undefined) {
-              updateFilter('type', type)
+              onChange('type', type)
             }
           }}
         />
@@ -3075,15 +3414,12 @@ const SubtractorFilterControls = memo(function SubtractorFilterControls({
             label="Cutoff (Hz)"
             min={20}
             size="xs"
-            value={draft.instrumentSubtractorFilter?.cutoffHz}
-            onChange={value => updateFilter(
+            value={filter?.cutoffHz}
+            onChange={value => onChange(
               'cutoffHz',
               Math.max(
                 20,
-                parseNumber(
-                  value.toString(),
-                  draft.instrumentSubtractorFilter?.cutoffHz,
-                ),
+                parseNumber(value.toString(), filter?.cutoffHz),
               ),
             )}
           />
@@ -3093,15 +3429,12 @@ const SubtractorFilterControls = memo(function SubtractorFilterControls({
             min={0}
             size="xs"
             step={0.1}
-            value={draft.instrumentSubtractorFilter?.resonance}
-            onChange={value => updateFilter(
+            value={filter?.resonance}
+            onChange={value => onChange(
               'resonance',
               Math.max(
                 0,
-                parseNumber(
-                  value.toString(),
-                  draft.instrumentSubtractorFilter?.resonance,
-                ),
+                parseNumber(value.toString(), filter?.resonance),
               ),
             )}
           />
@@ -3143,24 +3476,44 @@ const SynthEnvelopeControls = memo(function SynthEnvelopeControls({
   })
 
   return (
+    <SynthEnvelopeFields
+      draft={draft}
+      onChange={updateEnvelope}
+    />
+  )
+})
+
+const SynthEnvelopeFields = memo(function SynthEnvelopeFields({
+  draft,
+  label = 'Envelope',
+  onChange,
+}: {
+  draft: InspectorDraft
+  label?: string
+  onChange: (
+    property: keyof NonNullable<InspectorDraft['instrumentSynthEnvelope']>,
+    value: number,
+  ) => void
+}) {
+  return (
     <Paper withBorder radius="sm" p="md">
       <Stack gap="md">
-        <Text fw={600} size="xs">Envelope</Text>
+        <Text fw={600} size="xs">{label}</Text>
         <SimpleGrid cols={1} spacing="md">
-          {SYNTH_ENVELOPE_CONTROLS.map(({ label, property }) => (
+          {SYNTH_ENVELOPE_CONTROLS.map(({ label: controlLabel, property }) => (
             <Stack key={property} gap={4}>
               <Group justify="space-between">
-                <Text size="xs">{label}</Text>
+                <Text size="xs">{controlLabel}</Text>
                 <Text c="dimmed" size="xs">{draft.instrumentSynthEnvelope?.[property]}</Text>
               </Group>
               <Slider
-                aria-label={label}
+                aria-label={controlLabel}
                 label={null}
                 max={MAX_SYNTH_ENVELOPE_VALUE}
                 min={0}
                 step={0.01}
                 value={draft.instrumentSynthEnvelope?.[property]}
-                onChange={value => updateEnvelope(property, value)}
+                onChange={value => onChange(property, value)}
               />
             </Stack>
           ))}
