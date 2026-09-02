@@ -577,9 +577,7 @@ const AutomationPatternRoll = memo(function AutomationPatternRoll({
           }}
         />
       ))}
-      {dragOverlay.drawRange !== undefined
-        && dragOverlay.parameter !== undefined
-        && dragOverlay.value !== undefined && (
+      {dragOverlay.drawRange && dragOverlay.parameter && dragOverlay.value && (
         <Box
           aria-label={`New ${dragOverlay.parameter} automation at ${formatAutomationValue(dragOverlay.value)}`}
           style={{
@@ -822,7 +820,7 @@ function getAutomationDrawValue(
 }
 
 function formatAutomationValue(value: AutomationValue): string {
-  return typeof value === 'string' ? `“${value}”` : String(value)
+  return typeof value === 'string' ? value : String(value)
 }
 
 function getGridLineColor(kind: RulerMark['kind']): string {
