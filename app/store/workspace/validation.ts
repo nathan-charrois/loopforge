@@ -43,6 +43,34 @@ export function validateWorkspace(workspace: Workspace): string[] {
     }
   }
 
+  for (const instrumentId of workspace.instruments.allIds) {
+    const instrument = workspace.instruments.byId[instrumentId]
+
+    if (instrument === undefined) {
+      continue
+    }
+
+    const targetTrack = workspace.tracks.allIds
+      .map(trackId => workspace.tracks.byId[trackId])
+      .find(track => track?.instrumentId === instrumentId)
+
+    for (const effectId of instrument.effectIds) {
+      const effect = workspace.effects.byId[effectId]
+
+      if (effect?.kind !== 'compressor' || effect.sidechainSourceMixChannelId === undefined) {
+        continue
+      }
+
+      if (workspace.mixer.channels.byId[effect.sidechainSourceMixChannelId] === undefined) {
+        errors.push(`Compressor ${effect.id} references missing sidechain mix channel ${effect.sidechainSourceMixChannelId}.`)
+      }
+
+      if (targetTrack?.mixChannelId === effect.sidechainSourceMixChannelId) {
+        errors.push(`Compressor ${effect.id} cannot sidechain from its own mix channel.`)
+      }
+    }
+  }
+
   for (const block of workspace.arrangement.blocks) {
     const track = selectTrack(workspace, block.trackId)
     if (track === undefined) {

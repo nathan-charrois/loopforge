@@ -3,6 +3,7 @@ import {
   MixerGraph,
   type MixerMeterSnapshot,
 } from './mixerGraph'
+import { prepareSidechainCompressor } from './sidechainCompressor'
 import { createWavetablePeriodicWave } from './wavetable'
 import {
   decibelsToGain,
@@ -53,7 +54,7 @@ type SubtractorMonoVoice = {
 }
 
 export class AudioEngine {
-  private context: AudioContext | undefined
+  private context: BaseAudioContext | undefined
   private mixerGraph: MixerGraph | undefined
   private workspace: Workspace | undefined
 
@@ -66,6 +67,10 @@ export class AudioEngine {
   private unsubscribeMixerMeters: (() => void) | undefined
 
   private snapshot = INITIAL_AUDIO_ENGINE_SNAPSHOT
+
+  public constructor(context?: BaseAudioContext) {
+    this.context = context
+  }
 
   public getSnapshot = (): AudioEngineSnapshot => this.snapshot
 
@@ -105,8 +110,25 @@ export class AudioEngine {
       }
 
       this.context = new AudioContext()
+    }
+
+    if (this.mixerGraph === undefined) {
+      try {
+        await prepareSidechainCompressor(this.context)
+      }
+      catch (error) {
+        if (this.workspace !== undefined && hasSidechainCompressor(this.workspace)) {
+          throw new Error('Sidechain compression is not supported by this browser.', {
+            cause: error,
+          })
+        }
+      }
+
       this.mixerGraph = new MixerGraph(this.context)
-      this.context.addEventListener('statechange', this.handleContextStateChange)
+
+      if (isRealtimeAudioContext(this.context)) {
+        this.context.addEventListener('statechange', this.handleContextStateChange)
+      }
 
       if (this.workspace !== undefined) {
         this.mixerGraph.loadWorkspace(this.workspace)
@@ -116,7 +138,7 @@ export class AudioEngine {
       this.updateSnapshot()
     }
 
-    if (this.context.state === 'suspended') {
+    if (isRealtimeAudioContext(this.context) && this.context.state === 'suspended') {
       await this.context.resume()
     }
 
@@ -142,7 +164,7 @@ export class AudioEngine {
   public scheduleTrigger(
     input: ScheduleAudioTriggerInput,
   ): void {
-    const context = this.requiredRunningContext()
+    const context = this.requiredSchedulingContext()
     const workspace = this.requiredWorkspace()
     const mixerGraph = this.requiredMixerGraph()
 
@@ -232,7 +254,7 @@ export class AudioEngine {
 
     const context = this.context
 
-    if (context !== undefined) {
+    if (context !== undefined && isRealtimeAudioContext(context)) {
       context.removeEventListener('statechange', this.handleContextStateChange)
 
       if (context.state !== 'closed') {
@@ -328,7 +350,7 @@ export class AudioEngine {
     whenSeconds: number,
     requestedDurationSeconds: number | undefined,
   ): void {
-    const context = this.requiredRunningContext()
+    const context = this.requiredSchedulingContext()
     const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
     const routing = getFmOperatorRouting(instrument.algorithm, instrument.operators.length)
 
@@ -457,7 +479,7 @@ export class AudioEngine {
     whenSeconds: number,
     requestedDurationSeconds: number | undefined,
   ): void {
-    const context = this.requiredRunningContext()
+    const context = this.requiredSchedulingContext()
     const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
     const oscillatorMix = Math.max(0, Math.min(1, instrument.oscillatorMix))
     const oscillatorLevels = [
@@ -597,7 +619,7 @@ export class AudioEngine {
     whenSeconds: number,
     durationSeconds: number,
   ): void {
-    const context = this.requiredRunningContext()
+    const context = this.requiredSchedulingContext()
     const cutoffHz = Math.max(
       20,
       Math.min(context.sampleRate / 2, instrument.filter.cutoffHz),
@@ -677,7 +699,7 @@ export class AudioEngine {
     whenSeconds: number,
     requestedDurationSeconds: number | undefined,
   ): void {
-    const context = this.requiredRunningContext()
+    const context = this.requiredSchedulingContext()
     const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
 
     const oscillators = instrument.oscillators.filter(
@@ -773,7 +795,7 @@ export class AudioEngine {
     whenSeconds: number,
     requestedDurationSeconds: number | undefined,
   ): void {
-    const context = this.requiredRunningContext()
+    const context = this.requiredSchedulingContext()
     const durationSeconds = Math.max(0.02, requestedDurationSeconds ?? 0.1)
     const unison = Math.max(1, Math.min(8, Math.round(instrument.unison)))
     const filter = context.createBiquadFilter()
@@ -900,7 +922,7 @@ export class AudioEngine {
     velocity: number,
     whenSeconds: number,
   ): void {
-    const context = this.requiredRunningContext()
+    const context = this.requiredSchedulingContext()
     const oscillator = context.createOscillator()
     const envelope = context.createGain()
     const sound = instrument.pieces[piece]
@@ -972,7 +994,7 @@ export class AudioEngine {
     }
   }
 
-  private requiredContext(): AudioContext {
+  private requiredContext(): BaseAudioContext {
     if (this.context === undefined) {
       throw new Error('Audio engine has not been initialized')
     }
@@ -980,10 +1002,10 @@ export class AudioEngine {
     return this.context
   }
 
-  private requiredRunningContext(): AudioContext {
+  private requiredSchedulingContext(): BaseAudioContext {
     const context = this.requiredContext()
 
-    if (context.state !== 'running') {
+    if (isRealtimeAudioContext(context) && context.state !== 'running') {
       throw new Error(`Audio context is ${context.state}`)
     }
 
@@ -1008,7 +1030,7 @@ export class AudioEngine {
 }
 
 function getAudioEngineState(
-  context: AudioContext | undefined,
+  context: BaseAudioContext | undefined,
 ): AudioEngineState {
   if (context === undefined) {
     return 'uninitialized'
@@ -1019,6 +1041,21 @@ function getAudioEngineState(
   }
 
   return 'suspended'
+}
+
+function isRealtimeAudioContext(
+  context: BaseAudioContext,
+): context is AudioContext {
+  return typeof AudioContext !== 'undefined' && context instanceof AudioContext
+}
+
+function hasSidechainCompressor(workspace: Workspace): boolean {
+  return workspace.effects.allIds.some((effectId) => {
+    const effect = workspace.effects.byId[effectId]
+
+    return effect?.kind === 'compressor'
+      && effect.sidechainSourceMixChannelId !== undefined
+  })
 }
 
 function getFmOperatorRouting(

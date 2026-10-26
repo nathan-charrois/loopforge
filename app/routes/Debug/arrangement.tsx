@@ -61,6 +61,7 @@ import { WAVETABLE_IDS } from '~/audio/wavetable'
 import { AppLayout } from '~/components/AppLayout/AppLayout'
 import { AppMenu } from '~/components/AppLayout/AppMenu'
 import { EffectsPanel } from '~/components/EffectsPanel/EffectsPanel'
+import { ExportDialog } from '~/components/ExportDialog/ExportDialog'
 import { PatternPanel } from '~/components/PatternPanel/PatternPanel'
 import AppProvider from '~/components/Providers/AppProvider'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
@@ -111,6 +112,7 @@ import {
   isTempoEvent,
   type Key,
   type LoopEvent,
+  MASTER_OUTPUT_CEILING_DB,
   type MasterMixChannel,
   MAX_MIX_CHANNEL_PAN,
   MIN_MIX_CHANNEL_PAN,
@@ -456,6 +458,7 @@ function ArrangementDebugContent() {
   const [hoveredSectionId, setHoveredSectionId] = useState<SectionId | undefined>(undefined)
   const [hoveredTimelineEventId, setHoveredTimelineEventId] = useState<TimelineEventId | undefined>(undefined)
   const [hoveredTrackId, setHoveredTrackId] = useState<TrackId | undefined>(undefined)
+  const [exportDialogOpened, setExportDialogOpened] = useState(false)
 
   const timelineWidth = useMemo(
     () => Math.max(980, Math.ceil(tickToX(viewport.pixelsPerTick, timelineEndTick + TIMELINE_PADDING_TICKS))),
@@ -911,6 +914,8 @@ function ArrangementDebugContent() {
       <Stack gap="md" py="lg">
         <Group justify="space-between" align="flex-start">
           <AppMenu
+            currentProjectId={workspace.project.id}
+            onExportProject={() => setExportDialogOpened(true)}
             onNewProject={handleNew}
             onOpenProject={handleOpen}
             onOpenProjectDemo={handleOpenDemo}
@@ -1095,6 +1100,11 @@ function ArrangementDebugContent() {
           </Stack>
         </SimpleGrid>
       </Stack>
+      <ExportDialog
+        opened={exportDialogOpened}
+        workspace={workspace}
+        onClose={() => setExportDialogOpened(false)}
+      />
     </AppLayout>
   )
 }
@@ -1431,6 +1441,9 @@ const MasterMixChannelControls = memo(function MasterMixChannelControls({
           value={master.volumeDb}
           onChange={onVolumeChange}
         />
+        <Text c="dimmed" size="xs">
+          {`Safety limiter ceiling: ${MASTER_OUTPUT_CEILING_DB} dBFS`}
+        </Text>
       </Stack>
     </Stack>
   )

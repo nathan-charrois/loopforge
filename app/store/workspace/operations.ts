@@ -1,4 +1,4 @@
-import { addEntity, removeEntity, updateEntity } from '../type'
+import { addEntity, type EntityStore, removeEntity, updateEntity } from '../type'
 import {
   selectBlock,
   selectEffect,
@@ -228,6 +228,7 @@ export function updateMixChannel(workspace: Workspace, mixChannel: MixChannel): 
 
 export function removeTracks(workspace: Workspace, trackIds: readonly TrackId[]): Workspace {
   const tracks = trackIds.map(trackId => requireTrack(workspace, trackId))
+  const removedMixChannelIds = tracks.map(track => track.mixChannelId)
 
   return {
     ...workspace,
@@ -241,6 +242,7 @@ export function removeTracks(workspace: Workspace, trackIds: readonly TrackId[])
       (instruments, track) => removeEntity(instruments, track.instrumentId),
       workspace.instruments,
     ),
+    effects: clearSidechainSources(workspace.effects, removedMixChannelIds),
     mixer: {
       ...workspace.mixer,
       channels: tracks.reduce(
@@ -259,12 +261,37 @@ export function removeMixChannels(
 ): Workspace {
   return {
     ...workspace,
+    effects: clearSidechainSources(workspace.effects, mixChannelIds),
     mixer: {
       ...workspace.mixer,
       channels: mixChannelIds.reduce(removeEntity, workspace.mixer.channels),
     },
     project: touchProject(workspace.project),
   }
+}
+
+function clearSidechainSources(
+  effects: EntityStore<Effect>,
+  removedMixChannelIds: readonly MixChannelId[],
+): EntityStore<Effect> {
+  const removedIds = new Set(removedMixChannelIds)
+
+  return effects.allIds.reduce((nextEffects, effectId) => {
+    const effect = nextEffects.byId[effectId]
+
+    if (
+      effect?.kind !== 'compressor'
+      || effect.sidechainSourceMixChannelId === undefined
+      || !removedIds.has(effect.sidechainSourceMixChannelId)
+    ) {
+      return nextEffects
+    }
+
+    return updateEntity(nextEffects, {
+      ...effect,
+      sidechainSourceMixChannelId: undefined,
+    })
+  }, effects)
 }
 
 export function removeInstruments(

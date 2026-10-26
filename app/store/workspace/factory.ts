@@ -7,9 +7,8 @@ import { eightfoldParallax } from './demo/eightfoldParallax'
 import { fifthFloorRain } from './demo/fifthFloorRain'
 import { lanternsInFive } from './demo/lanternsInFive'
 import { marbleVerdict } from './demo/marbleVerdict'
-import { neonOrchard } from './demo/neonOrchard'
 import { prismCurrent } from './demo/prismCurrent'
-import { sunroomOrbit } from './demo/sunroomOrbit'
+import { sidechainABLab } from './demo/sidechainABLab'
 import { theHouseIsListening } from './demo/theHouseIsListening'
 import { tidalCathedral } from './demo/tidalCathedral'
 import { vacantReceiver } from './demo/vacantReceiver'
@@ -50,9 +49,8 @@ const workspaceDemos: Record<string, () => Workspace> = {
   marbleVerdict,
   cutGlassAlibi,
   eerieMountain,
-  neonOrchard,
   prismCurrent,
-  sunroomOrbit,
+  sidechainABLab,
   theHouseIsListening,
   tidalCathedral,
   vacantReceiver,

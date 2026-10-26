@@ -1,11 +1,12 @@
 import { createWorkspace } from '../factory'
 import type { Workspace } from '../type'
-import { createBlock, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createTempoEvent, createThorInstrument, createTimeline, createTrack, type DurationTicks, type Instrument, type Pattern, PPQ } from '~/domain'
+import { createBlock, createDrumHitEvent, createDrumHitEvents, createDrumInstrument, createDrumPieceSound, createKeyEvent, createMeterEvent, createMixChannel, createMixer, createNoteEvent, createNoteEvents, createPattern, createProject, createProjectMetadata, createSection, createSynthOscillator, createTempoEvent, createThorInstrument, createTimeline, createTrack, type DurationTicks, type Instrument, type Pattern, PPQ } from '~/domain'
 import { createEntityStore } from '~/store/type'
 
 export function theHouseIsListening(): Workspace {
   const barTicks = PPQ * 4
   const totalTicks = barTicks * 16
+  const firstHalfTicks = barTicks * 8
   const drumBlockTicks = barTicks * 2
   const melodyBlockTicks = barTicks * 4
   const eighthNoteTicks = PPQ / 2
@@ -45,6 +46,13 @@ export function theHouseIsListening(): Workspace {
     name: 'Hook Upstairs',
     role: 'melody',
   })
+  const lowKeyMelodyTrack = createTrack({
+    color: '#75608c',
+    id: 'house_listening_track_low_key_melody',
+    instrumentId: 'lead.low_key',
+    name: 'Understairs Motif',
+    role: 'melody',
+  })
   const ghostVoiceTrack = createTrack({
     color: '#a9c7ff',
     id: 'house_listening_track_ghost_voice',
@@ -63,6 +71,7 @@ export function theHouseIsListening(): Workspace {
   const tracks = [
     pianoTrack,
     melodyTrack,
+    lowKeyMelodyTrack,
     ghostVoiceTrack,
     drumsTrack,
   ]
@@ -89,6 +98,16 @@ export function theHouseIsListening(): Workspace {
           playbackMode: 'oneShot',
           startTick: 0,
           trackId: melodyTrack.id,
+        }),
+        createBlock({
+          color: lowKeyMelodyTrack.color,
+          id: 'house_listening_block_low_key_melody',
+          lengthTicks: firstHalfTicks,
+          name: 'Melody — Understairs Motif',
+          patternId: 'house_listening_pattern_low_key_melody',
+          playbackMode: 'oneShot',
+          startTick: 0,
+          trackId: lowKeyMelodyTrack.id,
         }),
         createBlock({
           color: melodyTrack.color,
@@ -260,6 +279,26 @@ export function theHouseIsListening(): Workspace {
         soundId: 'sine.soft',
       }),
       createThorInstrument({
+        envelope: {
+          attack: 0.08,
+          decay: 0.4,
+          sustain: 0.34,
+          release: 0.9,
+        },
+        filter: {
+          cutoffHz: 1300,
+          resonance: 1.2,
+          type: 'lowpass',
+        },
+        id: 'lead.low_key',
+        name: 'Understairs Sine',
+        oscillators: [
+          createSynthOscillator({ level: 0.76, waveform: 'sine' }),
+          createSynthOscillator({ level: 0.24, octave: -1, waveform: 'triangle' }),
+        ],
+        soundId: 'sine.soft',
+      }),
+      createThorInstrument({
         id: 'voice.ghost',
         name: 'Breath Choir',
         soundId: 'voice.ghost',
@@ -278,25 +317,25 @@ export function theHouseIsListening(): Workspace {
             durationSeconds: 0.07,
             pitchSemitones: 4,
             soundId: 'drums.closedHat.default',
-            volumeDb: -10,
+            volumeDb: -12,
           }),
           kick: createDrumPieceSound({
             durationSeconds: 0.9,
             pitchSemitones: -12,
             soundId: 'drums.kick.default',
-            volumeDb: 12,
+            volumeDb: 3,
           }),
           lowTom: createDrumPieceSound({
             durationSeconds: 0.72,
             pitchSemitones: -5,
             soundId: 'drums.kick.default',
-            volumeDb: 5,
+            volumeDb: -4,
           }),
           snare: createDrumPieceSound({
             durationSeconds: 0.18,
             pitchSemitones: -3,
             soundId: 'drums.snare.default',
-            volumeDb: 1,
+            volumeDb: -5,
           }),
         },
       }),
@@ -305,28 +344,33 @@ export function theHouseIsListening(): Workspace {
       channels: createEntityStore([
         createMixChannel({
           id: pianoTrack.mixChannelId,
-          pan: -0.20,
-          volumeDb: -1,
+          pan: -0.16,
+          volumeDb: -7,
         }),
         createMixChannel({
           id: melodyTrack.mixChannelId,
-          pan: 0.20,
-          volumeDb: -12,
+          pan: 0.24,
+          volumeDb: -14,
+        }),
+        createMixChannel({
+          id: lowKeyMelodyTrack.mixChannelId,
+          pan: -0.32,
+          volumeDb: -18,
         }),
         createMixChannel({
           id: ghostVoiceTrack.mixChannelId,
-          pan: -0.40,
-          volumeDb: -3,
+          pan: -0.28,
+          volumeDb: -12,
         }),
         createMixChannel({
           id: drumsTrack.mixChannelId,
           pan: 0,
-          volumeDb: 4,
+          volumeDb: -2,
         }),
       ]),
       master: {
         muted: false,
-        volumeDb: 0,
+        volumeDb: -2,
       },
     }),
     patterns: createEntityStore([
@@ -574,6 +618,49 @@ export function theHouseIsListening(): Workspace {
         'Melody — Hook Upstairs III',
         'Melody — Hook Upstairs IV',
       ]),
+      createPattern({
+        events: createNoteEvents('house_listening_event_low_key_melody', [
+          // Bars 1–4: a sparse mid-low answer that stays out of the hook's octave.
+          createNoteEvent({ timeTick: 0, pitch: 57, durationTicks: PPQ + eighthNoteTicks, velocity: 46, id: 'house_listening_event_low_key_melody_1' }),
+          createNoteEvent({ timeTick: (PPQ * 2) + eighthNoteTicks, pitch: 64, durationTicks: eighthNoteTicks, velocity: 42, id: 'house_listening_event_low_key_melody_2' }),
+
+          createNoteEvent({ timeTick: bar2 + eighthNoteTicks, pitch: 57, durationTicks: PPQ, velocity: 44, id: 'house_listening_event_low_key_melody_3' }),
+          createNoteEvent({ timeTick: bar2 + (PPQ * 2) + eighthNoteTicks, pitch: 59, durationTicks: eighthNoteTicks, velocity: 40, id: 'house_listening_event_low_key_melody_4' }),
+          createNoteEvent({ timeTick: bar2 + (PPQ * 3), pitch: 64, durationTicks: eighthNoteTicks, velocity: 43, id: 'house_listening_event_low_key_melody_5' }),
+
+          createNoteEvent({ timeTick: bar3, pitch: 62, durationTicks: PPQ, velocity: 45, id: 'house_listening_event_low_key_melody_6' }),
+          createNoteEvent({ timeTick: bar3 + (PPQ * 2) + eighthNoteTicks, pitch: 57, durationTicks: PPQ, velocity: 42, id: 'house_listening_event_low_key_melody_7' }),
+
+          createNoteEvent({ timeTick: bar4 + eighthNoteTicks, pitch: 56, durationTicks: PPQ, velocity: 47, id: 'house_listening_event_low_key_melody_8' }),
+          createNoteEvent({ timeTick: bar4 + (PPQ * 2), pitch: 59, durationTicks: eighthNoteTicks, velocity: 41, id: 'house_listening_event_low_key_melody_9' }),
+          createNoteEvent({ timeTick: bar4 + (PPQ * 3), pitch: 64, durationTicks: PPQ, velocity: 45, id: 'house_listening_event_low_key_melody_10' }),
+
+          // Bars 5–8: the same shape opens slightly, then resolves before the ghost voice enters.
+          createNoteEvent({ timeTick: bar5, pitch: 57, durationTicks: PPQ + eighthNoteTicks, velocity: 48, id: 'house_listening_event_low_key_melody_11' }),
+          createNoteEvent({ timeTick: bar5 + (PPQ * 2) + eighthNoteTicks, pitch: 60, durationTicks: eighthNoteTicks, velocity: 42, id: 'house_listening_event_low_key_melody_12' }),
+          createNoteEvent({ timeTick: bar5 + (PPQ * 3), pitch: 64, durationTicks: eighthNoteTicks, velocity: 44, id: 'house_listening_event_low_key_melody_13' }),
+
+          createNoteEvent({ timeTick: bar6 + eighthNoteTicks, pitch: 57, durationTicks: PPQ, velocity: 46, id: 'house_listening_event_low_key_melody_14' }),
+          createNoteEvent({ timeTick: bar6 + (PPQ * 2), pitch: 55, durationTicks: eighthNoteTicks, velocity: 40, id: 'house_listening_event_low_key_melody_15' }),
+          createNoteEvent({ timeTick: bar6 + (PPQ * 3), pitch: 59, durationTicks: PPQ, velocity: 44, id: 'house_listening_event_low_key_melody_16' }),
+
+          createNoteEvent({ timeTick: bar7, pitch: 57, durationTicks: PPQ, velocity: 47, id: 'house_listening_event_low_key_melody_17' }),
+          createNoteEvent({ timeTick: bar7 + (PPQ * 2) + eighthNoteTicks, pitch: 62, durationTicks: eighthNoteTicks, velocity: 42, id: 'house_listening_event_low_key_melody_18' }),
+          createNoteEvent({ timeTick: bar7 + (PPQ * 3), pitch: 64, durationTicks: eighthNoteTicks, velocity: 45, id: 'house_listening_event_low_key_melody_19' }),
+
+          createNoteEvent({ timeTick: bar8 + eighthNoteTicks, pitch: 56, durationTicks: PPQ, velocity: 48, id: 'house_listening_event_low_key_melody_20' }),
+          createNoteEvent({ timeTick: bar8 + (PPQ * 2), pitch: 59, durationTicks: eighthNoteTicks, velocity: 42, id: 'house_listening_event_low_key_melody_21' }),
+          createNoteEvent({ timeTick: bar8 + (PPQ * 3), pitch: 64, durationTicks: eighthNoteTicks, velocity: 46, id: 'house_listening_event_low_key_melody_22' }),
+        ]),
+        id: 'house_listening_pattern_low_key_melody',
+        kind: 'note',
+        lengthTicks: firstHalfTicks,
+        metadata: {
+          register: 'mid-low answer beneath the main hook',
+          role: 'restrained countermelody for bars 1–8',
+        },
+        name: 'Melody — Understairs Motif',
+      }),
       ...splitPattern(createPattern({
         events: createNoteEvents('house_listening_event_ghost_voice', [
           // Bars 9–12: a high, breathy counterline follows the inner notes of the new piano voicings.
@@ -864,8 +951,8 @@ export function theHouseIsListening(): Workspace {
     project: createProject({
       id: 'project_the_house_is_listening',
       metadata: createProjectMetadata({
-        description: 'A sixteen-bar haunted-piano beat in A minor, with possessed 808s, an E-centered earworm, a spectral counter-melody, a bII borrowed from A Phrygian, and a four-bar turnaround that ends in a final knock-and-answer cadence.',
-        tags: ['haunted', 'piano', '808', 'ghost-voice', 'modal-interchange', 'earworm'],
+        description: 'A sixteen-bar haunted-piano beat in A minor, with possessed 808s, a restrained first-half counterline, an E-centered earworm, a spectral counter-melody, a bII borrowed from A Phrygian, and a four-bar turnaround that ends in a final knock-and-answer cadence.',
+        tags: ['haunted', 'piano', '808', 'ghost-voice', 'countermelody', 'modal-interchange', 'earworm'],
       }),
       name: 'The House Is Listening',
     }),

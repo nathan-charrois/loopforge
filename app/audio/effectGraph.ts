@@ -1,3 +1,4 @@
+import { isSidechainCompressorPrepared } from './sidechainCompressor'
 import type {
   CompressorEffect,
   DelayEffect,
@@ -11,6 +12,7 @@ export type EffectGraph = {
   effectId: EffectId
   input: AudioNode
   output: AudioNode
+  sidechainInput?: AudioNode
   update: (effect: Effect) => void
   dispose: () => void
 }
@@ -84,6 +86,10 @@ function createCompressorEffectGraph(
   context: BaseAudioContext,
   effect: CompressorEffect,
 ): EffectGraph {
+  if (effect.sidechainSourceMixChannelId !== undefined) {
+    return createSidechainCompressorEffectGraph(context, effect)
+  }
+
   const input = context.createGain()
   const output = context.createGain()
   const compressor = context.createDynamicsCompressor()
@@ -104,6 +110,49 @@ function createCompressorEffectGraph(
       setAudioParam(context, compressor.release, clamp(nextEffect.releaseSeconds, 0, 1))
     },
   })
+}
+
+function createSidechainCompressorEffectGraph(
+  context: BaseAudioContext,
+  effect: CompressorEffect,
+): EffectGraph {
+  if (!isSidechainCompressorPrepared(context)) {
+    throw new Error('Sidechain compressor audio processor is unavailable.')
+  }
+
+  const input = context.createGain()
+  const output = context.createGain()
+  const sidechainInput = context.createGain()
+  const compressor = new AudioWorkletNode(
+    context,
+    'loopforge-sidechain-compressor',
+    {
+      numberOfInputs: 2,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+    },
+  )
+
+  sidechainInput.connect(compressor, 0, 1)
+  compressor.connect(output)
+
+  return {
+    ...createRoutableEffectGraph({
+      connectEnabled: () => input.connect(compressor, 0, 0),
+      effect,
+      input,
+      nodes: [compressor, sidechainInput],
+      output,
+      updateParameters: (nextEffect) => {
+        setWorkletParameter(context, compressor, 'thresholdDb', clamp(nextEffect.thresholdDb, -100, 0))
+        setWorkletParameter(context, compressor, 'kneeDb', clamp(nextEffect.kneeDb, 0, 40))
+        setWorkletParameter(context, compressor, 'ratio', clamp(nextEffect.ratio, 1, 20))
+        setWorkletParameter(context, compressor, 'attackSeconds', clamp(nextEffect.attackSeconds, 0, 1))
+        setWorkletParameter(context, compressor, 'releaseSeconds', clamp(nextEffect.releaseSeconds, 0, 1))
+      },
+    }),
+    sidechainInput,
+  }
 }
 
 function createDelayEffectGraph(
@@ -292,6 +341,15 @@ function setAudioParam(
   value: number,
 ): void {
   parameter.setValueAtTime(value, context.currentTime)
+}
+
+function setWorkletParameter(
+  context: BaseAudioContext,
+  node: AudioWorkletNode,
+  name: string,
+  value: number,
+): void {
+  node.parameters.get(name)?.setValueAtTime(value, context.currentTime)
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

@@ -19,6 +19,7 @@ import {
   Button,
   Group,
   Paper,
+  Select,
   SimpleGrid,
   Stack,
   Switch,
@@ -35,6 +36,7 @@ import {
   type EffectKind,
   type Instrument,
   type InstrumentId,
+  type MixChannelId,
 } from '~/domain'
 import type { Dispatch } from '~/store/session'
 import {
@@ -50,6 +52,11 @@ type CompressorEffect = Extract<Effect, { kind: 'compressor' }>
 type DelayEffect = Extract<Effect, { kind: 'delay' }>
 type ReverbEffect = Extract<Effect, { kind: 'reverb' }>
 
+type SidechainSourceOption = {
+  label: string
+  value: MixChannelId
+}
+
 type Props = {
   dispatch: Dispatch
   workspace: Workspace
@@ -64,6 +71,7 @@ const EQ_MIN_DB = -20
 const EQ_SAMPLE_RATE = 48000
 const MAX_FREQUENCY_HZ = 20000
 const MIN_FREQUENCY_HZ = 20
+const SIDECHAIN_DISABLED_VALUE = 'none'
 
 const EFFECT_KIND_LABELS: Record<EffectKind, string> = {
   compressor: 'Compressor',
@@ -143,6 +151,28 @@ const EffectsPanelContent = memo(function EffectsPanelContent({
   instrument: Instrument
   workspace: Workspace
 }) {
+  const targetTrack = workspace.tracks.allIds
+    .map(trackId => workspace.tracks.byId[trackId])
+    .find(track => track?.instrumentId === instrument.id)
+  const sidechainSourceOptions = useMemo<SidechainSourceOption[]>(() => (
+    workspace.tracks.allIds.flatMap((trackId) => {
+      const track = workspace.tracks.byId[trackId]
+
+      if (
+        track === undefined
+        || track.mixChannelId === targetTrack?.mixChannelId
+        || workspace.mixer.channels.byId[track.mixChannelId] === undefined
+      ) {
+        return []
+      }
+
+      return [{
+        label: `${track.name} (${track.role})`,
+        value: track.mixChannelId,
+      }]
+    })
+  ), [targetTrack?.mixChannelId, workspace.mixer.channels.byId, workspace.tracks])
+
   const addEffect = useCallback((kind: EffectKind) => {
     const id = createDraftEntityId(`effect_${kind}`, workspace.effects.allIds)
 
@@ -212,6 +242,7 @@ const EffectsPanelContent = memo(function EffectsPanelContent({
             effect={effect}
             effectIndex={effectIndex}
             effectCount={effects.length}
+            sidechainSourceOptions={sidechainSourceOptions}
             onMove={moveEffect}
             onRemove={removeEffect}
             onUpdate={updateEffect}
@@ -254,6 +285,7 @@ const EffectCard = memo(function EffectCard({
   effect,
   effectCount,
   effectIndex,
+  sidechainSourceOptions,
   onMove,
   onRemove,
   onUpdate,
@@ -261,6 +293,7 @@ const EffectCard = memo(function EffectCard({
   effect: Effect
   effectCount: number
   effectIndex: number
+  sidechainSourceOptions: SidechainSourceOption[]
   onMove: (effectIndex: number, direction: -1 | 1) => void
   onRemove: (effect: Effect) => void
   onUpdate: (effect: Effect) => void
@@ -278,7 +311,9 @@ const EffectCard = memo(function EffectCard({
             <Badge color="violet" variant="filled">{effectIndex + 1}</Badge>
             <Stack gap={0}>
               <Text fw={700} size="sm">{effect.name}</Text>
-              <Text c="dimmed" size="xs">{EFFECT_KIND_LABELS[effect.kind]}</Text>
+              <Text c="dimmed" size="xs">
+                {`${EFFECT_KIND_LABELS[effect.kind]}${effect.kind === 'compressor' && effect.sidechainSourceMixChannelId !== undefined ? ' · sidechain' : ''}`}
+              </Text>
             </Stack>
           </Group>
           <Group gap={6}>
@@ -328,7 +363,11 @@ const EffectCard = memo(function EffectCard({
           </Group>
         </Group>
 
-        <EffectControls effect={effect} onUpdate={onUpdate} />
+        <EffectControls
+          effect={effect}
+          sidechainSourceOptions={sidechainSourceOptions}
+          onUpdate={onUpdate}
+        />
       </Stack>
     </Paper>
   )
@@ -336,16 +375,24 @@ const EffectCard = memo(function EffectCard({
 
 const EffectControls = memo(function EffectControls({
   effect,
+  sidechainSourceOptions,
   onUpdate,
 }: {
   effect: Effect
+  sidechainSourceOptions: SidechainSourceOption[]
   onUpdate: (effect: Effect) => void
 }) {
   switch (effect.kind) {
     case 'eq':
       return <EqControls effect={effect} onUpdate={onUpdate} />
     case 'compressor':
-      return <CompressorControls effect={effect} onUpdate={onUpdate} />
+      return (
+        <CompressorControls
+          effect={effect}
+          sidechainSourceOptions={sidechainSourceOptions}
+          onUpdate={onUpdate}
+        />
+      )
     case 'delay':
       return <DelayControls effect={effect} onUpdate={onUpdate} />
     case 'reverb':
@@ -480,66 +527,88 @@ const EqBandControls = memo(function EqBandControls({
 
 const CompressorControls = memo(function CompressorControls({
   effect,
+  sidechainSourceOptions,
   onUpdate,
 }: {
   effect: CompressorEffect
+  sidechainSourceOptions: SidechainSourceOption[]
   onUpdate: (effect: Effect) => void
 }) {
   return (
-    <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="md">
-      <EffectKnob
-        label="Threshold"
-        marks={[-100, -80, -60, -50, -40, -35, -30, -25, -20, -15, -10, -5, 0]}
-        max={0}
-        min={-100}
-        precision={1}
-        unit="dB"
-        value={effect.thresholdDb}
-        onChange={thresholdDb => onUpdate({ ...effect, thresholdDb })}
+    <Stack gap="md">
+      <Select
+        allowDeselect={false}
+        data={[
+          { label: 'Off (compress this track)', value: SIDECHAIN_DISABLED_VALUE },
+          ...sidechainSourceOptions,
+        ]}
+        description={effect.sidechainSourceMixChannelId === undefined
+          ? 'The compressor responds to this track normally.'
+          : 'When the selected source gets loud, this track ducks.'}
+        label="Sidechain from"
+        value={effect.sidechainSourceMixChannelId ?? SIDECHAIN_DISABLED_VALUE}
+        onChange={value => onUpdate({
+          ...effect,
+          sidechainSourceMixChannelId: value === SIDECHAIN_DISABLED_VALUE
+            ? undefined
+            : value ?? undefined,
+        })}
       />
-      <EffectKnob
-        label="Knee"
-        marks={[0, 5, 10, 15, 20, 25, 30, 35, 40]}
-        max={40}
-        min={0}
-        precision={1}
-        unit="dB"
-        value={effect.kneeDb}
-        onChange={kneeDb => onUpdate({ ...effect, kneeDb })}
-      />
-      <EffectKnob
-        label="Ratio"
-        marks={[1, 1.5, 2, 3, 4, 6, 8, 10, 12, 16, 20]}
-        max={20}
-        min={1}
-        precision={1}
-        unit=":1"
-        value={effect.ratio}
-        onChange={ratio => onUpdate({ ...effect, ratio })}
-      />
-      <EffectKnob
-        label="Attack"
-        marks={[0.001, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1]}
-        max={1}
-        min={0.001}
-        precision={3}
-        scale="log"
-        unit="s"
-        value={effect.attackSeconds}
-        onChange={attackSeconds => onUpdate({ ...effect, attackSeconds })}
-      />
-      <EffectKnob
-        label="Release"
-        marks={[0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 0.75, 1]}
-        max={1}
-        min={0.01}
-        precision={3}
-        scale="log"
-        unit="s"
-        value={effect.releaseSeconds}
-        onChange={releaseSeconds => onUpdate({ ...effect, releaseSeconds })}
-      />
-    </SimpleGrid>
+      <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="md">
+        <EffectKnob
+          label="Threshold"
+          marks={[-100, -80, -60, -50, -40, -35, -30, -25, -20, -15, -10, -5, 0]}
+          max={0}
+          min={-100}
+          precision={1}
+          unit="dB"
+          value={effect.thresholdDb}
+          onChange={thresholdDb => onUpdate({ ...effect, thresholdDb })}
+        />
+        <EffectKnob
+          label="Knee"
+          marks={[0, 5, 10, 15, 20, 25, 30, 35, 40]}
+          max={40}
+          min={0}
+          precision={1}
+          unit="dB"
+          value={effect.kneeDb}
+          onChange={kneeDb => onUpdate({ ...effect, kneeDb })}
+        />
+        <EffectKnob
+          label="Ratio"
+          marks={[1, 1.5, 2, 3, 4, 6, 8, 10, 12, 16, 20]}
+          max={20}
+          min={1}
+          precision={1}
+          unit=":1"
+          value={effect.ratio}
+          onChange={ratio => onUpdate({ ...effect, ratio })}
+        />
+        <EffectKnob
+          label="Attack"
+          marks={[0.001, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1]}
+          max={1}
+          min={0.001}
+          precision={3}
+          scale="log"
+          unit="s"
+          value={effect.attackSeconds}
+          onChange={attackSeconds => onUpdate({ ...effect, attackSeconds })}
+        />
+        <EffectKnob
+          label="Release"
+          marks={[0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 0.75, 1]}
+          max={1}
+          min={0.01}
+          precision={3}
+          scale="log"
+          unit="s"
+          value={effect.releaseSeconds}
+          onChange={releaseSeconds => onUpdate({ ...effect, releaseSeconds })}
+        />
+      </SimpleGrid>
+    </Stack>
   )
 })
 

@@ -1,0 +1,17 @@
+export const WORKSPACE_DEMOS = [
+  { id: 'sidechainABLab', name: 'Sidechain A/B Lab', projectId: 'project_sidechain_ab_lab' },
+  { id: 'lanternsInFive', name: 'Lanterns in Five', projectId: 'project_lanterns_in_five' },
+  { id: 'theHouseIsListening', name: 'The House Is Listening', projectId: 'project_the_house_is_listening' },
+  { id: 'blueHourBelow', name: 'Blue Hour Below', projectId: 'project_blue_hour_below' },
+  { id: 'prismCurrent', name: 'Prism Current', projectId: 'project_prism_current' },
+  { id: 'tidalCathedral', name: 'Tidal Cathedral', projectId: 'project_tidal_cathedral' },
+  { id: 'cutGlassAlibi', name: 'Cut Glass Alibi', projectId: 'project_cut_glass_alibi' },
+  { id: 'zeroKelvinBloom', name: 'Zero Kelvin Bloom', projectId: 'project_zero_kelvin_bloom' },
+  { id: 'eightfoldParallax', name: 'Eightfold Parallax', projectId: 'project_eightfold_parallax' },
+  { id: 'fifthFloorRain', name: 'Fifth Floor Rain', projectId: 'project_fifth_floor_rain' },
+  { id: 'velvetUndertow', name: 'Velvet Undertow', projectId: 'project_velvet_undertow' },
+  { id: 'cedarStatic', name: 'Cedar Static', projectId: 'project_cedar_static' },
+  { id: 'vacantReceiver', name: 'Vacant Receiver', projectId: 'project_vacant_receiver' },
+  { id: 'marbleVerdict', name: 'Marble Verdict', projectId: 'project_marble_verdict' },
+  { id: 'eerieMountain', name: 'Eerie Mountain', projectId: 'project_eerie_mountain' },
+] as const

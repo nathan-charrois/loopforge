@@ -5,6 +5,7 @@ import {
 import {
   decibelsToGain,
   type Effect,
+  MASTER_OUTPUT_CEILING_DB,
   type MixChannel,
   type MixChannelId,
 } from '~/domain'
@@ -17,6 +18,11 @@ type MixChannelGraph = {
   gain: GainNode
   panner: StereoPannerNode
   meter: AnalyserNode
+}
+
+type SidechainConnection = {
+  destination: AudioNode
+  source: AudioNode
 }
 
 export type MixerMeterReading = Readonly<{
@@ -41,19 +47,24 @@ const METER_RELEASE_SECONDS = 0.02
 export class MixerGraph {
   private activeMixChannelIds: MixChannelId[] = []
   private channelGraphs = new Map<MixChannelId, MixChannelGraph>()
+  private masterCeiling: WaveShaperNode | undefined
   private masterGain: GainNode | undefined
+  private masterLimiter: DynamicsCompressorNode | undefined
   private meterAnimationFrameId: number | undefined
   private meterListeners = new Set<() => void>()
   private meterPeakHeldAt = new Map<MixChannelId, number>()
   private meterRenderedAt: number | undefined
   private meterSnapshot = INITIAL_MIXER_METER_SNAPSHOT
+  private sidechainConnections: SidechainConnection[] = []
   private readonly meterTimeDomainData = new Float32Array(METER_FFT_SIZE)
 
   public constructor(
-    private readonly context: AudioContext,
+    private readonly context: BaseAudioContext,
   ) {}
 
   public loadWorkspace(workspace: Workspace): void {
+    this.disconnectSidechains()
+
     const masterGain = this.masterGain ?? this.createMasterGain()
 
     masterGain.gain.value = workspace.mixer.master.muted ? 0 : decibelsToGain(workspace.mixer.master.volumeDb)
@@ -73,6 +84,8 @@ export class MixerGraph {
       graph.gain.gain.value = audible ? decibelsToGain(channel.volumeDb) : 0
       graph.panner.pan.value = channel.pan
     }
+
+    this.connectSidechains()
   }
 
   public getChannelInput(mixChannelId: string): GainNode | undefined {
@@ -160,9 +173,23 @@ export class MixerGraph {
 
   private createMasterGain(): GainNode {
     const masterGain = this.context.createGain()
+    const masterLimiter = this.context.createDynamicsCompressor()
+    const masterCeiling = this.context.createWaveShaper()
 
-    masterGain.connect(this.context.destination)
+    masterLimiter.threshold.value = -3
+    masterLimiter.knee.value = 0
+    masterLimiter.ratio.value = 20
+    masterLimiter.attack.value = 0.003
+    masterLimiter.release.value = 0.1
+    masterCeiling.curve = createMasterCeilingCurve(MASTER_OUTPUT_CEILING_DB)
+    masterCeiling.oversample = '4x'
+
+    masterGain.connect(masterLimiter)
+    masterLimiter.connect(masterCeiling)
+    masterCeiling.connect(this.context.destination)
+    this.masterCeiling = masterCeiling
     this.masterGain = masterGain
+    this.masterLimiter = masterLimiter
 
     return masterGain
   }
@@ -200,6 +227,7 @@ export class MixerGraph {
       && graph.effects.every((effect, index) => (
         effect.id === effects[index].id
         && effect.kind === effects[index].kind
+        && hasSameEffectGraphMode(effect, effects[index])
       ))
 
     if (hasSameStructure) {
@@ -258,6 +286,49 @@ export class MixerGraph {
       const effect = workspace.effects.byId[effectId]
       return effect === undefined ? [] : [effect]
     })
+  }
+
+  private connectSidechains(): void {
+    for (const targetMixChannelId of this.activeMixChannelIds) {
+      const targetGraph = this.channelGraphs.get(targetMixChannelId)
+
+      if (targetGraph === undefined) {
+        continue
+      }
+
+      targetGraph.effects.forEach((effect, effectIndex) => {
+        if (
+          effect.kind !== 'compressor'
+          || effect.sidechainSourceMixChannelId === undefined
+        ) {
+          return
+        }
+
+        const sourceGraph = this.channelGraphs.get(
+          effect.sidechainSourceMixChannelId,
+        )
+        const sidechainInput = targetGraph.effectGraphs[effectIndex]
+          ?.sidechainInput
+
+        if (sourceGraph === undefined || sidechainInput === undefined) {
+          return
+        }
+
+        sourceGraph.meter.connect(sidechainInput)
+        this.sidechainConnections.push({
+          destination: sidechainInput,
+          source: sourceGraph.meter,
+        })
+      })
+    }
+  }
+
+  private disconnectSidechains(): void {
+    for (const connection of this.sidechainConnections) {
+      connection.source.disconnect(connection.destination)
+    }
+
+    this.sidechainConnections = []
   }
 
   private renderMeters = (frameTime: number): void => {
@@ -350,6 +421,8 @@ export class MixerGraph {
   }
 
   private disconnect(): void {
+    this.disconnectSidechains()
+
     for (const graph of this.channelGraphs.values()) {
       graph.input.disconnect()
       graph.gain.disconnect()
@@ -363,6 +436,38 @@ export class MixerGraph {
 
     this.channelGraphs.clear()
     this.masterGain?.disconnect()
+    this.masterLimiter?.disconnect()
+    this.masterCeiling?.disconnect()
     this.masterGain = undefined
+    this.masterLimiter = undefined
+    this.masterCeiling = undefined
   }
+}
+
+function createMasterCeilingCurve(ceilingDb: number): Float32Array<ArrayBuffer> {
+  const pointCount = 65537
+  const curve = new Float32Array(pointCount)
+  const ceiling = decibelsToGain(ceilingDb)
+
+  for (let index = 0; index < pointCount; index += 1) {
+    const input = (index / (pointCount - 1)) * 2 - 1
+    curve[index] = Math.max(-ceiling, Math.min(ceiling, input))
+  }
+
+  return curve
+}
+
+function hasSameEffectGraphMode(
+  currentEffect: Effect,
+  nextEffect: Effect,
+): boolean {
+  if (
+    currentEffect.kind !== 'compressor'
+    || nextEffect.kind !== 'compressor'
+  ) {
+    return true
+  }
+
+  return (currentEffect.sidechainSourceMixChannelId === undefined)
+    === (nextEffect.sidechainSourceMixChannelId === undefined)
 }

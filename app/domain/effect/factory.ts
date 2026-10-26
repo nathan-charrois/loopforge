@@ -36,6 +36,7 @@ export function createEffect(input: {
         name: input.name,
         ratio: 12,
         releaseSeconds: 0.25,
+        sidechainSourceMixChannelId: undefined,
         thresholdDb: -24,
       }
     case 'delay':

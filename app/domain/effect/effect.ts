@@ -1,3 +1,5 @@
+import type { MixChannelId } from '../mixer'
+
 export type EffectId = string
 
 export const EFFECT_KINDS = [
@@ -39,6 +41,7 @@ export type CompressorEffect = {
   kind: 'compressor'
   id: EffectId
   name: string
+  sidechainSourceMixChannelId?: MixChannelId
   thresholdDb: number
   kneeDb: number
   ratio: number
