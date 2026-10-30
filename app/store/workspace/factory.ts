@@ -5,6 +5,7 @@ import { cutGlassAlibi } from './demo/cutGlassAlibi'
 import { eerieMountain } from './demo/eerieMountain'
 import { eightfoldParallax } from './demo/eightfoldParallax'
 import { fifthFloorRain } from './demo/fifthFloorRain'
+import { glasswingProcess } from './demo/glasswingProcess'
 import { lanternsInFive } from './demo/lanternsInFive'
 import { marbleVerdict } from './demo/marbleVerdict'
 import { prismCurrent } from './demo/prismCurrent'
@@ -13,6 +14,7 @@ import { theHouseIsListening } from './demo/theHouseIsListening'
 import { tidalCathedral } from './demo/tidalCathedral'
 import { vacantReceiver } from './demo/vacantReceiver'
 import { velvetUndertow } from './demo/velvetUndertow'
+import { vesperCircuit } from './demo/vesperCircuit'
 import { zeroKelvinBloom } from './demo/zeroKelvinBloom'
 import { addBlock, addPattern } from './operations'
 import { selectTracks } from './selector'
@@ -45,6 +47,7 @@ const workspaceDemos: Record<string, () => Workspace> = {
   cedarStatic,
   eightfoldParallax,
   fifthFloorRain,
+  glasswingProcess,
   lanternsInFive,
   marbleVerdict,
   cutGlassAlibi,
@@ -55,6 +58,7 @@ const workspaceDemos: Record<string, () => Workspace> = {
   tidalCathedral,
   vacantReceiver,
   velvetUndertow,
+  vesperCircuit,
   zeroKelvinBloom,
 }
 

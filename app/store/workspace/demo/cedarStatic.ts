@@ -64,13 +64,22 @@ const DRUM_BARS: readonly DrumBar[] = [
   { hats: [1, 4], kicks: [0], lowToms: [3], pulse: 'closedHat', snares: [] },
   { hats: [0, 1, 2, 3, 4, 5], kicks: [0, 2.5, 4], pulse: 'closedHat', snares: [3] },
   { hats: [0, 1, 2, 3], kicks: [0, 3], lowToms: [4, 4.5, 5], pulse: 'closedHat', snares: [3] },
+  { hats: [0, 2, 4], kicks: [0], pulse: 'ride', snares: [3] },
+  { hats: [1, 3, 5], kicks: [0, 3.5], pulse: 'ride', snares: [3] },
+  { hats: [0, 1, 2, 3, 4, 5], kicks: [0, 4], pulse: 'ride', snares: [3] },
+  { hats: [0, 2, 4, 5], kicks: [0], lowToms: [5], pulse: 'ride', snares: [3] },
+  { hats: [0, 1, 2, 3, 4, 5], kicks: [0, 3.5], pulse: 'ride', snares: [3] },
+  { hats: [0, 3], kicks: [0], pulse: 'ride', snares: [] },
+  { hats: [0, 1, 2, 3, 4, 5], kicks: [0, 4], pulse: 'ride', snares: [3] },
+  { hats: [0, 2, 4, 5], kicks: [0, 3], lowToms: [4.5, 5], pulse: 'ride', snares: [3] },
 ]
 
 export function cedarStatic(): Workspace {
   const eighthNoteTicks = PPQ / 2
   const dottedQuarterTicks = PPQ + eighthNoteTicks
   const barTicks = dottedQuarterTicks * 2
-  const totalTicks = barTicks * 8
+  const passTicks = barTicks * 8
+  const totalTicks = passTicks * 2
   const noteGapTicks = PPQ / 8
   const bar = (barNumber: number) => barTicks * (barNumber - 1)
   const chordsColor = '#a56a43'
@@ -259,6 +268,78 @@ export function cedarStatic(): Workspace {
       startTick: bar(8) + dottedQuarterTicks,
       velocity: 66,
     },
+    {
+      durationTicks: barTicks - noteGapTicks,
+      pitches: [47, 52, 56, 59, 61, 66, 71, 73],
+      startTick: bar(9),
+      velocity: 62,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [54, 59, 61, 64, 66, 71, 73],
+      startTick: bar(10),
+      velocity: 64,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [54, 59, 63, 66, 71, 73, 78],
+      startTick: bar(10) + dottedQuarterTicks,
+      velocity: 66,
+    },
+    {
+      durationTicks: barTicks - noteGapTicks,
+      pitches: [49, 56, 59, 64, 66, 71, 76, 78],
+      startTick: bar(11),
+      velocity: 66,
+    },
+    {
+      durationTicks: barTicks - noteGapTicks,
+      pitches: [52, 57, 61, 64, 68, 71, 76, 80],
+      startTick: bar(12),
+      velocity: 68,
+    },
+    {
+      durationTicks: barTicks - noteGapTicks,
+      pitches: [56, 59, 64, 66, 71, 76, 80, 83],
+      startTick: bar(13),
+      velocity: 70,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [52, 57, 61, 66, 68, 71, 76, 78],
+      startTick: bar(14),
+      velocity: 72,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [52, 57, 61, 64, 68, 73, 78, 80],
+      startTick: bar(14) + dottedQuarterTicks,
+      velocity: 70,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [49, 56, 59, 64, 66, 71, 76, 80],
+      startTick: bar(15),
+      velocity: 72,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [58, 61, 64, 66, 71, 75, 80, 85],
+      startTick: bar(15) + dottedQuarterTicks,
+      velocity: 74,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [47, 54, 57, 61, 64, 68, 73, 78],
+      startTick: bar(16),
+      velocity: 72,
+    },
+    {
+      durationTicks: dottedQuarterTicks - noteGapTicks,
+      pitches: [52, 59, 64, 68, 71, 73, 78, 80, 83],
+      startTick: bar(16) + dottedQuarterTicks,
+      velocity: 70,
+    },
   ]
   const voiceMelody: readonly NoteGesture[] = [
     { durationTicks: eighthNoteTicks, pitch: 71, startTick: bar(1) + (eighthNoteTicks * 3), velocity: 68 },
@@ -300,6 +381,20 @@ export function cedarStatic(): Workspace {
     { durationTicks: eighthNoteTicks, pitch: 75, startTick: bar(8) + (eighthNoteTicks * 2), velocity: 72 },
     { durationTicks: dottedQuarterTicks, pitch: 76, startTick: bar(8) + dottedQuarterTicks, velocity: 68 },
   ]
+  const angelicVoiceMelody: readonly NoteGesture[] = voiceMelody.map(note => ({
+    ...note,
+    pitch: note.pitch + 12,
+    startTick: note.startTick + passTicks,
+    velocity: Math.max(58, note.velocity - 2),
+  }))
+  const angelicVoiceHalo: readonly NoteGesture[] = voiceMelody
+    .filter(note => note.startTick >= bar(5))
+    .map(note => ({
+      ...note,
+      pitch: note.pitch + 24,
+      startTick: note.startTick + passTicks,
+      velocity: Math.max(48, note.velocity - 16),
+    }))
   const bassLine: readonly NoteGesture[] = [
     { durationTicks: dottedQuarterTicks - noteGapTicks, pitch: 40, startTick: bar(1), velocity: 78 },
     { durationTicks: dottedQuarterTicks - noteGapTicks, pitch: 47, startTick: bar(1) + dottedQuarterTicks, velocity: 68 },
@@ -315,6 +410,12 @@ export function cedarStatic(): Workspace {
     { durationTicks: dottedQuarterTicks - noteGapTicks, pitch: 35, startTick: bar(8), velocity: 82 },
     { durationTicks: dottedQuarterTicks, pitch: 40, startTick: bar(8) + dottedQuarterTicks, velocity: 74 },
   ]
+  const angelicBassLine: readonly NoteGesture[] = bassLine.map(note => ({
+    ...note,
+    pitch: note.pitch + 12,
+    startTick: note.startTick + passTicks,
+    velocity: Math.max(56, note.velocity - 12),
+  }))
 
   return createWorkspace({
     arrangement: {
@@ -372,6 +473,18 @@ export function cedarStatic(): Workspace {
           lengthTicks: barTicks * 4,
           name: 'The Weather Turns',
           startTick: bar(5),
+        }),
+        createSection({
+          id: 'cedar_static_section_snow_becomes_light',
+          lengthTicks: barTicks * 4,
+          name: 'Snow Becomes Light',
+          startTick: bar(9),
+        }),
+        createSection({
+          id: 'cedar_static_section_rafters_open',
+          lengthTicks: barTicks * 4,
+          name: 'The Rafters Open',
+          startTick: bar(13),
         }),
       ],
     },
@@ -488,10 +601,10 @@ export function cedarStatic(): Workspace {
     ]),
     mixer: createMixer({
       channels: createEntityStore([
-        createMixChannel({ id: chordsTrack.mixChannelId, pan: -0.14, volumeDb: -6 }),
-        createMixChannel({ id: voiceTrack.mixChannelId, pan: 0.18, volumeDb: -8 }),
-        createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: 0 }),
-        createMixChannel({ id: drumsTrack.mixChannelId, pan: 0.08, volumeDb: 0 }),
+        createMixChannel({ id: chordsTrack.mixChannelId, pan: -0.5, volumeDb: -15 }),
+        createMixChannel({ id: voiceTrack.mixChannelId, pan: 0.5, volumeDb: -8 }),
+        createMixChannel({ id: bassTrack.mixChannelId, pan: 0, volumeDb: -2 }),
+        createMixChannel({ id: drumsTrack.mixChannelId, pan: 0, volumeDb: -5 }),
       ]),
       master: {
         muted: false,
@@ -505,29 +618,33 @@ export function cedarStatic(): Workspace {
         kind: 'note',
         lengthTicks: totalTicks,
         metadata: {
-          modalInterchange: 'Bar six borrows Am6/9, the minor iv, from parallel E minor; C-natural is the single note that changes the weather.',
-          progression: 'Emaj9(add6) · Bsus4/F# → Badd9/F# · C#m11 · Amaj9/E · Emaj9/G# · Am6/9/E · C#m11 → F#13sus/A# · B13sus → Emaj9',
-          voicing: 'Low root-fifth shells support close upper clusters; common tones E, F#, and B make every change feel breathed rather than struck.',
+          modalInterchange: 'Bar six borrows Am6/9 from parallel E minor; on the angelic return, Amaj9(#11) replaces that shadow with open-sky Lydian color.',
+          progression: 'The original E-major cycle returns in bars 9–16 as high, root-light inversions with brighter extensions.',
+          voicing: 'Low root-fifth shells and close clusters open into wide upper-register ninths, elevenths, and octave-spanning halos.',
         },
         name: 'Cedar-Space Voicings',
       }),
       createPattern({
-        events: createMelodyEvents(voiceMelody),
+        events: createMelodyEvents([
+          ...voiceMelody,
+          ...angelicVoiceMelody,
+          ...angelicVoiceHalo,
+        ]),
         id: 'cedar_static_pattern_voice',
         kind: 'note',
         lengthTicks: totalTicks,
         metadata: {
-          motif: 'A late B–C# question first falls to G#, then blooms upward to E; the borrowed C-natural in bar six becomes the emotional hinge.',
+          motif: 'The fragile first-pass question returns an octave higher, then gains a quiet second-octave halo for the final four bars.',
         },
         name: 'Static in the Throat',
       }),
       createPattern({
-        events: createBassEvents(bassLine),
+        events: createBassEvents([...bassLine, ...angelicBassLine]),
         id: 'cedar_static_pattern_bass',
         kind: 'note',
         lengthTicks: totalTicks,
         metadata: {
-          movement: 'Dotted-quarter roots and fifths leave space for the voicings, then C#–A#–B–E creates the final thaw.',
+          movement: 'Dotted-quarter roots and fifths return an octave higher and softer, turning the grounded bass into a floating cello-like foundation.',
         },
         name: 'Rootline Thaw',
       }),
@@ -537,7 +654,7 @@ export function cedarStatic(): Workspace {
         kind: 'drum',
         lengthTicks: totalTicks,
         metadata: {
-          feel: 'A muted 6/8 floorboard pulse opens into low ride, drops almost to silence under the borrowed chord, and answers with a three-hit tom fill.',
+          feel: 'The muted 6/8 floorboard pulse returns as a sparse ride-cymbal halo, retaining the kick/snare shape while lifting the second pass.',
         },
         name: 'Boots Across the Floor',
       }),
@@ -545,8 +662,8 @@ export function cedarStatic(): Workspace {
     project: createProject({
       id: 'project_cedar_static',
       metadata: createProjectMetadata({
-        description: 'An original eight-bar atmospheric indie-folk miniature in 6/8, built from breathy close harmony, a fragile high motif, sub-bass roots, and a blanket-damped floorboard beat.',
-        tags: ['6/8', 'atmospheric', 'indie-folk', 'modal-interchange', 'open-voicings'],
+        description: 'A sixteen-bar atmospheric indie-folk piece in 6/8 whose weathered first pass returns as high luminous harmony, octave-haloed melody, and shimmering ride cymbal.',
+        tags: ['6/8', 'angelic', 'atmospheric', 'indie-folk', 'modal-interchange', 'open-voicings'],
       }),
       name: 'Cedar Static',
     }),

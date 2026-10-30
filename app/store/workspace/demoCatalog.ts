@@ -14,4 +14,6 @@ export const WORKSPACE_DEMOS = [
   { id: 'vacantReceiver', name: 'Vacant Receiver', projectId: 'project_vacant_receiver' },
   { id: 'marbleVerdict', name: 'Marble Verdict', projectId: 'project_marble_verdict' },
   { id: 'eerieMountain', name: 'Eerie Mountain', projectId: 'project_eerie_mountain' },
+  { id: 'glasswingProcess', name: 'Glasswing Process', projectId: 'project_glasswing_process' },
+  { id: 'vesperCircuit', name: 'Vesper Circuit', projectId: 'project_vesper_circuit' },
 ] as const
