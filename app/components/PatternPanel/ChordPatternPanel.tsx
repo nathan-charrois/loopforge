@@ -5,7 +5,7 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { PlayIcon } from '@hugeicons/core-free-icons'
+import { Add01Icon, PlayIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Badge,
@@ -20,7 +20,7 @@ import {
   Title,
 } from '@mantine/core'
 
-import { Piano } from '~/components/Piano/Piano'
+import { Piano } from '~/components/piano/piano'
 import { usePlaybackEngine } from '~/components/Providers/PlaybackProvider'
 import {
   type Block,
@@ -90,6 +90,7 @@ type Props = {
   focusedBlockId?: string
   selectedPatternEvent?: PatternEvent
   selectedPatternEventIds?: PatternEventId[]
+  onAddPatternEvent: (pattern: ChordPattern) => void
   onDeletePatternEvent: (patternEventId: PatternEventId) => void
   onSelectPatternEvent: (patternEventId: PatternEventId, additive: boolean) => void
   onSetActiveTool: (tool: ActivePatternPanelTool) => void
@@ -100,6 +101,7 @@ type Props = {
 
 export const ChordPanel = memo(function ChordPanel({
   focusedBlock,
+  onAddPatternEvent,
   onSelectPatternEvent,
   onUpdatePatternEventDraft,
   pattern,
@@ -223,6 +225,7 @@ export const ChordPanel = memo(function ChordPanel({
         <ChordEventPicker
           events={pattern.events}
           selectedEventId={selectedChordEvent?.id}
+          onAdd={() => onAddPatternEvent(pattern)}
           onSelect={onSelectPatternEvent}
         />
 
@@ -270,23 +273,26 @@ export const ChordPanel = memo(function ChordPanel({
 
 const ChordEventPicker = memo(function ChordEventPicker({
   events,
+  onAdd,
   onSelect,
   selectedEventId,
 }: {
   events: ChordEvent[]
+  onAdd: () => void
   onSelect: (patternEventId: PatternEventId, additive: boolean) => void
   selectedEventId?: PatternEventId
 }) {
   return (
     <Stack gap={6}>
       <Text fw={700} size="xs">Chord Events</Text>
-      <Group gap={6} wrap="wrap">
+      <Group gap={6} wrap="nowrap" align="stretch">
         {events.map(event => (
           <Button
             key={event.id}
             aria-pressed={selectedEventId === event.id}
             color="violet"
             size="compact-xs"
+            style={{ flex: '1 1 0', minWidth: 0 }}
             variant={selectedEventId === event.id ? 'filled' : 'light'}
             onClick={() => onSelect(event.id, false)}
           >
@@ -297,6 +303,16 @@ const ChordEventPicker = memo(function ChordEventPicker({
             </Text>
           </Button>
         ))}
+        <Button
+          aria-label="Add chord event"
+          color="violet"
+          size="compact-xs"
+          variant="light"
+          style={{ flexShrink: 0 }}
+          onClick={onAdd}
+        >
+          <HugeiconsIcon icon={Add01Icon} size={14} />
+        </Button>
       </Group>
     </Stack>
   )

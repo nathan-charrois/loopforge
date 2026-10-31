@@ -6,6 +6,7 @@ import { ChordPanel } from './ChordPatternPanel'
 import { DrumPatternPanel } from './DrumPatternPanel'
 import { NotePatternPanel } from './NotePatternPanel'
 import {
+  type Pattern,
   type PatternEvent,
   type PatternEventId,
   type Timeline,
@@ -31,6 +32,7 @@ type Props = {
   focusedBlockId?: string
   selectedPatternEvent?: PatternEvent
   selectedPatternEventIds?: PatternEventId[]
+  onAddPatternEvent: (pattern: Pattern) => void
   onDeletePatternEvent: (patternEventId: PatternEventId) => void
   onSelectPatternEvent: (patternEventId: PatternEventId, additive: boolean) => void
   onSetActiveTool: (tool: ActivePatternPanelTool) => void

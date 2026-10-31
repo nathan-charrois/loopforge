@@ -5,8 +5,11 @@ import {
   type AutomationEvent,
   type AutomationValue,
   type Block,
+  type ChordEvent,
   createAutomationEvent,
   createBlock,
+  createChordEvent,
+  createChordSymbol,
   createDrumHitEvent,
   createNoteEvent,
   createPattern,
@@ -249,7 +252,7 @@ export function createArrangementPatternEventDraft({
   pitch?: MidiNote
   piece?: DrumPiece
   value?: AutomationValue
-}): AutomationEvent | DrumHitEvent | NoteEvent {
+}): AutomationEvent | ChordEvent | DrumHitEvent | NoteEvent {
   const pattern = workspace.patterns.byId[patternId]
 
   if (pattern === undefined) {
@@ -260,6 +263,13 @@ export function createArrangementPatternEventDraft({
   const existingEventIds = selectPatternEventIds(workspace)
 
   switch (pattern.kind) {
+    case 'chord':
+      return createChordEvent({
+        id: createDraftEntityId('event_chord', existingEventIds),
+        chord: createChordSymbol({ root: 0 }),
+        durationTicks: createPositiveDurationTicks(Math.min(lengthTicks, pattern.lengthTicks - timeTick)),
+        timeTick,
+      })
     case 'automation':
       return createAutomationEvent({
         id: createDraftEntityId('event_automation', existingEventIds),
@@ -286,8 +296,6 @@ export function createArrangementPatternEventDraft({
         piece,
       })
   }
-
-  throw new Error(`Pattern kind ${pattern.kind} does not exist.`)
 }
 
 function createDraftEntityId(prefix: string, existingIds: readonly string[]): string {

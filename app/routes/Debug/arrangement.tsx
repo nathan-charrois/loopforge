@@ -180,8 +180,10 @@ import {
   applyTimelineEventToolAction,
   copySelectionAction,
   createArrangementPatternDraft,
+  createArrangementPatternEventDraft,
   createArrangementTrackDraft,
   createInspectorDraft,
+  createSelectionState,
   createTickRangeFromSelection,
   deleteSelectionAction,
   type DragState,
@@ -220,6 +222,7 @@ import {
   setActivePatternPanelToolAction,
   setActiveToolAction,
   setFocusedBlockIdAction,
+  setSelectionAction,
   tickToX,
   TIMELINE_RULER_HEIGHT,
   TIMELINE_SECTION_LANE_HEIGHT,
@@ -246,6 +249,7 @@ import {
   addInstrumentAction,
   addMixChannelAction,
   addPatternAction,
+  addPatternEventAction,
   addTimelineEventAction,
   addTrackAction,
   deletePatternEventAction,
@@ -757,6 +761,23 @@ function ArrangementDebugContent() {
     dispatch(deletePatternEventAction([patternEventId]))
   }, [dispatch])
 
+  const handleAddPatternEvent = useCallback((pattern: Pattern) => {
+    const patternEvent = createArrangementPatternEventDraft({
+      workspace,
+      patternId: pattern.id,
+      startTick: 0,
+      lengthTicks: pattern.lengthTicks,
+    })
+
+    dispatch([
+      addPatternEventAction(pattern.id, patternEvent),
+      setSelectionAction({
+        ...createSelectionState(),
+        selectedPatternEventIds: [patternEvent.id],
+      }),
+    ])
+  }, [dispatch, workspace])
+
   const handleUpdatePatternEventDraft = useCallback((
     patternEvent: PatternEvent,
     patternEventDraft: Partial<PatternEventDraft>,
@@ -1075,6 +1096,7 @@ function ArrangementDebugContent() {
               timeline={workspace.timeline}
               tool={editor.activePatternPanelTool}
               workspace={workspace}
+              onAddPatternEvent={handleAddPatternEvent}
               onDeletePatternEvent={handleDeletePatternEvent}
               onSelectPatternEvent={handleSelectPatternEvent}
               onSetActiveTool={handleSetActivePatternPanelTool}
