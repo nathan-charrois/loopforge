@@ -16,6 +16,7 @@ import {
   type LoopEvent,
   type MidiNote,
   type NoteEvent,
+  type PatternEventId,
   type PatternId,
   type Section,
   type Tick,
@@ -36,8 +37,9 @@ import type { Workspace } from '~/store/workspace'
 
 const POINTER_DRAG_THRESHOLD = 4
 
-type DragIntent
-  = | {
+type DragIntent 
+
+= | {
     kind: 'drawBlock'
     trackId: TrackId
   }
@@ -73,6 +75,11 @@ type DragIntent
     event: DrumHitEvent
     kind: 'moveDrumPatternEvent'
     piece: DrumPiece
+    patternId: PatternId
+  }
+  | {
+    eventId: PatternEventId
+    kind: 'moveChordPatternEvent'
     patternId: PatternId
   }
   | {
@@ -143,8 +150,23 @@ export function useDrag({
   const automationParameterRowsRef = useRef<HTMLDivElement>(null)
   const drumPieceRowsRef = useRef<HTMLDivElement>(null)
   const pitchRowsRef = useRef<HTMLDivElement>(null)
+  const chordEventsRef = useRef<HTMLDivElement>(null)
 
   const [dragState, setDragState] = useState<DragState | undefined>()
+
+  const getPointerChordIndex = useCallback((clientX: number): number => {
+    const elements = chordEventsRef.current?.querySelectorAll<HTMLElement>('[data-chord-event-id]')
+
+    if (elements === undefined || elements.length === 0) {
+      return 0
+    }
+
+    const bounds = Array.from(elements, element => element.getBoundingClientRect())
+    const left = Math.min(...bounds.map(rect => rect.left))
+    const right = Math.max(...bounds.map(rect => rect.right))
+    const index = Math.floor((clientX - left) / Math.max(1, right - left) * elements.length)
+    return Math.max(0, Math.min(elements.length - 1, index))
+  }, [])
 
   const getPointerTick = useCallback((clientX: number): Tick => {
     if (timelineRef.current === null) {
@@ -263,8 +285,8 @@ export function useDrag({
 
     event.currentTarget.setPointerCapture(event.pointerId)
 
-    switch (intent.kind) {
-      case 'drawAutomationPatternEvent':
+  switch (intent.kind) {  
+    case 'drawAutomationPatternEvent':
         setDragState({
           ...pointer,
           currentTick: getInitialGridDrawEndTick(workspace.timeline, tick),
@@ -318,6 +340,18 @@ export function useDrag({
           patternId: intent.patternId,
           pitch: intent.pitch,
           startTick: tick,
+        })
+        return
+    
+      case 'moveChordPatternEvent':
+        setDragState({
+          ...pointer,
+          currentIndex: workspace.patterns.byId[intent.patternId]?.events
+            .findIndex(event => event.id === intent.eventId) ?? 0,
+          currentTick: tick,
+          eventId: intent.eventId,
+          kind: intent.kind,
+          patternId: intent.patternId,
         })
         return
       case 'moveAutomationPatternEvent':
@@ -437,7 +471,7 @@ export function useDrag({
           kind: intent.kind,
         })
     }
-  }, [getPointerTick, workspace.timeline])
+  }, [getPointerTick, workspace.patterns, workspace.timeline])
 
   const updateDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (onUpdateDrag && dragState?.pointerId === event.pointerId) {
@@ -450,6 +484,10 @@ export function useDrag({
       }
 
       const currentTick = getPointerTick(event.clientX)
+
+      if (current.kind === 'moveChordPatternEvent') {
+        return { ...current, currentIndex: getPointerChordIndex(event.clientX) }
+      }
 
       if (current.kind === 'selectRange') {
         return {
@@ -496,7 +534,7 @@ export function useDrag({
 
       return { ...current, currentTick }
     })
-  }, [dragState, getPointerAutomationParameter, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, onUpdateDrag])
+  }, [dragState, getPointerAutomationParameter, getPointerChordIndex, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, onUpdateDrag])
 
   const cancelDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     setDragState(current => current?.pointerId === event.pointerId ? undefined : current)
@@ -509,6 +547,10 @@ export function useDrag({
 
     const endTick = getPointerTick(event.clientX)
     let completedState: DragState = dragState
+
+    if (dragState.kind === 'moveChordPatternEvent') {
+      completedState = { ...dragState, currentIndex: getPointerChordIndex(event.clientX) }
+    }
 
     if (dragState.kind === 'selectRange') {
       completedState = {
@@ -556,11 +598,12 @@ export function useDrag({
     }))
 
     setDragState(undefined)
-  }, [dispatch, getPointerAutomationParameter, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
+  }, [dispatch, getPointerAutomationParameter, getPointerChordIndex, getPointerDrumPiece, getPointerPitch, getPointerRow, getPointerTick, getPointerTrackId, dragState, workspace])
 
   return {
     automationParameterRowsRef,
     cancelDrag,
+    chordEventsRef,
     drumPieceRowsRef,
     finishDrag,
     getPointerDrumPiece,

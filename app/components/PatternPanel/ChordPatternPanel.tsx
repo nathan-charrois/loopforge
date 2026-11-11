@@ -1,5 +1,7 @@
 import {
   memo,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -49,12 +51,15 @@ import {
   type VoicedNote,
   VOICING_TYPES,
 } from '~/domain'
+import { useDrag } from '~/hooks/useDrag'
+import { usePatternEventOverlay } from '~/hooks/useDragOverlay'
 import {
   buildSchedule,
   type NotePlaybackTrigger,
 } from '~/playback/buildSchedule'
 import {
   type ActivePatternPanelTool,
+  type DragState,
   type PatternEventDraft,
 } from '~/store/editor'
 import type { Dispatch } from '~/store/session'
@@ -100,6 +105,7 @@ type Props = {
 }
 
 export const ChordPanel = memo(function ChordPanel({
+  dispatch,
   focusedBlock,
   onAddPatternEvent,
   onSelectPatternEvent,
@@ -110,9 +116,21 @@ export const ChordPanel = memo(function ChordPanel({
   workspace,
 }: Props) {
   const playbackEngine = usePlaybackEngine()
+  const { cancelDrag, chordEventsRef, dragState, finishDrag, startDrag, updateDrag } = useDrag({
+    dispatch,
+    pixelsPerTick: 1,
+    workspace,
+  })
   const [activeCategory, setActiveCategory] = useState<ChordLibraryCategory>('diatonic')
   const [auditionError, setAuditionError] = useState<string | undefined>()
   const [isAuditioning, setIsAuditioning] = useState(false)
+
+  const handleMoveChordPatternEvent = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    eventId: PatternEventId,
+  ) => {
+    startDrag(event, { eventId, kind: 'moveChordPatternEvent', patternId: pattern.id })
+  }, [pattern.id, startDrag])
 
   const selectedChordEvent = selectedPatternEvent?.kind === 'chord'
     && pattern.events.some(event => event.id === selectedPatternEvent.id)
@@ -223,9 +241,15 @@ export const ChordPanel = memo(function ChordPanel({
         </Group>
 
         <ChordEventPicker
-          events={pattern.events}
+          chordEventsRef={chordEventsRef}
+          drag={dragState}
+          pattern={pattern}
           selectedEventId={selectedChordEvent?.id}
           onAdd={() => onAddPatternEvent(pattern)}
+          onPointerCancel={cancelDrag}
+          onPointerMove={updateDrag}
+          onPointerUp={finishDrag}
+          onMoveChordPatternEvent={handleMoveChordPatternEvent}
           onSelect={onSelectPatternEvent}
         />
 
@@ -272,43 +296,103 @@ export const ChordPanel = memo(function ChordPanel({
 })
 
 const ChordEventPicker = memo(function ChordEventPicker({
-  events,
+  chordEventsRef,
+  drag,
   onAdd,
+  onPointerCancel,
+  onPointerMove,
+  onPointerUp,
+  onMoveChordPatternEvent,
   onSelect,
+  pattern,
   selectedEventId,
 }: {
-  events: ChordEvent[]
+  chordEventsRef: RefObject<HTMLDivElement | null>
+  drag?: DragState
   onAdd: () => void
+  onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onMoveChordPatternEvent: (event: ReactPointerEvent<HTMLDivElement>, eventId: PatternEventId) => void
   onSelect: (patternEventId: PatternEventId, additive: boolean) => void
+  pattern: ChordPattern
   selectedEventId?: PatternEventId
 }) {
+  const { patternEventPlaceholder } = usePatternEventOverlay(drag, pattern)
+
   return (
     <Stack gap={6}>
       <Text fw={700} size="xs">Chord Events</Text>
-      <Group gap={6} wrap="nowrap" align="stretch">
-        {events.map(event => (
-          <Button
-            key={event.id}
-            aria-pressed={selectedEventId === event.id}
-            color="violet"
-            size="compact-xs"
-            style={{ flex: '1 1 0', minWidth: 0 }}
-            variant={selectedEventId === event.id ? 'filled' : 'light'}
-            onClick={() => onSelect(event.id, false)}
-          >
-            {formatChordSymbol(event.chord)}
-            <Text component="span" inherit opacity={0.72} ml={5}>
-              @
-              {event.timeTick}
-            </Text>
-          </Button>
-        ))}
+      <Group
+        ref={chordEventsRef}
+        gap={6}
+        wrap="nowrap"
+        align="stretch"
+        onPointerDown={(event) => {
+          if (event.button !== 0) {
+            return
+          }
+
+          const eventId = (event.target as HTMLElement).closest<HTMLElement>('[data-chord-event-id]')
+            ?.dataset.chordEventId
+          if (eventId === undefined) {
+            return
+          }
+
+          onSelect(eventId, event.shiftKey)
+          onMoveChordPatternEvent(event, eventId)
+        }}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onLostPointerCapture={onPointerCancel}
+      >
+        {pattern.events.map((event, index) => {
+          const movingEvent = patternEventPlaceholder?.id === event.id && patternEventPlaceholder.kind === 'chord'
+            ? patternEventPlaceholder
+            : event
+          const dragging = drag?.kind === 'moveChordPatternEvent' && drag.patternId === pattern.id && drag.eventId === event.id
+          const order = dragging && movingEvent !== event
+            ? drag.currentIndex * 2 + (drag.currentIndex > index ? 1 : -1)
+            : index * 2
+
+          return (
+            <Button
+              key={event.id}
+              aria-pressed={selectedEventId === event.id}
+              data-chord-event-id={event.id}
+              color="violet"
+              size="compact-xs"
+              style={{
+                borderStyle: dragging ? 'dashed' : undefined,
+                cursor: dragging ? 'grabbing' : 'grab',
+                flex: '1 1 0',
+                minWidth: 0,
+                opacity: dragging ? 0.6 : 1,
+                order,
+                touchAction: 'none',
+              }}
+              variant={dragging ? 'outline' : selectedEventId === event.id ? 'filled' : 'light'}
+              onClick={(clickEvent) => {
+                if (clickEvent.detail === 0) {
+                  onSelect(event.id, clickEvent.shiftKey)
+                }
+              }}
+            >
+              {formatChordSymbol(event.chord)}
+              <Text component="span" inherit opacity={0.72} ml={5}>
+                @
+                {movingEvent.timeTick}
+              </Text>
+            </Button>
+          )
+        })}
         <Button
           aria-label="Add chord event"
           color="violet"
           size="compact-xs"
           variant="light"
-          style={{ flexShrink: 0 }}
+          style={{ flexShrink: 0, order: pattern.events.length * 2 }}
           onClick={onAdd}
         >
           <HugeiconsIcon icon={Add01Icon} size={14} />

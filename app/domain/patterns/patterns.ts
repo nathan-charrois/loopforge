@@ -6,6 +6,7 @@ import {
   isPatternEventWithinLength,
   type NoteEvent,
   type PatternEvent,
+  type PatternEventId,
 } from '../patternEvents'
 import { PATTERN_KINDS } from './constants'
 
@@ -27,6 +28,33 @@ export type NotePattern = BasePattern<'note', NoteEvent>
 export type DrumPattern = BasePattern<'drum', DrumHitEvent>
 export type AutomationPattern = BasePattern<'automation', AutomationEvent>
 export type Pattern = ChordPattern | NotePattern | DrumPattern | AutomationPattern
+
+export function moveChordEvent(
+  pattern: ChordPattern,
+  eventId: PatternEventId,
+  targetIndex: number,
+): ChordPattern {
+  const sourceIndex = pattern.events.findIndex(event => event.id === eventId)
+  const index = Math.max(0, Math.min(pattern.events.length - 1, Math.round(targetIndex)))
+
+  if (sourceIndex < 0 || sourceIndex === index || pattern.events.length > pattern.lengthTicks) {
+    return pattern
+  }
+
+  const events = [...pattern.events]
+  const [event] = events.splice(sourceIndex, 1)
+  events.splice(index, 0, event)
+
+  return {
+    ...pattern,
+    events: events.map((event, index) => {
+      const timeTick = Math.floor(index * pattern.lengthTicks / events.length)
+      const endTick = Math.floor((index + 1) * pattern.lengthTicks / events.length)
+
+      return { ...event, timeTick, durationTicks: endTick - timeTick }
+    }),
+  }
+}
 
 export function validatePattern(pattern: Pattern): string[] {
   const errors: string[] = []
