@@ -78,6 +78,7 @@ import {
   type Key,
   type MixChannel,
   type MixChannelId,
+  moveChordEvent,
   type Pattern,
   type PatternEvent,
   type PatternEventId,
@@ -110,6 +111,7 @@ import {
   duplicateSectionAction,
   moveAutomationPatternEventAction,
   moveBlockAction,
+  moveChordPatternEventAction,
   moveDrumPatternEventAction,
   moveNotePatternEventAction,
   moveSectionAction,
@@ -543,6 +545,32 @@ export function completeDragAction(input: {
 
   if (!isPointerDrag(movementX, movementY, threshold)) {
     return []
+  }
+
+  if (dragState.kind === 'moveChordPatternEvent') {
+    const pattern = workspace.patterns.byId[dragState.patternId]
+
+    if (pattern?.kind !== 'chord') {
+      return []
+    }
+
+    const movedPattern = moveChordEvent(
+      pattern, 
+      dragState.eventId, 
+      dragState.currentIndex
+    )
+
+    if (movedPattern === pattern){
+      return []
+    }
+    
+    return [
+      moveChordPatternEventAction(
+        dragState.patternId,
+        dragState.eventId,
+        dragState.currentIndex,
+      )
+    ]
   }
 
   if (dragState.kind === 'resizeNotePatternEvent') {

@@ -84,6 +84,16 @@ export type ViewportState = {
 
 export type DragState
   = | {
+    currentIndex: number
+    currentTick: Tick
+    eventId: PatternEventId
+    kind: 'moveChordPatternEvent'
+    patternId: PatternId
+    pointerId: number
+    startClientX: number
+    startClientY: number
+  }
+  | {
     currentTick: Tick
     kind: 'drawBlock'
     pointerId: number

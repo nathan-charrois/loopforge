@@ -4,6 +4,7 @@ import {
   type AutomationEvent,
   type AutomationValue,
   type Block,
+  type ChordEvent,
   type DrumHitEvent,
   type DrumPiece,
   getBlockEndTick,
@@ -11,6 +12,7 @@ import {
   getSectionEndTick,
   type LoopEvent,
   type MidiNote,
+  moveChordEvent,
   type NoteEvent,
   type Pattern,
   type Section,
@@ -192,7 +194,12 @@ function buildSectionPlaceholders(
 function buildPatternEventPlaceholder(
   drag: DragState | undefined,
   pattern: Pattern,
-): AutomationEvent | DrumHitEvent | NoteEvent | undefined {
+): AutomationEvent | ChordEvent | DrumHitEvent | NoteEvent | undefined {
+  if (drag?.kind === 'moveChordPatternEvent' && drag.patternId === pattern.id && pattern.kind === 'chord') {
+    return moveChordEvent(pattern, drag.eventId, drag.currentIndex)
+      .events.find(event => event.id === drag.eventId)
+  }
+
   if (drag?.kind === 'moveAutomationPatternEvent' && drag.patternId === pattern.id) {
     return {
       ...drag.event,

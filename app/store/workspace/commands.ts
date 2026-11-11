@@ -18,6 +18,7 @@ import {
   duplicateTrack,
   moveAutomationPatternEvent,
   moveBlock,
+  moveChordPatternEvent,
   moveDrumPatternEvent,
   moveNotePatternEvent,
   moveSection,
@@ -266,6 +267,17 @@ export function applyWorkspaceCommand(
         || timeTick === undefined
         ? workspace
         : moveAutomationPatternEvent(workspace, patternId, eventId, timeTick, parameter)
+    }
+    case 'moveChordPatternEvent': {
+      const eventId = getPayloadString(payload, 'eventId')
+      const patternId = getPayloadString(payload, 'patternId')
+      const targetIndex = getPayloadNumber(payload, 'targetIndex')
+
+      return eventId === undefined
+        || patternId === undefined
+        || targetIndex === undefined
+        ? workspace
+        : moveChordPatternEvent(workspace, patternId, eventId, targetIndex)
     }
     case 'moveDrumPatternEvent': {
       const eventId = getPayloadString(payload, 'eventId')
@@ -565,6 +577,18 @@ export function createMoveAutomationPatternEventCommand(
     parameter,
     patternId,
     timeTick,
+  })
+}
+
+export function createMoveChordPatternEventCommand(
+  patternId: PatternId,
+  eventId: PatternEventId,
+  targetIndex: number,
+): WorkspaceCommand {
+  return createWorkspaceCommandRecord('moveChordPatternEvent', 'Move chord event', {
+    eventId,
+    patternId,
+    targetIndex,
   })
 }
 

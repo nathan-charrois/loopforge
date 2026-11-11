@@ -31,6 +31,7 @@ import {
   type MidiNote,
   type MixChannel,
   type MixChannelId,
+  moveChordEvent,
   type PatternEvent,
   type PatternEventId,
   type PatternId,
@@ -819,6 +820,24 @@ export function moveAutomationPatternEvent(
     parameter,
     timeTick: nextTimeTick,
   })
+}
+
+export function moveChordPatternEvent(
+  workspace: Workspace,
+  patternId: PatternId,
+  eventId: PatternEventId,
+  targetIndex: number,
+): Workspace {
+  const { event, pattern } = requirePatternEvent(workspace, patternId, eventId)
+
+  if (pattern.kind !== 'chord' || event.kind !== 'chord') {
+    throw new Error(`Pattern event ${eventId} is not a chord event.`)
+  }
+
+  return updatePattern(
+    workspace, 
+    moveChordEvent(pattern, eventId, targetIndex)
+  )
 }
 
 export function moveNotePatternEvent(

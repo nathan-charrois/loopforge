@@ -23,6 +23,7 @@ import {
   createDuplicateTrackCommand,
   createMoveAutomationPatternEventCommand,
   createMoveBlockCommand,
+  createMoveChordPatternEventCommand,
   createMoveDrumPatternEventCommand,
   createMoveNotePatternEventCommand,
   createMoveSectionCommand,
@@ -248,6 +249,14 @@ export function moveAutomationPatternEventAction(
     timeTick,
     parameter,
   )
+}
+
+export function moveChordPatternEventAction(
+  patternId: PatternId,
+  patternEventId: PatternEventId,
+  targetIndex: number,
+): WorkspaceCommand {
+  return createMoveChordPatternEventCommand(patternId, patternEventId, targetIndex)
 }
 
 export function moveNotePatternEventAction(
